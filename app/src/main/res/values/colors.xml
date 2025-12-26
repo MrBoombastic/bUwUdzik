@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <color name="widget_background">#FFFFFFFF</color>
+    <color name="widget_text_primary">#FF000000</color>
+    <color name="widget_text_secondary">#FF444444</color>
+
+    <!-- Explicit Light Theme Colors -->
+    <color name="widget_bg_light">#FFFFFFFF</color>
+    <color name="widget_text_primary_light">#FF000000</color>
+    <color name="widget_text_secondary_light">#FF444444</color>
+
+    <!-- Explicit Dark Theme Colors -->
+    <color name="widget_bg_dark">#FF1C1B1F</color>
+    <color name="widget_text_primary_dark">#FFFFFFFF</color>
+    <color name="widget_text_secondary_dark">#FFCCCCCC</color>
+</resources>

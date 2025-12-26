@@ -1,0 +1,81 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">bUwUdzik</string>
+    
+    <!-- Main Screen -->
+    <string name="scanning_status" tools:ignore="Typos">Scanning for Qingping CGD1…</string>
+    <string name="battery_label">Battery: %1$d%%</string>
+    <string name="rssi_label">RSSI: %1$d dBm (%2$d%%)</string>
+    <string name="last_update_label">Last update: %1$s</string>
+    <string name="permissions_required">Permissions required for scanning</string>
+    <string name="settings_desc">Settings</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="back_desc">Back</string>
+    <string name="target_mac_label">Target MAC Address</string>
+    <string name="default_mac_label">Default: %1$s</string>
+    <string name="scan_device_button">Scan Device</string>
+    <string name="scan_mode_label">Scan Mode</string>
+    <string name="select_mode_label">Select Mode</string>
+    <string name="mode_low_power">Low Power</string>
+    <string name="mode_balanced">Balanced</string>
+    <string name="mode_low_latency">Low Latency</string>
+    
+    <!-- New Settings -->
+    <string name="language_label">Language</string>
+    <string name="language_system">System</string>
+    <string name="update_interval_label">Update Interval</string>
+    <string name="minutes_1">1 minute</string>
+    <string name="minutes_3">3 minutes</string>
+    <string name="minutes_5">5 minutes</string>
+    <string name="minutes_10">10 minutes</string>
+    <string name="minutes_15">15 minutes</string>
+    <string name="minutes_30">30 minutes</string>
+    <string name="minutes_45">45 minutes</string>
+    <string name="minutes_60">1 hour</string>
+    <string name="hours_2">2 hours</string>
+    <string name="hours_4">4 hours</string>
+    <string name="hours_8">8 hours</string>
+    <string name="hours_12">12 hours</string>
+    <string name="hours_24">24 hours</string>
+
+    <!-- Widget -->
+    <string name="widget_updated_format">dd.MM HH:mm</string>
+    <string name="widget_no_data">No Data</string>
+    <string name="widget_refresh_desc">Refresh</string>
+    
+    <string name="widget_action_label">Widget Click Action</string>
+    <string name="select_app_label">Select App to Launch</string>
+    <string name="default_app_label">Default (this app)</string>
+    
+    <!-- Theme -->
+    <string name="theme_label">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <!-- About -->
+    <string name="about_app_label">About</string>
+    <string name="version_label">Version: %1$s</string>
+    <string name="author_label">Author: %1$s</string>
+
+    <!-- Updates -->
+    <string name="check_updates_label">Check for Updates</string>
+    <string name="checking_updates">Checking for updates…</string>
+    <string name="no_updates_available">No updates available</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="update_error">Error checking for updates</string>
+
+    <!-- Bluetooth -->
+    <string name="bluetooth_disabled">Bluetooth is disabled</string>
+
+    <!-- Device Setup -->
+    <string name="setup_title">Device Setup</string>
+    <string name="setup_subtitle">Select your bUwUdzik device</string>
+    <string name="setup_scanning">Scanning for devices…</string>
+    <string name="setup_no_devices">No devices found</string>
+    <string name="setup_enable_bluetooth">Please enable Bluetooth</string>
+    <string name="setup_rescan">Scan Again</string>
+    <string name="setup_skip">Skip for Now</string>
+    <string name="setup_select_device">Select Device</string>
+</resources>

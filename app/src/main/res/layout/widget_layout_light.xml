@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/widget_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/widget_background_shape_light"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+    <!-- Header: Last Update & Refresh -->
+    <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="4dp">
+
+        <TextView
+                android:id="@+id/widget_last_update"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@+id/widget_refresh_btn"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="--:--"
+                android:textColor="@color/widget_text_secondary_light"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+        <ImageButton
+                android:id="@+id/widget_refresh_btn"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/refresh_button_bg_light"
+                android:contentDescription="Refresh"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
+                android:src="@android:drawable/ic_popup_sync"
+                android:visibility="visible"
+                app:tint="@color/widget_text_primary_light" />
+
+        <ProgressBar
+            android:id="@+id/widget_loading"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:indeterminate="true"
+            android:visibility="gone"
+            style="?android:attr/progressBarStyleSmall" />
+    </RelativeLayout>
+
+    <!-- Body Container -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:weightSum="10">
+
+        <!-- Temperature -->
+        <TextView
+            android:id="@+id/widget_temp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="7"
+            android:autoSizeMaxTextSize="100sp"
+            android:autoSizeMinTextSize="14sp"
+            android:autoSizeTextType="uniform"
+            android:gravity="center"
+            android:maxLines="1"
+            android:text="--°C"
+            android:textColor="@color/widget_text_primary_light"
+            android:textSize="48sp"
+            android:textStyle="bold" />
+
+        <!-- Bottom Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="3"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <!-- Humidity -->
+            <TextView
+                android:id="@+id/widget_humidity"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:autoSizeMaxTextSize="50sp"
+                android:autoSizeMinTextSize="10sp"
+                android:autoSizeTextType="uniform"
+                android:gravity="center"
+                android:maxLines="1"
+                android:text="💧 --%"
+                android:textColor="@android:color/holo_blue_dark"
+                android:textSize="24sp" />
+
+            <!-- Battery -->
+            <TextView
+                android:id="@+id/widget_battery"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:autoSizeMaxTextSize="50sp"
+                android:autoSizeMinTextSize="10sp"
+                android:autoSizeTextType="uniform"
+                android:gravity="center"
+                android:maxLines="1"
+                android:text="🔋 --%"
+                android:textColor="@color/widget_text_secondary_light"
+                android:textSize="24sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
