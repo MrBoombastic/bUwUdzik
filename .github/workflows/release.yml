@@ -30,16 +30,6 @@ jobs:
       - name: Install Android Build Tools
         run: yes | sdkmanager "build-tools;36.0.0"
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Build Release APK
         run: ./gradlew assembleRelease
 

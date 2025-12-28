@@ -537,7 +537,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 }
                                 Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
                             }
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            Log.e("Error while trying to update", e.toString())
                             withContext(Dispatchers.Main) {
                                 isCheckingUpdates = false
                                 val errorMessage = appContext.getString(R.string.update_error)

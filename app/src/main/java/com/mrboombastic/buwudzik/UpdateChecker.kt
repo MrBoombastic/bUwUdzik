@@ -13,32 +13,35 @@ import io.ktor.client.statement.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
 data class GitHubRelease(
+    @SerialName("tag_name")
     val tagName: String,
     val assets: List<GitHubAsset>
 )
 
 @Serializable
 data class GitHubAsset(
-    val name: String,
-    val browserDownloadURL: String
+    val name: String, val browserDownloadURL: String
 )
 
 data class UpdateCheckResult(
-    val updateAvailable: Boolean,
-    val latestVersion: String,
-    val downloadUrl: String? = null
+    val updateAvailable: Boolean, val latestVersion: String, val downloadUrl: String? = null
 )
 
 class UpdateChecker(private val context: Context) {
 
     private val client = HttpClient(CIO) {
         install(ContentNegotiation) {
-            json()
+            json(Json {
+                ignoreUnknownKeys = true
+                coerceInputValues = true
+            })
         }
     }
 
@@ -46,6 +49,7 @@ class UpdateChecker(private val context: Context) {
         // bruh moment for the hardcoded url
         val release: GitHubRelease =
             client.get("https://api.github.com/repos/MrBoombastic/bUwUdzik/releases/latest").body()
+        Log.d("UpdateChecker", "Latest release: $release")
         val latestVersion = release.tagName.removePrefix("v")
         val currentVersion =
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
@@ -64,8 +68,7 @@ class UpdateChecker(private val context: Context) {
         }
 
         return UpdateCheckResult(
-            updateAvailable = false,
-            latestVersion = latestVersion
+            updateAvailable = false, latestVersion = latestVersion
         )
     }
 
