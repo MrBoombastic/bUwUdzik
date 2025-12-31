@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
@@ -19,6 +18,7 @@ import java.util.Locale
 class SensorWidget : AppWidgetProvider() {
 
     companion object {
+        private const val TAG = "SensorWidget"
         const val ACTION_FORCE_UPDATE = "com.mrboombastic.buwudzik.ACTION_FORCE_UPDATE"
     }
 
@@ -27,123 +27,160 @@ class SensorWidget : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
+        if (appWidgetIds.isEmpty()) return
+        
+        Log.d(TAG, "onUpdate called for ${appWidgetIds.size} widget(s)")
+        
+        // Batch update all widgets with shared data
+        val widgetData = WidgetData.load(context)
         for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId)
+            updateAppWidgetInternal(context, appWidgetManager, appWidgetId, widgetData, isLoading = false)
         }
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        Log.d(TAG, "First widget added, scheduling updates...")
+
+        val settingsRepository = SettingsRepository(context)
+        MainActivity.scheduleUpdates(context, settingsRepository.updateInterval)
+        WidgetHelper.triggerImmediateUpdate(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        Log.d(TAG, "Last widget removed")
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
+
         if (intent.action == ACTION_FORCE_UPDATE) {
-            // Show loading state immediately
+            Log.d(TAG, "Force update requested")
+            
             val appWidgetManager = AppWidgetManager.getInstance(context)
-            val componentName = ComponentName(context, SensorWidget::class.java)
-            val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-
-            for (appWidgetId in appWidgetIds) {
-                updateAppWidget(context, appWidgetManager, appWidgetId, isLoading = true)
+            val widgetIds = appWidgetManager.getAppWidgetIds(
+                ComponentName(context, SensorWidget::class.java)
+            )
+            
+            if (widgetIds.isNotEmpty()) {
+                // Show loading state with cached data
+                val widgetData = WidgetData.load(context)
+                for (appWidgetId in widgetIds) {
+                    updateAppWidgetInternal(context, appWidgetManager, appWidgetId, widgetData, isLoading = true)
+                }
+                
+                // Trigger background update
+                WorkManager.getInstance(context).enqueue(
+                    OneTimeWorkRequest.Builder(SensorUpdateWorker::class.java).build()
+                )
             }
-
-            // Trigger immediate background update
-            val workRequest = OneTimeWorkRequest.Builder(SensorUpdateWorker::class.java).build()
-            WorkManager.getInstance(context).enqueue(workRequest)
         }
     }
 }
 
+/**
+ * Cached widget data to avoid repeated SharedPreferences reads
+ */
+private data class WidgetData(
+    val sensorData: SensorData?,
+    val lastUpdate: Long,
+    val locale: Locale,
+    val selectedAppPackage: String?
+) {
+    companion object {
+        fun load(context: Context): WidgetData {
+            val sensorRepo = SensorRepository(context)
+            val settingsRepo = SettingsRepository(context)
+            
+            val lang = settingsRepo.language
+            val locale = if (lang == "system") Locale.getDefault() else Locale.forLanguageTag(lang)
+            
+            return WidgetData(
+                sensorData = sensorRepo.getSensorData(),
+                lastUpdate = sensorRepo.getLastUpdateTimestamp(),
+                locale = locale,
+                selectedAppPackage = settingsRepo.selectedAppPackage
+            )
+        }
+    }
+}
+
+/**
+ * Public function for external callers (WidgetHelper, SensorUpdateWorker)
+ */
 internal fun updateAppWidget(
     context: Context,
     appWidgetManager: AppWidgetManager,
     appWidgetId: Int,
     isLoading: Boolean = false
 ) {
-    val repository = SensorRepository(context)
-    val settingsRepository = SettingsRepository(context)
-    val data = repository.getSensorData()
-    val lastUpdate = repository.getLastUpdateTimestamp()
+    val widgetData = WidgetData.load(context)
+    updateAppWidgetInternal(context, appWidgetManager, appWidgetId, widgetData, isLoading)
+}
 
-    val lang = settingsRepository.language
-    val theme = settingsRepository.theme
+/**
+ * Internal optimized update function
+ */
+private fun updateAppWidgetInternal(
+    context: Context,
+    appWidgetManager: AppWidgetManager,
+    appWidgetId: Int,
+    data: WidgetData,
+    isLoading: Boolean
+) {
+    val views = RemoteViews(context.packageName, R.layout.widget_layout)
 
-    val locale = if (lang == "system") Locale.getDefault() else Locale.forLanguageTag(lang)
+    // Loading state
+    views.setViewVisibility(R.id.widget_refresh_btn, if (isLoading) View.GONE else View.VISIBLE)
+    views.setViewVisibility(R.id.widget_loading, if (isLoading) View.VISIBLE else View.GONE)
 
-    val config = Configuration(context.resources.configuration)
-    config.setLocale(locale)
-    context.createConfigurationContext(config)
-
-    val layoutId = when (theme) {
-        "light" -> R.layout.widget_layout_light
-        "dark" -> R.layout.widget_layout_dark
-        else -> R.layout.widget_layout
-    }
-
-    val views = RemoteViews(context.packageName, layoutId)
-
-    // Visibility Logic
-    if (isLoading) {
-        views.setViewVisibility(R.id.widget_refresh_btn, View.GONE)
-        views.setViewVisibility(R.id.widget_loading, View.VISIBLE)
-    } else {
-        views.setViewVisibility(R.id.widget_refresh_btn, View.VISIBLE)
-        views.setViewVisibility(R.id.widget_loading, View.GONE)
-    }
-
-    // Refresh Button Intent
-    val refreshIntent = Intent(context, SensorWidget::class.java).apply {
-        action = SensorWidget.ACTION_FORCE_UPDATE
-    }
-    val refreshPendingIntent = PendingIntent.getBroadcast(
-        context,
-        0,
-        refreshIntent,
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    views.setOnClickPendingIntent(R.id.widget_refresh_btn, refreshPendingIntent)
-
-    // App Launch Intent
-    val selectedPackage = settingsRepository.selectedAppPackage
-    if (!selectedPackage.isNullOrEmpty()) {
-        try {
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(selectedPackage)
-            if (launchIntent != null) {
-                val launchPendingIntent = PendingIntent.getActivity(
-                    context,
-                    0,
-                    launchIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.widget_root, launchPendingIntent)
-            }
-        } catch (e: Exception) {
-            Log.e("SensorWidget", "Failed to create launch intent", e)
-        }
-    } else {
-        // Open Settings or Main App if no app selected
-        val mainIntent = Intent(context, MainActivity::class.java)
-        val mainPendingIntent = PendingIntent.getActivity(
+    // Refresh button intent
+    views.setOnClickPendingIntent(
+        R.id.widget_refresh_btn,
+        PendingIntent.getBroadcast(
             context,
             0,
-            mainIntent,
+            Intent(context, SensorWidget::class.java).apply { action = SensorWidget.ACTION_FORCE_UPDATE },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        views.setOnClickPendingIntent(R.id.widget_root, mainPendingIntent)
-    }
+    )
 
-    if (data != null) {
-        val tempRounded = "%.1f".format(locale, data.temperature)
-        val humFormatted = "%.1f".format(locale, data.humidity)
+    // Root click intent
+    views.setOnClickPendingIntent(R.id.widget_root, createRootClickIntent(context, data.selectedAppPackage))
 
-        views.setTextViewText(R.id.widget_temp, "${tempRounded}°C")
-        views.setTextViewText(R.id.widget_humidity, "💧 ${humFormatted}%")
-        views.setTextViewText(R.id.widget_battery, "🔋 ${data.battery}%")
-
-        val sdf = SimpleDateFormat("dd.MM HH:mm", locale)
-        val dateStr = sdf.format(Date(lastUpdate))
-        views.setTextViewText(R.id.widget_last_update, dateStr)
+    // Sensor data
+    val sensorData = data.sensorData
+    if (sensorData != null) {
+        views.setTextViewText(R.id.widget_temp, "%.1f°C".format(data.locale, sensorData.temperature))
+        views.setTextViewText(R.id.widget_humidity, "💧 %.1f%%".format(data.locale, sensorData.humidity))
+        views.setTextViewText(R.id.widget_battery, "🔋 ${sensorData.battery}%")
+        views.setTextViewText(
+            R.id.widget_last_update,
+            SimpleDateFormat("dd.MM HH:mm", data.locale).format(Date(data.lastUpdate))
+        )
     } else {
         views.setTextViewText(R.id.widget_temp, "--")
         views.setTextViewText(R.id.widget_humidity, "No Data")
+        views.setTextViewText(R.id.widget_battery, "")
+        views.setTextViewText(R.id.widget_last_update, "--")
     }
 
     appWidgetManager.updateAppWidget(appWidgetId, views)
 }
+
+private fun createRootClickIntent(context: Context, selectedAppPackage: String?): PendingIntent {
+    val intent = if (!selectedAppPackage.isNullOrEmpty()) {
+        context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
+    } else null
+    
+    val finalIntent = intent ?: Intent(context, MainActivity::class.java)
+    
+    return PendingIntent.getActivity(
+        context,
+        0,
+        finalIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+}
+

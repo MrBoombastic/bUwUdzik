@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 
-class SettingsRepository(context: Context) {
+class SettingsRepository(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
 
@@ -25,7 +25,21 @@ class SettingsRepository(context: Context) {
         const val DEFAULT_THEME = "system"
 
         private const val KEY_SETUP_COMPLETED = "setup_completed"
+        private const val KEY_LAST_VERSION_CODE = "last_version_code"
     }
+
+    /**
+     * Updates widgets when relevant settings change (theme, language, selected app)
+     */
+    private fun notifyWidgetsIfNeeded() {
+        WidgetHelper.updateAllWidgets(context)
+    }
+
+    var lastVersionCode: Int
+        get() = prefs.getInt(KEY_LAST_VERSION_CODE, -1)
+        set(value) {
+            prefs.edit { putInt(KEY_LAST_VERSION_CODE, value) }
+        }
 
     var targetMacAddress: String
         get() {
@@ -47,6 +61,7 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_LANGUAGE, DEFAULT_LANGUAGE) ?: DEFAULT_LANGUAGE
         set(value) {
             prefs.edit { putString(KEY_LANGUAGE, value) }
+            notifyWidgetsIfNeeded()
         }
 
     var updateInterval: Long
@@ -59,6 +74,7 @@ class SettingsRepository(context: Context) {
         get() = prefs.getString(KEY_SELECTED_APP, null)
         set(value) {
             prefs.edit { putString(KEY_SELECTED_APP, value) }
+            notifyWidgetsIfNeeded()
         }
 
     var theme: String

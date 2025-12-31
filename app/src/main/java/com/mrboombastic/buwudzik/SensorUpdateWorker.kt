@@ -4,7 +4,6 @@ import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -16,57 +15,101 @@ class SensorUpdateWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
-    override suspend fun doWork(): Result {
-        Log.d("SensorUpdateWorker", "Starting background scan...")
+    companion object {
+        private const val TAG = "SensorUpdateWorker"
+        private const val SCAN_TIMEOUT_MS = 15_000L
+        private const val MAX_RETRY_ATTEMPTS = 3
+        private const val FRESH_DATA_THRESHOLD_MS = 30_000L // 30 seconds
+    }
 
-        val bluetoothManager = applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        if (bluetoothManager.adapter == null) {
-            Log.e("SensorUpdateWorker", "Bluetooth adapter not available.")
+    override suspend fun doWork(): Result {
+        Log.d(TAG, "Starting background scan (attempt ${runAttemptCount + 1})...")
+
+        val repository = SensorRepository(applicationContext)
+        val settingsRepository = SettingsRepository(applicationContext)
+
+        // Check if we have fresh data already (from foreground app)
+        val lastUpdate = repository.getLastUpdateTimestamp()
+        val dataAge = System.currentTimeMillis() - lastUpdate
+        if (dataAge < FRESH_DATA_THRESHOLD_MS && lastUpdate > 0) {
+            Log.d(TAG, "Data is fresh (${dataAge}ms old), skipping scan and updating widget")
+            updateWidget()
+            return Result.success()
+        }
+
+        val bluetoothManager = applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        if (bluetoothManager?.adapter == null) {
+            Log.e(TAG, "Bluetooth adapter not available.")
+            updateWidgetWithError()
             return Result.failure()
         }
         
         if (!bluetoothManager.adapter.isEnabled) {
-            Log.w("SensorUpdateWorker", "Bluetooth is disabled. Cannot scan for sensors.")
-            // Return success to keep periodic work going, but don't update anything
+            Log.w(TAG, "Bluetooth is disabled. Cannot scan for sensors.")
             updateWidget()
             return Result.success()
         }
 
         val scanner = BluetoothScanner(applicationContext)
-        val repository = SensorRepository(applicationContext)
-        val settingsRepository = SettingsRepository(applicationContext)
         val targetMac = settingsRepository.targetMacAddress
 
-        // Attempt to scan for 10 seconds max
-        val result = withTimeoutOrNull(10_000L) {
+        // Attempt to scan with timeout
+        val result = withTimeoutOrNull(SCAN_TIMEOUT_MS) {
             try {
-                // Collect the first emission and stop
                 scanner.scan(targetMac).first()
             } catch (e: Exception) {
-                Log.e("SensorUpdateWorker", "Error scanning", e)
+                Log.e(TAG, "Error during scan", e)
                 null
             }
         }
 
-        if (result != null) {
-            Log.d("SensorUpdateWorker", "Got data: $result")
+        return if (result != null) {
+            Log.d(TAG, "Got data: temp=${result.temperature}°C, humidity=${result.humidity}%, battery=${result.battery}%")
             repository.saveSensorData(result)
             updateWidget()
-            return Result.success()
+            Result.success()
         } else {
-            Log.w("SensorUpdateWorker", "No sensor found within timeout.")
-            // We return success even if we didn't find it to keep the periodic work going
-            // Or we could return Result.retry() if we want aggressive retries
-            return Result.success()
+            Log.w(TAG, "No sensor data received within timeout.")
+
+            // Check again if data arrived from foreground while we were scanning
+            val freshLastUpdate = repository.getLastUpdateTimestamp()
+            if (freshLastUpdate > lastUpdate) {
+                Log.d(TAG, "Fresh data arrived during scan, updating widget")
+                updateWidget()
+                return Result.success()
+            }
+
+            // Retry if we haven't exceeded max attempts
+            if (runAttemptCount < MAX_RETRY_ATTEMPTS) {
+                Log.d(TAG, "Will retry (attempt ${runAttemptCount + 1} of $MAX_RETRY_ATTEMPTS)")
+                Result.retry()
+            } else {
+                Log.w(TAG, "Max retry attempts reached, giving up for this cycle.")
+                updateWidget() // Update widget to show last known data
+                Result.success() // Return success to keep periodic work scheduled
+            }
         }
     }
 
     private fun updateWidget() {
-        val intent = Intent(applicationContext, SensorWidget::class.java)
-        intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-        val ids = AppWidgetManager.getInstance(applicationContext)
-            .getAppWidgetIds(ComponentName(applicationContext, SensorWidget::class.java))
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-        applicationContext.sendBroadcast(intent)
+        try {
+            val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
+            val componentName = ComponentName(applicationContext, SensorWidget::class.java)
+            val ids = appWidgetManager.getAppWidgetIds(componentName)
+
+            if (ids.isNotEmpty()) {
+                Log.d(TAG, "Updating ${ids.size} widget(s)")
+                for (id in ids) {
+                    updateAppWidget(applicationContext, appWidgetManager, id, isLoading = false)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update widget", e)
+        }
+    }
+
+    private fun updateWidgetWithError() {
+        // Still update widget to show whatever data we have
+        updateWidget()
     }
 }

@@ -1,19 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_background">#FFFFFFFF</color>
-    <color name="widget_text_primary">#FF000000</color>
-    <color name="widget_text_secondary">#FF444444</color>
+    <!-- Material 3 Widget Colors - Light Theme -->
+    <color name="widget_background">#FFF7F2FA</color>
+    <color name="widget_text_primary">#FF1C1B1F</color>
+    <color name="widget_text_secondary">#FF49454F</color>
+    <color name="widget_icon_tint">#FF49454F</color>
+    <color name="widget_humidity">#FF0061A4</color>
+    <color name="widget_button_bg">#FFE8DEF8</color>
+    <color name="widget_button_bg_pressed">#FFD0BCFF</color>
 
-    <!-- Explicit Light Theme Colors -->
-    <color name="widget_bg_light">#FFFFFFFF</color>
-    <color name="widget_text_primary_light">#FF000000</color>
-    <color name="widget_text_secondary_light">#FF444444</color>
-
-    <!-- Explicit Dark Theme Colors -->
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
-
-    <color name="widget_bg_dark">#FF1C1B1F</color>
-    <color name="widget_text_primary_dark">#FFFFFFFF</color>
-    <color name="widget_text_secondary_dark">#FFCCCCCC</color>
 </resources>
+

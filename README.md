@@ -12,6 +12,10 @@ so it's only semi-slop, but you have been warned, etc., etc.
 
 * Scans for a specific Bluetooth LE device by its MAC address.
 * Parses and displays sensor data.
+* Management of up to 16 device alarms (on-device storage).
+* In-app support for creating and deleting device alarms.
+* Bluetooth state monitoring with automatic prompts to enable it.
+* Interactive real-time previews for brightness and volume settings.
 * Widget for displaying the latest sensor data on the home screen.
 * Configurable background updates to fetch data periodically.
 * Settings to customize the device's MAC address, theme (light/dark/system), and language.
@@ -22,7 +26,7 @@ so it's only semi-slop, but you have been warned, etc., etc.
 The application is built with modern Android development technologies and targets recent Android
 versions.
 
-* **Target API:** The application targets Android 15 (API level 36) and has a minimum requirement of
+* **Target API:** The application targets Android 16 (API level 36) and has a minimum requirement of
   Android 14 (API level 34).
 * **UI:** Jetpack Compose for a declarative and modern UI.
 * **Bluetooth LE:** It uses Android's native Bluetooth LE scanner to listen for advertisement
@@ -58,3 +62,178 @@ versions.
 ### Widget on home screen
 
 <img src="docs/widget.png" alt="Widget on home screen" width="400"/>
+
+## Protocol Specification
+
+This section describes the reverse-engineered Bluetooth Low Energy (BLE) protocol for the Qingping
+CGD1 Alarm Clock.
+
+### 1. Service & Characteristics Profile
+
+The device uses a custom service structure but relies on standard 128-bit base UUIDs for
+characteristics in this specific firmware version.
+
+**Target Service UUID:** `22210000-554a-4546-5542-46534450464d` (Advertised)
+
+| Function      | Characteristic UUID                    | Properties |
+|---------------|----------------------------------------|------------|
+| Auth Write    | `00000001-0000-1000-8000-00805f9b34fb` | Write      |
+| Auth Notify   | `00000002-0000-1000-8000-00805f9b34fb` | Notify     |
+| Data Write    | `0000000b-0000-1000-8000-00805f9b34fb` | Write      |
+| Data Notify   | `0000000c-0000-1000-8000-00805f9b34fb` | Notify     |
+| Sensor Notify | `00000100-0000-1000-8000-00805f9b34fb` | Notify     |
+
+### 2. Authentication (Magic Replay Method)
+
+The device accepts a static, captured authentication packet ("Magic Packet"), effectively allowing a
+Replay Attack to bypass the need for dynamic BindKey encryption.
+
+**Flow:**
+
+1. Connect to the device.
+2. Enable Notifications on **Auth Notify** (...0002).
+3. Write the **Magic Packet** to **Auth Write** (...0001).
+
+**Magic Packet (Hex):**
+`11 02 b7 5a 1e 4e 73 70 e3 95 23 63 f7 46 ee 7c 90 09`
+
+**Verification:** Wait for a notification on **Auth Notify**.
+
+* **Success:** `04 ff 02 00 00` (or similar starting with `04 ff 02`)
+* **Failure:** `04 ff 02 00 01`
+
+#### 2.1. Time Synchronization
+
+After authentication, it is recommended to synchronize the time.
+
+* **Command (Auth Write):** `05 09 [Timestamp 4B LE]`
+* **Response (Auth Notify):** `04 ff 09 00 00` (Success).
+
+### 3. Managing Alarms
+
+The device supports a fixed capacity of **16 alarm slots** (indexed 0-15). All alarm/settings
+operations happen on the **Data** characteristics.
+
+#### 3.1. Set Alarm
+
+To create or modify an alarm:
+
+* **Command:** `07 05 [ID] [Enabled] [HH] [MM] [Days] [Snooze]`
+
+
+* **ID:** The alarm index (0-15).
+
+* **Enabled:** `0x01` = On, `0x00` = Off.
+
+* **HH, MM:** Hour (0-23) and Minute (0-59).
+
+* **Days (Bitmask):**
+
+    * `0x01` = Monday
+
+    * `0x02` = Tuesday
+
+    * `0x04` = Wednesday
+
+    * `0x08` = Thursday
+
+    * `0x10` = Friday
+
+    * `0x20` = Saturday
+
+    * `0x40` = Sunday
+
+    * `0x00` = Once
+
+* **Snooze:** `0x01` = On, `0x00` = Off.
+
+#### 3.2. Delete Alarm
+
+To delete an alarm, overwrite it with `FF` values (marking it as empty/unused).
+
+* **Command:** `07 05 [ID] FF FF FF FF FF`
+
+#### 3.3. Read Alarms
+
+* **Command:** `01 06`
+* **Response:** `11 06 [Base Index] [Alarm Entry 1 (5B)] ...`
+* **Alarm Entry:** `[Enabled] [HH] [MM] [Days] [Snooze]`
+
+### 4. Device Settings
+
+Managed via a single comprehensive payload on **Data Write**.
+
+* **Command:** Start with `13` (Set Settings) or `01 02` (Read Settings).
+* **Set Settings Payload (20 bytes):**
+  `13 01 [Vol] [Hdr1] [Hdr2] [Flags] [Timezone] [Duration] [Brightness] [NightStartH] [NightStartM] [NightEndH] [NightEndM] [TzSign] [NightEn] [Sig 4B]`
+
+| Byte  | Value           | Description                                                              |
+|-------|-----------------|--------------------------------------------------------------------------|
+| 0     | `0x13`          | Command ID                                                               |
+| 1     | `0x01` / `0x02` | Set / Read Response                                                      |
+| 2     | `0-10?`         | Sound Volume (Usually `0x05`)                                            |
+| 3-4   | `58 02`         | Fixed Header / Version                                                   |
+| 5     | Bitmask         | Mode Flags: Bit 0: Lang (1=EN), Bit 1: Format (1=12h), Bit 2: Unit (1=F) |
+| 6     | Integer         | Timezone Offset (Units of 6 minutes)                                     |
+| 7     | Seconds         | Backlight Duration (0=Off)                                               |
+| 8     | Packed          | Brightness (High nibble: Day/10, Low nibble: Night/10)                   |
+| 9-10  | HH:MM           | Night Start Time                                                         |
+| 11-12 | HH:MM           | Night End Time                                                           |
+| 13    | `0/1`           | Timezone Sign (1=Positive, 0=Negative)                                   |
+| 14    | `0/1`           | Night Mode Enabled                                                       |
+| 16-19 | `ba 2c 2c 8c`   | Footer/Signature                                                         |
+
+**Workaround:** To force Day Mode immediately if disabling night mode doesn't work, set schedule to
+`00:00 - 00:01`.
+
+#### 4.1. Set Immediate Brightness (Preview)
+
+* **Command (Data Write):** `02 03 [Value]`
+* **Value:** Brightness level / 10 (`0-10`).
+* **Response (Data Notify):** `04 ff 03 00 00` (Success).
+
+#### 4.2. Preview Ringtone
+
+Used to play the current or a specific volume ringtone once for testing.
+
+* **Command (Data Write):** `01 04` (Play current) or `02 04 [Vol]` (Play at volume `1-10?`)
+* **Response (Data Notify):** `04 ff 04 00 00` (Success).
+
+### 5. Real-Time Sensor Stream
+
+* **Target:** `00000100-...` (Notify)
+* **Format:** `[00] [Temp L] [Temp H] [Hum L] [Hum H]`
+* **Values:** Little Endian Int16 / 100.0.
+
+### 6. Battery Level
+
+* **Service UUID:** `0x180f`, **Char UUID:** `0x2a19`.
+* **Format:** 1 byte (percentage).
+
+### 7. Firmware Version
+
+* **Command (Auth Write):** `01 0d`
+* **Response (Auth Notify):** `0b [Length] [ASCII String]`
+
+### 8. Audio Transfer Protocol (Ringtone Upload)
+
+Allows uploading 8-bit Unsigned PCM, 8000 Hz, Mono audio. Uses **BLE Reliable Write** on **Data
+Write**.
+
+1. **Start:** `08 10 [Size LE 2B] 00 [ba 2c 2c 8c]`
+2. **Transfer:** Send in chunks with Reliable Write.
+3. **Header Injection:** Prepend `81 08` to the very first packet.
+4. **Completion:** Send Execute Write Request.
+
+### 9. Known Command IDs Summary
+
+| Cmd | Sub | Description                             |
+|-----|-----|-----------------------------------------|
+| 13  | 01  | Set Settings (Volume, Brightness, etc.) |
+| 02  | 03  | Set Immediate Brightness                |
+| 01  | 04  | Preview Ringtone (Play Once)            |
+| 07  | 05  | Set Alarm                               |
+| 01  | 06  | Read Alarms                             |
+| 05  | 09  | Time Sync (Timestamp)                   |
+| 08  | 10  | Audio Upload Start                      |
+| 01  | 0D  | Read Firmware Version                   |

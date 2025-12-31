@@ -1,14 +1,11 @@
 package com.mrboombastic.buwudzik
 
-import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanSettings
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,9 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -31,18 +26,17 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -60,6 +54,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
+import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
+import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
+import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,6 +66,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
     val repository = remember { SettingsRepository(context) }
 
     // Save initial values to detect changes
@@ -81,21 +80,18 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     var selectedAppPackage by remember { mutableStateOf(repository.selectedAppPackage) }
     var theme by remember { mutableStateOf(repository.theme) }
 
-    var expandedMode by remember { mutableStateOf(false) }
-    var expandedLang by remember { mutableStateOf(false) }
-    var expandedInterval by remember { mutableStateOf(false) }
-    var expandedTheme by remember { mutableStateOf(false) }
+    var expandedWidgetAction by remember { mutableStateOf(false) }
 
-    var showAppPicker by remember { mutableStateOf(false) }
     var installedApps by remember { mutableStateOf<List<ResolveInfo>>(emptyList()) }
     var selectedAppLabel by remember { mutableStateOf<String?>(null) }
 
     var isCheckingUpdates by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     // Check Bluetooth status
-    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-    val isBluetoothEnabled = bluetoothManager?.adapter?.isEnabled == true
+    val isBluetoothEnabled = BluetoothUtils.isBluetoothEnabled(context)
 
     // Watch for MAC changes when returning from device setup screen
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -108,7 +104,10 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     macAddress = currentMac
                     // If MAC changed from initial value, restart scanning
                     if (currentMac != initialMacAddress) {
-                        Log.d("SettingsScreen", "MAC changed from $initialMacAddress to $currentMac, restarting scan")
+                        Log.d(
+                            "SettingsScreen",
+                            "MAC changed from $initialMacAddress to $currentMac, restarting scan"
+                        )
                         viewModel.restartScanning()
                     }
                 }
@@ -120,8 +119,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
         }
     }
 
-    LaunchedEffect(showAppPicker) {
-        if (showAppPicker && installedApps.isEmpty()) {
+    LaunchedEffect(expandedWidgetAction) {
+        if (expandedWidgetAction && installedApps.isEmpty()) {
             withContext(Dispatchers.IO) {
                 val pm = context.packageManager
                 val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -188,7 +187,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
-                    IconButton(onClick = {
+                    BackNavigationButton(navController) {
                         // Ensure MAC is not empty before going back
                         val finalMac = macAddress.trim().ifEmpty { SettingsRepository.DEFAULT_MAC }
                         if (finalMac != repository.targetMacAddress) {
@@ -200,11 +199,6 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             viewModel.restartScanning()
                         }
                         navController.popBackStack()
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back_desc)
-                        )
                     }
                 }
             )
@@ -234,9 +228,6 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     label = { Text(stringResource(R.string.target_mac_label)) },
                     modifier = Modifier.weight(1f),
                     isError = macAddress.trim().isEmpty(),
-                    supportingText = if (macAddress.trim().isEmpty()) {
-                        { Text(stringResource(R.string.default_mac_label, SettingsRepository.DEFAULT_MAC)) }
-                    } else null
                 )
 
                 FilledTonalIconButton(
@@ -254,249 +245,117 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 }
             }
 
-            Text(
-                text = stringResource(R.string.default_mac_label, SettingsRepository.DEFAULT_MAC),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, start = 8.dp, bottom = 16.dp)
-            )
-
             // Scan Mode
-            Text(
-                stringResource(R.string.scan_mode_label),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            ExposedDropdownMenuBox(
-                expanded = expandedMode,
-                onExpandedChange = { expandedMode = !expandedMode }
-            ) {
-                OutlinedTextField(
-                    value = scanModes[scanMode] ?: "Unknown",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.select_mode_label)) },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMode)
-                    },
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedMode,
-                    onDismissRequest = { expandedMode = false }) {
-                    scanModes.forEach { (mode, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                scanMode = mode
-                                repository.scanMode = mode
-                                expandedMode = false
-                            }
-                        )
-                    }
+            SettingsDropdown(
+                value = scanMode,
+                options = scanModes,
+                label = stringResource(R.string.scan_mode_label),
+                onValueChange = { mode ->
+                    scanMode = mode
+                    repository.scanMode = mode
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            )
 
             // Language
-            Text(
-                stringResource(R.string.language_label),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            ExposedDropdownMenuBox(
-                expanded = expandedLang,
-                onExpandedChange = { expandedLang = !expandedLang }
-            ) {
-                OutlinedTextField(
-                    value = languages[language] ?: language,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.language_label)) },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedLang)
-                    },
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedLang,
-                    onDismissRequest = { expandedLang = false }) {
-                    languages.forEach { (code, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                language = code
-                                repository.language = code
-                                expandedLang = false
-                                // Apply Language Immediately
-                                val appLocale = if (code == "system") {
-                                    LocaleListCompat.getEmptyLocaleList()
-                                } else {
-                                    LocaleListCompat.forLanguageTags(code)
-                                }
-                                AppCompatDelegate.setApplicationLocales(appLocale)
-                            }
-                        )
+            SettingsDropdown(
+                value = language,
+                options = languages,
+                label = stringResource(R.string.language_label),
+                onValueChange = { code ->
+                    language = code
+                    repository.language = code
+                    // Apply Language Immediately
+                    val appLocale = if (code == "system") {
+                        LocaleListCompat.getEmptyLocaleList()
+                    } else {
+                        LocaleListCompat.forLanguageTags(code)
                     }
+                    AppCompatDelegate.setApplicationLocales(appLocale)
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            )
 
             // Theme
-            Text(stringResource(R.string.theme_label), style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            ExposedDropdownMenuBox(
-                expanded = expandedTheme,
-                onExpandedChange = { expandedTheme = !expandedTheme }
-            ) {
-                OutlinedTextField(
-                    value = themes[theme] ?: theme,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.theme_label)) },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTheme)
-                    },
-                    modifier = Modifier
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = expandedTheme,
-                    onDismissRequest = { expandedTheme = false }) {
-                    themes.forEach { (code, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                theme = code
-                                repository.theme = code
-                                expandedTheme = false
-
-                                val mode = when (code) {
-                                    "light" -> AppCompatDelegate.MODE_NIGHT_NO
-                                    "dark" -> AppCompatDelegate.MODE_NIGHT_YES
-                                    else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-                                }
-                                AppCompatDelegate.setDefaultNightMode(mode)
-                            }
-                        )
-                    }
+            SettingsDropdown(
+                value = theme,
+                options = themes,
+                label = stringResource(R.string.theme_label),
+                onValueChange = { code ->
+                    theme = code
+                    repository.theme = code
+                    ThemeUtils.applyTheme(code)
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            )
 
             // Update Interval
-            Text(
-                stringResource(R.string.update_interval_label),
-                style = MaterialTheme.typography.titleMedium
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingsDropdown(
+                value = updateInterval,
+                options = intervals,
+                label = stringResource(R.string.widget_update_interval_label),
+                onValueChange = { minutes ->
+                    updateInterval = minutes
+                    repository.updateInterval = minutes
+                    // Reschedule updates immediately
+                    MainActivity.scheduleUpdates(context, minutes)
+                }
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
+
+            // Widget Action
+            Spacer(modifier = Modifier.height(12.dp))
 
             ExposedDropdownMenuBox(
-                expanded = expandedInterval,
-                onExpandedChange = { expandedInterval = !expandedInterval }
+                expanded = expandedWidgetAction,
+                onExpandedChange = { expandedWidgetAction = !expandedWidgetAction }
             ) {
                 OutlinedTextField(
-                    value = intervals[updateInterval] ?: "$updateInterval min",
+                    value = selectedAppLabel ?: stringResource(R.string.default_app_label),
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text(stringResource(R.string.update_interval_label)) },
+                    label = { Text(stringResource(R.string.widget_select_app_label)) },
                     trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedInterval)
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedWidgetAction)
                     },
                     modifier = Modifier
                         .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth()
                 )
+
                 ExposedDropdownMenu(
-                    expanded = expandedInterval,
-                    onDismissRequest = { expandedInterval = false }) {
-                    intervals.forEach { (minutes, label) ->
+                    expanded = expandedWidgetAction,
+                    onDismissRequest = { expandedWidgetAction = false },
+                    modifier = Modifier.height(300.dp)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.default_app_label)) },
+                        onClick = {
+                            selectedAppPackage = null
+                            repository.selectedAppPackage = null
+                            expandedWidgetAction = false
+                        }
+                    )
+
+                    installedApps.forEach { resolveInfo ->
+                        val pm = context.packageManager
+                        val label = resolveInfo.loadLabel(pm).toString()
+                        val pkg = resolveInfo.activityInfo.packageName
                         DropdownMenuItem(
                             text = { Text(label) },
                             onClick = {
-                                updateInterval = minutes
-                                repository.updateInterval = minutes
-                                expandedInterval = false
-                                // Reschedule updates immediately
-                                MainActivity.scheduleUpdates(context, minutes)
+                                selectedAppPackage = pkg
+                                repository.selectedAppPackage = pkg
+                                expandedWidgetAction = false
                             }
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Widget Action
-            Text(
-                stringResource(R.string.widget_action_label),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedCard(
-                onClick = { showAppPicker = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = selectedAppLabel ?: stringResource(R.string.default_app_label),
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            }
-
-            if (showAppPicker) {
-                AlertDialog(
-                    onDismissRequest = { showAppPicker = false },
-                    title = { Text(stringResource(R.string.select_app_label)) },
-                    text = {
-                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                            Text(
-                                text = stringResource(R.string.default_app_label),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedAppPackage = null
-                                        repository.selectedAppPackage = null
-                                        showAppPicker = false
-                                    }
-                                    .padding(20.dp),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            installedApps.forEach { resolveInfo ->
-                                val pm = context.packageManager
-                                val label = resolveInfo.loadLabel(pm).toString()
-                                val pkg = resolveInfo.activityInfo.packageName
-                                Text(
-                                    text = label,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedAppPackage = pkg
-                                            repository.selectedAppPackage = pkg
-                                            showAppPicker = false
-                                        }
-                                        .padding(20.dp),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showAppPicker = false }) { Text("Cancel") }
-                    }
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -520,29 +379,34 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             Button(
                 onClick = {
                     isCheckingUpdates = true
-                    val appContext = context.applicationContext
                     coroutineScope.launch {
                         try {
                             val updateChecker = UpdateChecker(appContext)
-                            val result = updateChecker.checkForUpdatesWithResult()
+                            val result = updateChecker.checkForUpdates()
+                            updateChecker.close()
+
                             withContext(Dispatchers.Main) {
                                 isCheckingUpdates = false
-                                val message = if (result.updateAvailable) {
-                                    appContext.getString(
-                                        R.string.update_available,
-                                        result.latestVersion
-                                    )
+                                if (result.updateAvailable) {
+                                    updateResult = result
+                                    showUpdateDialog = true
                                 } else {
-                                    appContext.getString(R.string.no_updates_available)
+                                    Toast.makeText(
+                                        appContext,
+                                        appContext.getString(R.string.no_updates_available),
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
-                                Toast.makeText(appContext, message, Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
-                            Log.e("Error while trying to update", e.toString())
+                            Log.e("SettingsScreen", "Error checking for updates", e)
                             withContext(Dispatchers.Main) {
                                 isCheckingUpdates = false
-                                val errorMessage = appContext.getString(R.string.update_error)
-                                Toast.makeText(appContext, errorMessage, Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    appContext,
+                                    appContext.getString(R.string.update_error),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
@@ -564,6 +428,47 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 )
             }
 
+            // Update Available Dialog
+            if (showUpdateDialog && updateResult != null) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { showUpdateDialog = false },
+                    title = { Text(stringResource(R.string.update_available_title)) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.update_available_message,
+                                updateResult!!.currentVersion,
+                                updateResult!!.latestVersion
+                            )
+                        )
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                showUpdateDialog = false
+                                val downloadUrl = updateResult?.downloadUrl
+                                if (downloadUrl != null) {
+                                    coroutineScope.launch {
+                                        val updateChecker = UpdateChecker(appContext)
+                                        updateChecker.downloadAndInstall(downloadUrl)
+                                        updateChecker.close()
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(stringResource(R.string.download_update))
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = { showUpdateDialog = false }
+                        ) {
+                            Text(stringResource(R.string.later))
+                        }
+                    }
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // App Info
@@ -576,6 +481,54 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             val versionName: String? = packageInfo.versionName
             Text(stringResource(R.string.version_label, versionName ?: "N/A"))
             Text(stringResource(R.string.author_label, "MrBoombastic"))
+
+            // Easter Egg Button
+            Spacer(modifier = Modifier.height(16.dp))
+            val clockConnected by viewModel.clockConnected.collectAsState()
+            if (clockConnected) {
+                val successMsg = stringResource(R.string.time_set_success)
+                val failedMsg = stringResource(R.string.time_set_failed)
+                val errorTemplate = stringResource(R.string.error_prefix)
+
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                val cal = java.util.Calendar.getInstance()
+                                cal.set(java.util.Calendar.HOUR_OF_DAY, 21)
+                                cal.set(java.util.Calendar.MINUTE, 37)
+                                cal.set(java.util.Calendar.SECOND, 0)
+                                val timestamp = cal.timeInMillis / 1000
+                                val success = viewModel.clockController.synchronizeTime(timestamp)
+                                if (success) {
+                                    Toast.makeText(
+                                        appContext,
+                                        successMsg,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    Toast.makeText(
+                                        appContext,
+                                        failedMsg,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (e: Exception) {
+                                Log.e("SettingsScreen", "Error setting time", e)
+                                Toast.makeText(
+                                    appContext,
+                                    errorTemplate.format(e.message ?: "Unknown"),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(stringResource(R.string.set_time_2137))
+                }
+            }
         }
     }
 }

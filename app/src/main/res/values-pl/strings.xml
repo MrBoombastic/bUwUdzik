@@ -2,9 +2,9 @@
     <string name="app_name">bUwUdzik</string>
     
     <!-- Main Screen -->
-    <string name="scanning_status">Skanowanie Qingping CGD1…</string>
+    <string name="scanning_status">Skanowanie wspieranych urządzeń…</string>
     <string name="battery_label">Bateria: %1$d%%</string>
-    <string name="rssi_label">Sygnał: %1$d dBm (%2$d%%)</string>
+    <string name="rssi_label">Moc sygnału: %1$d dBm (%2$d%%)</string>
     <string name="last_update_label">Ostatnia aktualizacja: %1$s</string>
     <string name="permissions_required">Uprawnienia wymagane do skanowania</string>
     <string name="settings_desc">Ustawienia</string>
@@ -12,19 +12,18 @@
     <!-- Settings Screen -->
     <string name="settings_title">Ustawienia</string>
     <string name="back_desc">Wstecz</string>
+    <string name="refresh">Odśwież</string>
     <string name="target_mac_label">Docelowy adres MAC</string>
-    <string name="default_mac_label">Domyślnie: %1$s</string>
     <string name="scan_device_button">Skanuj urządzenie</string>
     <string name="scan_mode_label">Tryb skanowania</string>
-    <string name="select_mode_label">Wybierz tryb</string>
-    <string name="mode_low_power">Oszczędzanie energii</string>
-    <string name="mode_balanced">Zrównoważony</string>
-    <string name="mode_low_latency">Niskie opóźnienie</string>
+    <string name="mode_low_power">oszczędzanie energii</string>
+    <string name="mode_balanced">zrównoważony</string>
+    <string name="mode_low_latency">niskie opóźnienie</string>
     
     <!-- New Settings -->
     <string name="language_label">Język</string>
-    <string name="language_system">Systemowy</string>
-    <string name="update_interval_label">Częstotliwość aktualizacji</string>
+    <string name="language_system">systemowy</string>
+    <string name="widget_update_interval_label">Częstotliwość aktualizacji widżetu</string>
     <string name="minutes_1">1 minuta</string>
     <string name="minutes_3">3 minuty</string>
     <string name="minutes_5">5 minut</string>
@@ -41,24 +40,27 @@
 
     <!-- Widget -->
 
-    <string name="widget_action_label">Akcja po kliknięciu widżetu</string>
-    <string name="select_app_label">Wybierz aplikację</string>
-    <string name="default_app_label">Domyślna (ta aplikacja)</string>
+    <string name="widget_select_app_label">Wybierz aplikację do uruchomienia po kliknięciu widżetu</string>
+    <string name="default_app_label">domyślna (ta aplikacja)</string>
     
     <!-- Theme -->
     <string name="theme_label">Motyw</string>
-    <string name="theme_system">Systemowy</string>
-    <string name="theme_light">Jasny</string>
-    <string name="theme_dark">Ciemny</string>
+    <string name="theme_system">systemowy</string>
+    <string name="theme_light">jasny</string>
+    <string name="theme_dark">ciemny</string>
     <string name="about_app_label">O aplikacji</string>
     <string name="version_label">Wersja: %1$s</string>
-    <string name="author_label">Author: %1$s</string>
+    <string name="author_label">Autor: %1$s</string>
 
     <!-- Updates -->
     <string name="check_updates_label">Sprawdź aktualizacje</string>
     <string name="checking_updates">Sprawdzanie aktualizacji…</string>
     <string name="no_updates_available">Brak dostępnych aktualizacji</string>
     <string name="update_available">Dostępna aktualizacja: %1$s</string>
+    <string name="update_available_title">Dostępna aktualizacja</string>
+    <string name="update_available_message">Dostępna jest nowa wersja.\n\nObecna: %1$s\nNajnowsza: %2$s\n\nCzy chcesz ją teraz pobrać?</string>
+    <string name="download_update">Pobierz</string>
+    <string name="later">Później</string>
     <string name="update_error">Błąd sprawdzania aktualizacji</string>
     <string name="update_download_channel_name">Pobieranie aktualizacji</string>
     <string name="update_download_channel_desc">Powiadomienia o postępie pobierania aktualizacji</string>
@@ -71,6 +73,9 @@
 
     <!-- Bluetooth -->
     <string name="bluetooth_disabled">Bluetooth jest wyłączony</string>
+    <string name="bluetooth_required_title">Wymagany włączony Bluetooth</string>
+    <string name="bluetooth_required_desc">Ta aplikacja wymaga Bluetooth do połączenia z urządzeniami. Proszę włącz go, aby kontynuować.</string>
+    <string name="turn_on_bluetooth">Włącz</string>
 
     <!-- Device Setup -->
     <string name="setup_title">Konfiguracja urządzenia</string>
@@ -81,4 +86,78 @@
     <string name="setup_rescan">Skanuj ponownie</string>
     <string name="setup_skip">Pomiń</string>
     <string name="setup_select_device">Wybierz urządzenie</string>
+
+    <!-- Time Setting -->
+
+    <!-- Alarm Management -->
+    <string name="manage_alarms_label">Zarządzaj budzikami</string>
+    <string name="add_alarm_desc">Dodaj budzik</string>
+    <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików (16).</string>
+    <!-- General Actions -->
+    <string name="ok">OK</string>
+    <string name="cancel">Anuluj</string>
+    <string name="save">Zapisz</string>
+    <string name="error_prefix">Błąd: %1$s</string>
+    <string name="updating_label">Aktualizowanie…</string>
+
+    <!-- Main Screen Hardcoded -->
+    <string name="connect_to_clock">Połącz się z budzikiem</string>
+    <string name="connecting_to_clock">Łączenie z budzikiem…</string>
+    <string name="disconnect">Rozłącz</string>
+    <string name="device_settings_button">Ustawienia urządzenia</string>
+
+    <!-- Settings Screen Hardcoded -->
+    <string name="set_time_2137">Ustaw czas na 21:37</string>
+    <string name="time_set_success">Ustawiono czas na 21:37!</string>
+    <string name="time_set_failed">Nie udało się ustawić czasu</string>
+
+    <!-- Device Settings Screen -->
+    <string name="device_settings_title">Ustawienia urządzenia</string>
+    <string name="general_header">Ogólne</string>
+    <string name="language_header">Język</string>
+    <string name="lang_english">angielski</string>
+    <string name="lang_chinese">chiński</string>
+    <string name="temp_unit_header">Jednostka temperatury</string>
+    <string name="unit_c">°C</string>
+    <string name="unit_f">°F</string>
+    <string name="time_format_header">Format czasu</string>
+    <string name="format_24h">24h</string>
+    <string name="format_12h">12h</string>
+    <string name="alert_volume_label">Głośność alarmu: %1$d</string>
+    <string name="display_header">Wyświetlacz</string>
+    <string name="day_brightness_label">Jasność: %1$d%%</string>
+    <string name="backlight_duration_label">Czas podświetlenia: %1$ds</string>
+    <string name="night_mode_header">Tryb nocny</string>
+    <string name="night_brightness_label">Jasność w nocy: %1$d%%</string>
+    <string name="start_time_label">Czas rozpoczęcia</string>
+    <string name="end_time_label">Czas zakończenia</string>
+    <string name="firmware_version_fmt">Wersja oprogramowania: %1$s</string>
+    <string name="device_timeout_message">Upłynął limit czasu urządzenia. Podejdź bliżej i spróbuj ponownie.</string>
+    <string name="save_failed_message">Nie udało się zapisać: %1$s</string>
+
+    <!-- Alarm Management Screen -->
+    <string name="alarm_management_title">Zarządzanie budzikami</string>
+    <string name="updating_alarm_msg">Aktualizowanie budzika %1$d…</string>
+    <string name="alarm_updated_msg">Zaktualizowano budzik %1$d</string>
+    <string name="deleting_alarm_msg">Usuwanie budzika %1$d…</string>
+    <string name="alarm_deleted_msg">Usunięto budzik %1$d</string>
+    <string name="enable_bluetooth_msg">Proszę włączyć Bluetooth</string>
+    <string name="bluetooth_perms_msg">Wymagane uprawnienia Bluetooth</string>
+    <string name="connect_first_msg">Najpierw połącz się z zegarem na ekranie głównym</string>
+    <string name="no_alarms_msg">Nie znaleziono budzików</string>
+    <string name="snooze_enabled_msg">Drzemka włączona</string>
+    <string name="select_time_title">Wybierz czas</string>
+    <string name="edit_alarm_title">Edytuj budzik %1$d</string>
+    <string name="repeat_on_label">Powtarzaj w:</string>
+    <string name="snooze_label">Drzemka</string>
+    <string name="delete_alarm_desc">Usuń budzik</string>
+    <!-- Days -->
+    <string name="day_mon">pon.</string>
+    <string name="day_tue">wt.</string>
+    <string name="day_wed">śr.</string>
+    <string name="day_thu">czw.</string>
+    <string name="day_fri">pt.</string>
+    <string name="day_sat">sob.</string>
+    <string name="day_sun">nd.</string>
+    <string name="day_once">jednorazowo</string>
 </resources>

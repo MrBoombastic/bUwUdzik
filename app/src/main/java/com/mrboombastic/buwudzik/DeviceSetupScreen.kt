@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -73,8 +74,6 @@ fun DeviceSetupScreen(navController: NavController) {
         val perms = mutableListOf<String>()
         perms.add(Manifest.permission.BLUETOOTH_SCAN)
         perms.add(Manifest.permission.BLUETOOTH_CONNECT)
-        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
         perms.add(Manifest.permission.POST_NOTIFICATIONS)
         perms.toTypedArray()
     }
@@ -291,11 +290,7 @@ fun DeviceCard(
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                val signalPercentage = when {
-                    device.rssi >= -35 -> 100
-                    device.rssi <= -100 -> 0
-                    else -> ((device.rssi + 100) * 100) / 65
-                }
+                val signalPercentage = BluetoothUtils.rssiToPercentage(device.rssi)
                 Text(
                     text = "$signalPercentage%",
                     style = MaterialTheme.typography.labelLarge,
