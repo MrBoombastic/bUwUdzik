@@ -14,13 +14,13 @@
     <string name="back_desc">Wstecz</string>
     <string name="refresh">Odśwież</string>
     <string name="target_mac_label">Docelowy adres MAC</string>
-    <string name="scan_device_button">Skanuj urządzenie</string>
+    <string name="scan_devices_button">Skanuj urządzenie</string>
     <string name="scan_mode_label">Tryb skanowania</string>
     <string name="mode_low_power">oszczędzanie energii</string>
     <string name="mode_balanced">zrównoważony</string>
     <string name="mode_low_latency">niskie opóźnienie</string>
-    
-    <!-- New Settings -->
+    <string name="scan_mode_hint">Używane do pasywnego podglądu czujników bez połączenia w trakcie używania aplikacji.</string>
+    <string name="master_alarm_label">Włącz alarmy</string>
     <string name="language_label">Język</string>
     <string name="language_system">systemowy</string>
     <string name="widget_update_interval_label">Częstotliwość aktualizacji widżetu</string>
@@ -28,7 +28,7 @@
     <string name="minutes_3">3 minuty</string>
     <string name="minutes_5">5 minut</string>
     <string name="minutes_10">10 minut</string>
-    <string name="minutes_15">15 minut</string>
+    <string name="minutes_15">15 minut (domyślnie)</string>
     <string name="minutes_30">30 minut</string>
     <string name="minutes_45">45 minut</string>
     <string name="minutes_60">1 godzina</string>
@@ -39,7 +39,6 @@
     <string name="hours_24">24 godziny</string>
 
     <!-- Widget -->
-
     <string name="widget_select_app_label">Wybierz aplikację do uruchomienia po kliknięciu widżetu</string>
     <string name="default_app_label">domyślna (ta aplikacja)</string>
     
@@ -48,6 +47,12 @@
     <string name="theme_system">systemowy</string>
     <string name="theme_light">jasny</string>
     <string name="theme_dark">ciemny</string>
+
+    <!-- Battery Type -->
+    <string name="battery_type_label">Typ baterii</string>
+    <string name="battery_alkaline">Alkaliczne (domyślne)</string>
+    <string name="battery_nimh">NiMH (akumulatorki, 1.2V)</string>
+
     <string name="about_app_label">O aplikacji</string>
     <string name="version_label">Wersja: %1$s</string>
     <string name="author_label">Autor: %1$s</string>
@@ -56,16 +61,14 @@
     <string name="check_updates_label">Sprawdź aktualizacje</string>
     <string name="checking_updates">Sprawdzanie aktualizacji…</string>
     <string name="no_updates_available">Brak dostępnych aktualizacji</string>
-    <string name="update_available">Dostępna aktualizacja: %1$s</string>
     <string name="update_available_title">Dostępna aktualizacja</string>
-    <string name="update_available_message">Dostępna jest nowa wersja.\n\nObecna: %1$s\nNajnowsza: %2$s\n\nCzy chcesz ją teraz pobrać?</string>
+    <string name="update_available_message">Dostępna jest nowa wersja. Obecna: %1$s, najnowsza: %2$s. Czy chcesz ją teraz pobrać?</string>
     <string name="download_update">Pobierz</string>
     <string name="later">Później</string>
     <string name="update_error">Błąd sprawdzania aktualizacji</string>
     <string name="update_download_channel_name">Pobieranie aktualizacji</string>
     <string name="update_download_channel_desc">Powiadomienia o postępie pobierania aktualizacji</string>
     <string name="update_downloading_title">Pobieranie aktualizacji</string>
-    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
     <string name="update_download_complete">Pobieranie zakończone</string>
     <string name="update_download_complete_desc">Aktualizacja została pobrana. Kliknij aby zainstalować.</string>
     <string name="update_download_error">Błąd pobierania</string>
@@ -76,6 +79,7 @@
     <string name="bluetooth_required_title">Wymagany włączony Bluetooth</string>
     <string name="bluetooth_required_desc">Ta aplikacja wymaga Bluetooth do połączenia z urządzeniami. Proszę włącz go, aby kontynuować.</string>
     <string name="turn_on_bluetooth">Włącz</string>
+    <string name="device_disconnected">Urządzenie rozłączone</string>
 
     <!-- Device Setup -->
     <string name="setup_title">Konfiguracja urządzenia</string>
@@ -94,15 +98,14 @@
     <string name="add_alarm_desc">Dodaj budzik</string>
     <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików (16).</string>
     <!-- General Actions -->
-    <string name="ok">OK</string>
     <string name="cancel">Anuluj</string>
     <string name="save">Zapisz</string>
     <string name="error_prefix">Błąd: %1$s</string>
     <string name="updating_label">Aktualizowanie…</string>
 
     <!-- Main Screen Hardcoded -->
-    <string name="connect_to_clock">Połącz się z budzikiem</string>
-    <string name="connecting_to_clock">Łączenie z budzikiem…</string>
+    <string name="connect_to_device">Połącz się z urządzeniem</string>
+    <string name="connecting_to_device">Łączenie z urządzeniem…</string>
     <string name="disconnect">Rozłącz</string>
     <string name="device_settings_button">Ustawienia urządzenia</string>
 
@@ -118,8 +121,6 @@
     <string name="lang_english">angielski</string>
     <string name="lang_chinese">chiński</string>
     <string name="temp_unit_header">Jednostka temperatury</string>
-    <string name="unit_c">°C</string>
-    <string name="unit_f">°F</string>
     <string name="time_format_header">Format czasu</string>
     <string name="format_24h">24h</string>
     <string name="format_12h">12h</string>
@@ -142,9 +143,10 @@
     <string name="deleting_alarm_msg">Usuwanie budzika %1$d…</string>
     <string name="alarm_deleted_msg">Usunięto budzik %1$d</string>
     <string name="enable_bluetooth_msg">Proszę włączyć Bluetooth</string>
-    <string name="bluetooth_perms_msg">Wymagane uprawnienia Bluetooth</string>
-    <string name="connect_first_msg">Najpierw połącz się z zegarem na ekranie głównym</string>
+    <string name="bluetooth_perms_msg">Wymagane uprawnienia do Bluetooth</string>
+    <string name="connect_first_msg">Najpierw połącz się z urządzeniem na ekranie głównym</string>
     <string name="no_alarms_msg">Nie znaleziono budzików</string>
+    <string name="master_alarm_off_msg">Wszystkie budziki są obecnie wyłączone</string>
     <string name="snooze_enabled_msg">Drzemka włączona</string>
     <string name="select_time_title">Wybierz czas</string>
     <string name="edit_alarm_title">Edytuj budzik %1$d</string>
@@ -160,4 +162,50 @@
     <string name="day_sat">sob.</string>
     <string name="day_sun">nd.</string>
     <string name="day_once">jednorazowo</string>
+
+    <!-- Ringtone Upload Screen -->
+    <string name="ringtone_upload_title">Wgraj dzwonek</string>
+    <string name="ringtone_upload_button">Wgraj dzwonek</string>
+    <string name="current_ringtone_label">Aktualny dzwonek</string>
+    <string name="online_ringtones_header">Dzwonki online</string>
+    <string name="custom_ringtone_header">Własny dzwonek</string>
+    <string name="select_audio_file">Wybierz plik audio</string>
+    <string name="file_selected">Plik wybrany</string>
+    <string name="audio_format_hint">Obsługiwane formaty: MP3, WAV, OGG, AAC. Audio zostanie przekonwertowane do 8kHz mono.</string>
+    <string name="current_label">Aktualny</string>
+    <string name="converting_audio">Konwertowanie audio…</string>
+    <string name="uploading_progress">Przesyłanie: %1$d%%</string>
+    <string name="eta_label">~%1$s pozostało</string>
+    <string name="upload_complete">Przesyłanie zakończone!</string>
+    <string name="upload_failed">Przesyłanie nie powiodło się</string>
+
+    <!-- Audio Trimmer -->
+    <string name="trim_audio_title">Przytnij audio</string>
+    <string name="loading_audio">Ładowanie audio…</string>
+    <string name="duration_label">Czas trwania</string>
+    <string name="estimated_size_label">Szacowany rozmiar</string>
+    <string name="file_too_large_warning">Plik za duży! Maks. ~12 sekund (98 KB).</string>
+    <string name="trim_and_upload">Przytnij i wgraj</string>
+    <string name="fine_adjustment">Precyzyjna edycja</string>
+    <string name="start_label">Początek</string>
+    <string name="drag_to_adjust_hint">Przeciągnij, by przesunąć zaznaczenie.</string>
+
+    <!-- Pairing UI -->
+    <string name="setup_new_device">Konfiguracja nowego urządzenia</string>
+    <string name="pairing_subtitle">Wykonaj te kroki, aby sparować urządzenie</string>
+    <string name="pairing_step1_title">Tryb parowania</string>
+    <string name="pairing_step1_desc">Przyciśnij zegar na 2 sekundy</string>
+    <string name="pairing_step2_title">Poczekaj na sygnał</string>
+    <string name="pairing_step2_desc">Ikona Bluetooth na urządzeniu zacznie migać</string>
+    <string name="pairing_step3_title">Połącz</string>
+    <string name="pairing_step3_desc">Stuknij przycisk poniżej, aby sparować</string>
+    <string name="pair_and_connect">Sparuj i połącz</string>
+    <string name="unpair_device">Rozparuj urządzenie</string>
+    <string name="unpair_confirm_title">Rozparować urządzenie?</string>
+    <string name="unpair_confirm_message">Przed ponownym połączeniem będziesz musiał znowu sparować urządzenie.</string>
+    <string name="unpair_confirm">Odłącz</string>
+
+    <!-- Local Settings -->
+    <string name="local_settings_header">Ustawienia lokalne</string>
+    <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zegarze.</string>
 </resources>

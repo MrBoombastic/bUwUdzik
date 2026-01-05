@@ -9,13 +9,21 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,8 +37,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -38,6 +50,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +61,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -107,13 +126,56 @@ class MainViewModel(
     private val _isBluetoothEnabled = MutableStateFlow(false)
     val isBluetoothEnabled: StateFlow<Boolean> = _isBluetoothEnabled.asStateFlow()
 
+    private val _isPaired = MutableStateFlow(false)
+    val isPaired: StateFlow<Boolean> = _isPaired.asStateFlow()
+
     val clockController = QingpingController(applicationContext)
+
+    // Expose disconnection event from controller
+    val disconnectionEvent = clockController.disconnectionEvent
+
+    fun clearDisconnectionEvent() {
+        clockController.clearDisconnectionEvent()
+    }
+    
+    /**
+     * Check pairing status and update state
+     */
+    fun checkPairingStatus() {
+        val mac = settingsRepository.targetMacAddress
+        _isPaired.value = if (mac.isNotEmpty()) clockController.isDevicePaired(mac) else false
+    }
+    
+    /**
+     * Remove pairing (stored token) for the current target device
+     */
+    fun unpairDevice() {
+        val mac = settingsRepository.targetMacAddress
+        if (mac.isNotEmpty()) {
+            clockController.unpairDevice(mac)
+            checkPairingStatus()
+        }
+    }
+
+    /**
+     * Handle unexpected device disconnection - reset state but don't manually disconnect
+     */
+    fun handleUnexpectedDisconnect() {
+        rssiPollJob?.cancel()
+        rssiPollJob = null
+        _clockConnected.value = false
+        _clockConnecting.value = false
+        Log.d("MainViewModel", "Handled unexpected disconnect, starting scan")
+        startScanning()
+    }
 
     private var scanJob: Job? = null
     private var rssiPollJob: Job? = null
+    private var connectionJob: Job? = null
 
     init {
         _isBluetoothEnabled.value = BluetoothUtils.isBluetoothEnabled(applicationContext)
+        checkPairingStatus()
     }
 
     fun updateBluetoothState(enabled: Boolean) {
@@ -139,8 +201,13 @@ class MainViewModel(
         scanJob = viewModelScope.launch {
             scanner.scan(targetMac, scanMode).collect { data ->
                 Log.d("MainViewModel", "Received data: $data")
-                _sensorData.value = data
-                sensorRepository.saveSensorData(data)
+                val correctedBattery = BluetoothUtils.correctBatteryLevel(
+                    data.battery,
+                    settingsRepository.batteryType
+                )
+                val correctedData = data.copy(battery = correctedBattery)
+                _sensorData.value = correctedData
+                sensorRepository.saveSensorData(correctedData)
             }
         }
     }
@@ -154,34 +221,40 @@ class MainViewModel(
     }
 
     fun connectToClock(reloadAlarms: Boolean = true) {
+        if (_clockConnecting.value || _clockConnected.value) return
+
+        val targetMac = settingsRepository.targetMacAddress
+        if (targetMac.isEmpty()) {
+            Log.e("MainViewModel", "No target MAC address configured")
+            return
+        }
+
+        _clockConnecting.value = true
+        // Stop scanning before connecting
         scanJob?.cancel()
-        viewModelScope.launch {
+        
+        // Cancel any previous connection attempt
+        connectionJob?.cancel()
+
+        connectionJob = viewModelScope.launch {
             try {
-                if (reloadAlarms) {
-                    _clockConnecting.value = true
-                    _clockConnected.value = false
-                }
-                Log.d("MainViewModel", "Starting clock connection...")
-
-                val targetMac = settingsRepository.targetMacAddress
+                // Get BluetoothDevice
                 val bluetoothManager =
-                    applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                val adapter = bluetoothManager?.adapter
-                val device = adapter?.getRemoteDevice(targetMac)
+                    applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+                val adapter = bluetoothManager.adapter
+                val device = adapter.getRemoteDevice(targetMac)
 
-                if (device == null) {
-                    Log.e("MainViewModel", "Device not found: $targetMac")
-                    return@launch
-                }
-
-                val connected = clockController.connectAndAuthenticate(device)
-                if (connected) {
+                val success = clockController.connectAndAuthenticate(device)
+                if (success) {
                     _clockConnected.value = true
-                    scanJob?.cancel()
-
+                    checkPairingStatus()
+                    
                     // Setup real-time updates
                     clockController.onSensorData = { temperature, humidity ->
-                        _sensorData.value = _sensorData.value?.copy(
+                        val currentData = _sensorData.value
+                        val targetMac = settingsRepository.targetMacAddress
+                        
+                        _sensorData.value = currentData?.copy(
                             temperature = temperature.toDouble(),
                             humidity = humidity.toDouble(),
                             timestamp = System.currentTimeMillis()
@@ -318,9 +391,25 @@ class MainViewModel(
         }
     }
 
+    fun reloadDeviceSettings() {
+        viewModelScope.launch {
+            try {
+                Log.d("MainViewModel", "Reloading device settings...")
+                val settings = clockController.readDeviceSettings()
+                val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
+                _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
+                Log.d("MainViewModel", "Reloaded device settings")
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Error reloading device settings", e)
+            }
+        }
+    }
+
     fun disconnectFromClock() {
         rssiPollJob?.cancel()
         rssiPollJob = null
+        connectionJob?.cancel()
+        connectionJob = null
         clockController.disconnect()
         _clockConnected.value = false
         Log.d("MainViewModel", "Disconnected from clock, restarting scan.")
@@ -444,16 +533,111 @@ class MainActivity : AppCompatActivity() {
                     val startDestination =
                         if (settingsRepository.isSetupCompleted) "home" else "setup"
 
-                    NavHost(navController = navController, startDestination = startDestination) {
-                        composable("setup") { DeviceSetupScreen(navController) }
-                        composable("home") { HomeScreen(viewModel, navController) }
-                        composable("settings") { SettingsScreen(navController, viewModel) }
-                        composable("alarms") { AlarmManagementScreen(navController, viewModel) }
-                        composable("device-settings") {
-                            DeviceSettingsScreen(
-                                navController,
-                                viewModel
+                    // Handle disconnection events
+                    val disconnectionEvent by viewModel.disconnectionEvent.collectAsState()
+                    val snackbarHostState = remember { SnackbarHostState() }
+                    val disconnectedMessage = stringResource(R.string.device_disconnected)
+
+                    LaunchedEffect(disconnectionEvent) {
+                        disconnectionEvent?.let { reason ->
+                            // Reset connection state FIRST
+                            viewModel.handleUnexpectedDisconnect()
+                            
+                            // Navigate to home screen
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = true }
+                            }
+                            // Show snackbar with reason
+                            snackbarHostState.showSnackbar(
+                                message = "$disconnectedMessage: ${reason.message}",
+                                duration = SnackbarDuration.Long
                             )
+                            // Clear the event
+                            viewModel.clearDisconnectionEvent()
+                        }
+                    }
+
+                    Scaffold(
+                        snackbarHost = { SnackbarHost(snackbarHostState) }
+                    ) { padding ->
+                        NavHost(
+                            navController = navController,
+                            startDestination = startDestination,
+                            modifier = Modifier.padding(padding),
+                            enterTransition = {
+                                slideInHorizontally(
+                                    initialOffsetX = { fullWidth -> fullWidth },
+                                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(300))
+                            },
+                            exitTransition = {
+                                slideOutHorizontally(
+                                    targetOffsetX = { fullWidth -> -fullWidth / 4 },
+                                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(150))
+                            },
+                            popEnterTransition = {
+                                slideInHorizontally(
+                                    initialOffsetX = { fullWidth -> -fullWidth / 4 },
+                                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                ) + fadeIn(animationSpec = tween(300))
+                            },
+                            popExitTransition = {
+                                slideOutHorizontally(
+                                    targetOffsetX = { fullWidth -> fullWidth },
+                                    animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                ) + fadeOut(animationSpec = tween(150))
+                            }
+                        ) {
+                            composable("setup") { DeviceSetupScreen(navController) }
+                            composable("home") { HomeScreen(viewModel, navController) }
+                            composable("settings") { 
+                                // Handle system back to properly navigate back or to home
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                SettingsScreen(navController, viewModel) 
+                            }
+                            composable("alarms") { 
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                AlarmManagementScreen(navController, viewModel) 
+                            }
+                            composable("device-settings") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceSettingsScreen(
+                                    navController,
+                                    viewModel
+                                )
+                            }
+                            composable("ringtone-upload") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                RingtoneUploadScreen(
+                                    navController,
+                                    viewModel
+                                )
+                            }
                         }
                     }
                 }
@@ -579,6 +763,36 @@ fun Dashboard(
 ) {
     val clockConnected by viewModel.clockConnected.collectAsState()
     val clockConnecting by viewModel.clockConnecting.collectAsState()
+    val isPaired by viewModel.isPaired.collectAsState()
+    var showUnpairDialog by remember { mutableStateOf(false) }
+
+    // Unpair confirmation dialog
+    if (showUnpairDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnpairDialog = false },
+            title = { Text(stringResource(R.string.unpair_confirm_title)) },
+            text = { Text(stringResource(R.string.unpair_confirm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUnpairDialog = false
+                        viewModel.disconnectFromClock()
+                        viewModel.unpairDevice()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(stringResource(R.string.unpair_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnpairDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier.padding(16.dp),
@@ -648,15 +862,167 @@ fun Dashboard(
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stringResource(R.string.connecting_to_clock),
+                    text = stringResource(R.string.connecting_to_device),
                     style = MaterialTheme.typography.bodyMedium
                 )
             } else if (!clockConnected) {
+                if (!isPaired) {
+                    ElevatedCard(
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .padding(bottom = 24.dp),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Header with icon
+                            Icon(
+                                Icons.Default.PhonelinkSetup,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                stringResource(R.string.setup_new_device),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.pairing_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Step 1
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("1", fontWeight = FontWeight.Bold, 
+                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        stringResource(R.string.pairing_step1_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        stringResource(R.string.pairing_step1_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Step 2
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("2", fontWeight = FontWeight.Bold,
+                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        stringResource(R.string.pairing_step2_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        stringResource(R.string.pairing_step2_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            // Step 3
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.small,
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("3", fontWeight = FontWeight.Bold,
+                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        stringResource(R.string.pairing_step3_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        stringResource(R.string.pairing_step3_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Button(
                     onClick = { viewModel.connectToClock() },
                     modifier = Modifier.fillMaxWidth(0.8f)
                 ) {
-                    Text(stringResource(R.string.connect_to_clock))
+                    Text(if (isPaired) stringResource(R.string.connect_to_device) else stringResource(R.string.pair_and_connect))
+                }
+                
+                if (isPaired) {
+                    TextButton(
+                        onClick = { showUnpairDialog = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null, 
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.unpair_device))
+                    }
                 }
             } else {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -681,6 +1047,16 @@ fun Dashboard(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
+                    
+                    if (isPaired) {
+                        MenuTile(
+                            title = stringResource(R.string.unpair_device),
+                            icon = Icons.Default.Warning,
+                            onClick = { showUnpairDialog = true },
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    }
                 }
             }
         }

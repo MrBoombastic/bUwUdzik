@@ -12,6 +12,7 @@ import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,27 @@ import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/**
+ * Reason for BLE disconnection
+ */
+sealed class DisconnectionReason(val message: String) {
+    data object DeviceTerminated : DisconnectionReason("Device terminated connection")
+    data object ConnectionTimeout : DisconnectionReason("Connection timeout")
+    data object LinkLost : DisconnectionReason("Link lost")
+    data object UserRequested : DisconnectionReason("User requested disconnect")
+    data class Unknown(val status: Int) : DisconnectionReason("Disconnected (status: $status)")
+
+    companion object {
+        fun fromGattStatus(status: Int): DisconnectionReason = when (status) {
+            0 -> UserRequested // GATT_SUCCESS - normal disconnect
+            8 -> ConnectionTimeout // GATT_CONN_TIMEOUT
+            19 -> DeviceTerminated // GATT_CONN_TERMINATE_PEER_USER
+            22 -> LinkLost // GATT_CONN_TERMINATE_LOCAL_HOST
+            else -> Unknown(status)
+        }
+    }
+}
+
 data class DeviceSettings(
     val tempUnit: TempUnit = TempUnit.Celsius,
     val timeFormat: TimeFormat = TimeFormat.H24,
@@ -46,8 +68,67 @@ data class DeviceSettings(
     val nightEndHour: Int = 7,
     val nightEndMinute: Int = 0,
     val nightModeEnabled: Boolean = true,
-    val firmwareVersion: String = ""
-)
+    val masterAlarmDisabled: Boolean = true,
+    val firmwareVersion: String = "",
+    val ringtoneSignature: ByteArray = byteArrayOf(
+        0xba.toByte(),
+        0x2c.toByte(),
+        0x2c.toByte(),
+        0x8c.toByte()
+    )
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as DeviceSettings
+        return tempUnit == other.tempUnit &&
+                timeFormat == other.timeFormat &&
+                language == other.language &&
+                volume == other.volume &&
+                timezoneOffset == other.timezoneOffset &&
+                timezoneSign == other.timezoneSign &&
+                nightModeBrightness == other.nightModeBrightness &&
+                backlightDuration == other.backlightDuration &&
+                screenBrightness == other.screenBrightness &&
+                nightStartHour == other.nightStartHour &&
+                nightStartMinute == other.nightStartMinute &&
+                nightEndHour == other.nightEndHour &&
+                nightEndMinute == other.nightEndMinute &&
+                nightModeEnabled == other.nightModeEnabled &&
+                masterAlarmDisabled == other.masterAlarmDisabled &&
+                firmwareVersion == other.firmwareVersion &&
+                ringtoneSignature.contentEquals(other.ringtoneSignature)
+    }
+
+    override fun hashCode(): Int {
+        var result = tempUnit.hashCode()
+        result = 31 * result + timeFormat.hashCode()
+        result = 31 * result + language.hashCode()
+        result = 31 * result + volume
+        result = 31 * result + timezoneOffset
+        result = 31 * result + timezoneSign.hashCode()
+        result = 31 * result + nightModeBrightness
+        result = 31 * result + backlightDuration
+        result = 31 * result + screenBrightness
+        result = 31 * result + nightStartHour
+        result = 31 * result + nightStartMinute
+        result = 31 * result + nightEndHour
+        result = 31 * result + nightEndMinute
+        result = 31 * result + nightModeEnabled.hashCode()
+        result = 31 * result + masterAlarmDisabled.hashCode()
+        result = 31 * result + firmwareVersion.hashCode()
+        result = 31 * result + ringtoneSignature.contentHashCode()
+        return result
+    }
+
+    fun getRingtoneName(): String {
+        // Check for custom slots first
+        QingpingController.getCustomSlotName(ringtoneSignature)?.let { return it }
+        // Then check standard ringtones
+        return QingpingController.RINGTONE_SIGNATURES.entries
+            .find { it.value.contentEquals(ringtoneSignature) }?.key ?: "Unknown"
+    }
+}
 
 enum class TempUnit { Celsius, Fahrenheit }
 enum class TimeFormat { H24, H12 }
@@ -89,7 +170,7 @@ class QingpingController(private val context: Context) {
     }
 
     companion object {
-        private const val TAG = "QingpingCGD1Controller"
+        private const val TAG = "QingpingController"
 
         // UUIDs for Qingping CGD1
         private val UUID_AUTH_WRITE = UUID.fromString("00000001-0000-1000-8000-00805f9b34fb")
@@ -100,27 +181,125 @@ class QingpingController(private val context: Context) {
         private val UUID_CLIENT_CHARACTERISTIC_CONFIG =
             UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
-        // Magic login packet (Replay Attack method)
-        private val MAGIC_LOGIN_PACKET = byteArrayOf(
-            0x11.toByte(),
-            0x02.toByte(),
-            0xb7.toByte(),
-            0x5a.toByte(),
-            0x1e.toByte(),
-            0x4e.toByte(),
-            0x73.toByte(),
-            0x70.toByte(),
-            0xe3.toByte(),
-            0x95.toByte(),
-            0x23.toByte(),
-            0x63.toByte(),
-            0xf7.toByte(),
-            0x46.toByte(),
-            0xee.toByte(),
-            0x7c.toByte(),
-            0x90.toByte(),
-            0x09.toByte()
+        // Known ringtone signatures from https://qingplus.cleargrass.com/raw/rings
+        val RINGTONE_SIGNATURES = mapOf(
+            "Beep" to byteArrayOf(0xfd.toByte(), 0xc3.toByte(), 0x66.toByte(), 0xa5.toByte()),
+            "Digital Ringtone" to byteArrayOf(
+                0x09.toByte(),
+                0x61.toByte(),
+                0xbb.toByte(),
+                0x77.toByte()
+            ),
+            "Digital Ringtone 2" to byteArrayOf(
+                0xba.toByte(),
+                0x2c.toByte(),
+                0x2c.toByte(),
+                0x8c.toByte()
+            ),
+            "Cuckoo" to byteArrayOf(0xea.toByte(), 0x2d.toByte(), 0x4c.toByte(), 0x02.toByte()),
+            "Telephone" to byteArrayOf(0x79.toByte(), 0x1b.toByte(), 0xac.toByte(), 0xb3.toByte()),
+            "Exotic Guitar" to byteArrayOf(
+                0x1d.toByte(),
+                0x01.toByte(),
+                0x9f.toByte(),
+                0xd6.toByte()
+            ),
+            "Lively Piano" to byteArrayOf(
+                0x6e.toByte(),
+                0x70.toByte(),
+                0xb6.toByte(),
+                0x59.toByte()
+            ),
+            "Story Piano" to byteArrayOf(
+                0x8f.toByte(),
+                0x00.toByte(),
+                0x48.toByte(),
+                0x86.toByte()
+            ),
+            "Forest Piano" to byteArrayOf(
+                0x26.toByte(),
+                0x52.toByte(),
+                0x25.toByte(),
+                0x19.toByte()
+            )
         )
+
+        // Custom ringtone slots with alternating IDs (dead/beef)
+        val CUSTOM_RINGTONE_SLOT_1 =
+            byteArrayOf(0xde.toByte(), 0xad.toByte(), 0xde.toByte(), 0xad.toByte()) // dead
+        val CUSTOM_RINGTONE_SLOT_2 =
+            byteArrayOf(0xbe.toByte(), 0xef.toByte(), 0xbe.toByte(), 0xef.toByte()) // beef
+
+        /**
+         * Get the appropriate custom slot to use (alternates between dead and beef based on current)
+         */
+        fun getCustomSlotSignature(currentSignature: ByteArray?): ByteArray {
+            return if (currentSignature?.contentEquals(CUSTOM_RINGTONE_SLOT_1) == true) {
+                CUSTOM_RINGTONE_SLOT_2 // Current is dead, use beef
+            } else {
+                CUSTOM_RINGTONE_SLOT_1 // Current is beef or other, use dead
+            }
+        }
+
+
+        /**
+         * Get custom slot name for display
+         */
+        fun getCustomSlotName(signature: ByteArray): String? {
+            return when {
+                signature.contentEquals(CUSTOM_RINGTONE_SLOT_1) -> "Custom" // doesn't matter for end user
+                signature.contentEquals(CUSTOM_RINGTONE_SLOT_2) -> "Custom"
+                else -> null
+            }
+        }
+
+        // Token size in bytes
+        private const val TOKEN_SIZE = 16
+    }
+    
+    // Token storage for persistence
+    private val tokenStorage = TokenStorage(context)
+    
+    // Current device being connected to
+    private var currentDeviceMac: String? = null
+    private var currentToken: ByteArray? = null
+    
+    // Build auth packets dynamically from current token
+    private fun buildAuthInitPacket(): ByteArray {
+        val token = currentToken ?: throw IllegalStateException("No token set")
+        return byteArrayOf(0x11.toByte(), 0x01.toByte()) + token
+    }
+    
+    private fun buildAuthConfirmPacket(): ByteArray {
+        val token = currentToken ?: throw IllegalStateException("No token set")
+        return byteArrayOf(0x11.toByte(), 0x02.toByte()) + token
+    }
+    
+    /**
+     * Check if a device is already paired (has stored token).
+     */
+    fun isDevicePaired(macAddress: String): Boolean = tokenStorage.isPaired(macAddress)
+    
+    /**
+     * Remove pairing (stored token) for a device.
+     */
+    fun unpairDevice(macAddress: String) {
+        tokenStorage.removeToken(macAddress)
+    }
+    
+    /**
+     * Prepare token for connection. If device is already paired, use stored token.
+     * Otherwise, generate a new random token for pairing.
+     */
+    private fun prepareTokenForDevice(macAddress: String): ByteArray {
+        val existingToken = tokenStorage.getToken(macAddress)
+        return if (existingToken != null) {
+            Log.d(TAG, "Using stored token for $macAddress")
+            existingToken
+        } else {
+            Log.d(TAG, "Generating new token for $macAddress (fresh pairing)")
+            tokenStorage.generateAndStoreToken(macAddress)
+        }
     }
 
     private var gatt: BluetoothGatt? = null
@@ -138,46 +317,77 @@ class QingpingController(private val context: Context) {
     private var alarmCompletionJob: kotlinx.coroutines.Job? = null
     private var sensorNotificationContinuation: Continuation<Boolean>? = null
     private var lastSettingsPacket: ByteArray? = null
+    private var pendingAuthWriteChar: BluetoothGattCharacteristic? = null // For two-step auth
+    private var authInitAckReceived = false // Set when 04 ff 01 received, cleared after 11 02 sent
 
     // Track which characteristic we're waiting for descriptor write
     private var pendingAuthWrite: BluetoothGattCharacteristic? = null
     private var pendingDataCommand: ByteArray? = null
+
+    // Track which notifications are already enabled to avoid GATT_BUSY errors
+    private val enabledNotifications = mutableSetOf<UUID>()
+
+    // Write completion for audio upload - using CompletableDeferred for thread safety
+    private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
     // Sensor stream callback
     var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
     var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     var onLastUpdated: ((timestamp: Long) -> Unit)? = null
 
-    private fun handleAckNotification(value: ByteArray) {
-        if (value.size >= 4 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
-            val cmdId = value[2].toInt() and 0xFF
-            val status = value[3].toInt() and 0xFF
+    // Disconnection event with reason
+    private val _disconnectionEvent = MutableStateFlow<DisconnectionReason?>(null)
+    val disconnectionEvent = _disconnectionEvent.asStateFlow()
 
-            val cmdName = when (cmdId) {
-                0x01 -> "Settings"
-                0x02 -> "Auth"
-                0x03 -> "Brightness Preview"
-                0x04 -> "Preview Ringtone"
-                0x05 -> "Alarm"
-                0x09 -> "Time Sync"
-                else -> "Cmd $cmdId"
-            }
-            Log.d(TAG, "Received ACK for $cmdName with status $status")
-
-            if (status == 0x00) {
-                if (cmdId == 0x02) {
-                    Log.d(TAG, "Authentication successful via ACK")
-                    isAuthenticated = true
-                }
-                pendingAckContinuations.remove(cmdId)?.resume(true)
-            } else {
-                Log.e(TAG, "$cmdName failed with status $status")
-                pendingAckContinuations.remove(cmdId)
-                    ?.resumeWithException(Exception("$cmdName failed: $status"))
-            }
-        }
+    /**
+     * Clear the disconnection event after handling it
+     */
+    fun clearDisconnectionEvent() {
+        _disconnectionEvent.value = null
     }
 
+    private fun handleAckNotification(value: ByteArray) {
+    if (value.size >= 4 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
+        val cmdId = value[2].toInt() and 0xFF
+        val status = value[3].toInt() and 0xFF
+
+        val cmdName = when (cmdId) {
+            0x01 -> "Auth Init"
+            0x02 -> "Auth Confirm"
+            0x03 -> "Brightness Preview"
+            0x04 -> "Preview Ringtone"
+            0x05 -> "Alarm"
+            0x08 -> "Audio Block"
+            0x09 -> "Time Sync"
+            0x10 -> "Audio Init"
+            else -> "Cmd $cmdId"
+        }
+        Log.d(TAG, "Received ACK for $cmdName with status $status")
+
+        // Handle audio upload ACKs
+        if (cmdId == 0x08 || cmdId == 0x10) {
+            handleUploadAck(value)
+        }
+
+        if (status == 0x00 || status == 0x09 || (cmdId == 0x01 && status == 0x02)) {
+            // cmdId 0x01 = Auth Init success, mark that we need to send Auth Confirm
+            if (cmdId == 0x01) {
+                Log.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
+                authInitAckReceived = true
+                // Don't write here - wait for onCharacteristicWrite callback
+            } else if (cmdId == 0x02) {
+                Log.d(TAG, "Authentication successful!")
+                isAuthenticated = true
+                pendingAuthWriteChar = null
+            }
+            pendingAckContinuations.remove(cmdId)?.resume(true)
+        } else {
+            Log.e(TAG, "$cmdName failed with status $status")
+            pendingAckContinuations.remove(cmdId)
+                ?.resumeWithException(Exception("$cmdName failed: $status"))
+        }
+    }
+}
     private val gattCallback = object : BluetoothGattCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
@@ -192,7 +402,11 @@ class QingpingController(private val context: Context) {
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     isConnected = false
                     isAuthenticated = false
-                    Log.d(TAG, "Disconnected from GATT server")
+                    enabledNotifications.clear()
+                    Log.d(TAG, "Disconnected from GATT server (status: $status)")
+
+                    // Emit disconnection event with reason
+                    _disconnectionEvent.value = DisconnectionReason.fromGattStatus(status)
 
                     connectContinuation?.resumeWithException(Exception("Disconnected"))
                     connectContinuation = null
@@ -253,8 +467,17 @@ class QingpingController(private val context: Context) {
                 }
 
                 UUID_DATA_NOTIFY -> {
-                    if (value.size >= 4 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
-                        handleAckNotification(value)
+                    // Check for audio upload ACKs first (04 ff 08/10 XX)
+                    if (value.size >= 3 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
+                        val cmdId = value[2].toInt() and 0xFF
+                        // Handle audio upload ACKs
+                        if (cmdId == 0x08 || cmdId == 0x10) {
+                            handleUploadAck(value)
+                        }
+                        // Also handle as regular ACK if size >= 4
+                        if (value.size >= 4) {
+                            handleAckNotification(value)
+                        }
                     } else if (value.size >= 3 && value[0] == 0x11.toByte() && value[1] == 0x06.toByte()) {
                         val baseIndex = value[2].toInt() and 0xFF
                         Log.d(TAG, "Parsing alarms packet starting at index $baseIndex")
@@ -323,6 +546,18 @@ class QingpingController(private val context: Context) {
                             val tzSign = value[13].toInt() == 1
                             val nightModeEnabled = value[14].toInt() == 1
 
+                            // Parse ringtone signature from bytes 16-19
+                            val ringtoneSig = if (value.size >= 20) {
+                                byteArrayOf(value[16], value[17], value[18], value[19])
+                            } else {
+                                byteArrayOf(
+                                    0xba.toByte(),
+                                    0x2c.toByte(),
+                                    0x2c.toByte(),
+                                    0x8c.toByte()
+                                )
+                            }
+
                             val settings = DeviceSettings(
                                 tempUnit = if (flags and 0x04 != 0) TempUnit.Fahrenheit else TempUnit.Celsius,
                                 timeFormat = if (flags and 0x02 != 0) TimeFormat.H12 else TimeFormat.H24,
@@ -337,7 +572,9 @@ class QingpingController(private val context: Context) {
                                 nightStartMinute = value[10].toInt() and 0xFF,
                                 nightEndHour = value[11].toInt() and 0xFF,
                                 nightEndMinute = value[12].toInt() and 0xFF,
-                                nightModeEnabled = nightModeEnabled
+                                nightModeEnabled = nightModeEnabled,
+                                masterAlarmDisabled = (flags and 0x10) != 0,
+                                ringtoneSignature = ringtoneSig
                             )
                             deviceSettingsReadContinuation?.resume(settings)
                             deviceSettingsReadContinuation = null
@@ -376,8 +613,27 @@ class QingpingController(private val context: Context) {
             gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int
         ) {
             Log.d(TAG, "onCharacteristicWrite ${characteristic?.uuid} status=$status")
+            val deferred = writeCompleteDeferred
+            writeCompleteDeferred = null
+
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 Log.e(TAG, "Write failed for ${characteristic?.uuid} with status $status")
+                deferred?.complete(false)
+            } else {
+                deferred?.complete(true)
+                
+                // Check if we need to send Auth Confirm (11 02) after Auth Init write completes
+                if (authInitAckReceived && characteristic?.uuid == UUID_AUTH_WRITE) {
+                    authInitAckReceived = false // Clear flag
+                    Log.d(TAG, "Auth Init write complete, now sending Auth Confirm (11 02)...")
+                    pendingAuthWriteChar?.let { char ->
+                        gatt?.writeCharacteristic(
+                            char,
+                            buildAuthConfirmPacket(),
+                            BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                        )
+                    }
+                }
             }
         }
 
@@ -392,10 +648,11 @@ class QingpingController(private val context: Context) {
                 when (descriptor?.characteristic?.uuid) {
                     UUID_AUTH_NOTIFY -> {
                         pendingAuthWrite?.let { char ->
-                            Log.d(TAG, "Descriptor write complete, now sending auth packet...")
+                            Log.d(TAG, "Descriptor write complete, sending Auth Init (11 01)...")
+                            pendingAuthWriteChar = char // Save for second step
                             gatt?.writeCharacteristic(
                                 char,
-                                MAGIC_LOGIN_PACKET,
+                                buildAuthInitPacket(),
                                 BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                             )
                             pendingAuthWrite = null
@@ -458,7 +715,14 @@ class QingpingController(private val context: Context) {
         }
     }
 
+    @Suppress("SameReturnValue")
     suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
+        // Prepare token for this device (generate new if fresh pairing, use stored if already paired)
+        val macAddress = device.address
+        currentDeviceMac = macAddress
+        currentToken = prepareTokenForDevice(macAddress)
+        Log.d(TAG, "Token prepared for $macAddress: ${currentToken?.toHexString()}")
+        
         if (!isConnected) {
             connect(device)
         }
@@ -603,32 +867,49 @@ class QingpingController(private val context: Context) {
             val dataService =
                 currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
             val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+            val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
 
-            if (dataWriteChar == null) {
-                continuation.resumeWithException(Exception("Data write characteristic not found"))
+            if (dataWriteChar == null || dataNotifyChar == null) {
+                continuation.resumeWithException(Exception("Data characteristics not found"))
                 return@suspendCancellableCoroutine
             }
 
-            val dataNotifyChar = dataService.getCharacteristic(UUID_DATA_NOTIFY)
-            currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-            val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+            val command = byteArrayOf(0x01, 0x02)
 
-            pendingDataCommand = byteArrayOf(0x01, 0x02)
-            Log.d(TAG, "Enabling data notifications for settings...")
-
-            descriptor?.let {
-                val status = currentGatt.writeDescriptor(
-                    it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            // Check if notifications already enabled
+            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+                Log.d(TAG, "Data notifications already enabled, sending command directly...")
+                val status = currentGatt.writeCharacteristic(
+                    dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    deviceSettingsReadContinuation?.resumeWithException(Exception("writeDescriptor failed for settings: $status"))
+                    deviceSettingsReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for settings: $status"))
+                    deviceSettingsReadContinuation = null
+                }
+            } else {
+                // Need to enable notifications first
+                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+
+                pendingDataCommand = command
+                Log.d(TAG, "Enabling data notifications for settings...")
+
+                descriptor?.let {
+                    val status = currentGatt.writeDescriptor(
+                        it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        deviceSettingsReadContinuation?.resumeWithException(Exception("writeDescriptor failed for settings: $status"))
+                        deviceSettingsReadContinuation = null
+                        pendingDataCommand = null
+                    } else {
+                        enabledNotifications.add(UUID_DATA_NOTIFY)
+                    }
+                } ?: run {
+                    deviceSettingsReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
                     deviceSettingsReadContinuation = null
                     pendingDataCommand = null
                 }
-            } ?: run {
-                deviceSettingsReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
-                deviceSettingsReadContinuation = null
-                pendingDataCommand = null
             }
 
             continuation.invokeOnCancellation {
@@ -681,6 +962,7 @@ class QingpingController(private val context: Context) {
         writeDeviceSettingsInternal(settings)
     }
 
+
     private suspend fun writeCharacteristicWithRetry(
         characteristic: BluetoothGattCharacteristic, value: ByteArray, retryCount: Int = 3
     ): Boolean {
@@ -716,26 +998,35 @@ class QingpingController(private val context: Context) {
 
                     pendingAckContinuations[0x01] = continuation
 
-                    var flags = 0
-                    if (settings.language == Language.English) flags = flags or 0x01
-                    if (settings.timeFormat == TimeFormat.H12) flags = flags or 0x02
-                    if (settings.tempUnit == TempUnit.Fahrenheit) flags = flags or 0x04
+                    // Use last packet as template to preserve unknown/header bytes, fallback to defaults
+                    val payload = lastSettingsPacket?.copyOf() ?: ByteArray(20).apply {
+                        this[0] = 0x13.toByte()
+                        this[3] = 0x58.toByte()
+                        this[4] = 0x02.toByte()
+                    }
 
-                    val packedBrightness = ((settings.screenBrightness / 10).coerceIn(
-                        0, 15
-                    ) shl 4) or (settings.nightModeBrightness / 10).coerceIn(0, 15)
-
-                    val payload = ByteArray(20)
+                    // Always ensure Command ID and Sub-command are correct for Set Settings
                     payload[0] = 0x13.toByte()
                     payload[1] = 0x01.toByte()
+
+                    // Update Volume
                     payload[2] = settings.volume.coerceIn(1, 5).toByte()
-                    payload[3] = 0x58.toByte()
-                    payload[4] = 0x02.toByte()
+
+                    // Update Flags bit by bit to preserve unknown bits
+                    var flags = payload.getOrNull(5)?.toInt()?.and(0xFF) ?: 0
+                    flags = if (settings.language == Language.English) flags or 0x01 else flags and 0x01.inv()
+                    flags = if (settings.timeFormat == TimeFormat.H12) flags or 0x02 else flags and 0x02.inv()
+                    flags = if (settings.tempUnit == TempUnit.Fahrenheit) flags or 0x04 else flags and 0x04.inv()
+                    flags = if (settings.masterAlarmDisabled) flags or 0x10 else flags and 0x10.inv()
                     payload[5] = flags.toByte()
+
+                    // Update Timezone, Duration and Packed Brightness
                     payload[6] = settings.timezoneOffset.toByte()
                     payload[7] = settings.backlightDuration.toByte()
-                    payload[8] = packedBrightness.toByte()
+                    payload[8] = (((settings.screenBrightness / 10).coerceIn(0, 15) shl 4) or
+                            (settings.nightModeBrightness / 10).coerceIn(0, 15)).toByte()
 
+                    // Night Mode Schedule
                     if (settings.nightModeEnabled) {
                         payload[9] = settings.nightStartHour.toByte()
                         payload[10] = settings.nightStartMinute.toByte()
@@ -750,13 +1041,18 @@ class QingpingController(private val context: Context) {
                         payload[12] = 1
                     }
 
+                    // Metadata bits
                     payload[13] = (if (settings.timezoneSign) 1 else 0).toByte()
                     payload[14] = (if (settings.nightModeEnabled) 1 else 0).toByte()
-                    payload[15] = lastSettingsPacket?.let { if (it.size > 15) it[15] else 0 } ?: 0
-                    payload[16] = 0xba.toByte()
-                    payload[17] = 0x2c.toByte()
-                    payload[18] = 0x2c.toByte()
-                    payload[19] = 0x8c.toByte()
+
+                    // Update Ringtone Signature
+                    val sig = settings.ringtoneSignature
+                    if (sig.size >= 4) {
+                        payload[16] = sig[0]
+                        payload[17] = sig[1]
+                        payload[18] = sig[2]
+                        payload[19] = sig[3]
+                    }
 
                     val dataService =
                         currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
@@ -1005,25 +1301,42 @@ class QingpingController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-            val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+            val command = byteArrayOf(0x01, 0x06)
 
-            pendingDataCommand = byteArrayOf(0x01, 0x06)
-            Log.d(TAG, "Enabling data notifications for alarms...")
-
-            descriptor?.let {
-                val status = currentGatt.writeDescriptor(
-                    it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            // Check if notifications already enabled
+            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+                Log.d(TAG, "Data notifications already enabled, sending command directly...")
+                val status = currentGatt.writeCharacteristic(
+                    dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    alarmReadContinuation?.resumeWithException(Exception("writeDescriptor failed for alarms: $status"))
+                    alarmReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for alarms: $status"))
+                    alarmReadContinuation = null
+                }
+            } else {
+                // Need to enable notifications first
+                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+
+                pendingDataCommand = command
+                Log.d(TAG, "Enabling data notifications for alarms...")
+
+                descriptor?.let {
+                    val status = currentGatt.writeDescriptor(
+                        it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        alarmReadContinuation?.resumeWithException(Exception("writeDescriptor failed for alarms: $status"))
+                        alarmReadContinuation = null
+                        pendingDataCommand = null
+                    } else {
+                        enabledNotifications.add(UUID_DATA_NOTIFY)
+                    }
+                } ?: run {
+                    alarmReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
                     alarmReadContinuation = null
                     pendingDataCommand = null
                 }
-            } ?: run {
-                alarmReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
-                alarmReadContinuation = null
-                pendingDataCommand = null
             }
 
             continuation.invokeOnCancellation {
@@ -1060,7 +1373,7 @@ class QingpingController(private val context: Context) {
         writeToDataCharacteristic(command, 0x04)
     }
 
-    private suspend fun writeToDataCharacteristic(command: ByteArray, ackId: Int): Boolean =
+    private suspend fun writeToDataCharacteristic(command: ByteArray, @Suppress("SameParameterValue") ackId: Int): Boolean =
         suspendCancellableCoroutine { continuation ->
             val currentGatt = gatt ?: run {
                 continuation.resumeWithException(Exception("GATT not connected"))
@@ -1091,5 +1404,239 @@ class QingpingController(private val context: Context) {
                 }
             }
         }
-}
 
+    // ==================== AUDIO UPLOAD ====================
+
+    private var uploadAckReceived = false
+    private var uploadInitAckReceived = false
+
+    /**
+     * Upload custom ringtone audio to the device.
+     * Based on original BluetoothController.kt from QingpingUploader.
+     *
+     * @param pcmData PCM audio data (8-bit unsigned, 8kHz, mono)
+     * @param targetSignature The ringtone slot signature to overwrite (must be different from current)
+     * @param onProgress Progress callback (0.0 to 1.0)
+     */
+    suspend fun uploadRingtone(
+        pcmData: ByteArray,
+        targetSignature: ByteArray,
+        onProgress: (Float) -> Unit
+    ): Boolean {
+        // Don't use gattMutex here - it causes blocking issues
+        val currentGatt = gatt ?: run {
+            Log.e(TAG, "GATT not connected")
+            return false
+        }
+        if (!isAuthenticated) {
+            Log.e(TAG, "Not authenticated")
+            return false
+        }
+
+        val dataService =
+            currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
+        val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+        val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+
+        if (dataWriteChar == null || dataNotifyChar == null) {
+            Log.e(TAG, "Data characteristics not found")
+            return false
+        }
+
+        // Enable notifications if not already enabled
+        if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+            currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+            val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+            descriptor?.let {
+                currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            }
+            delay(300)
+            enabledNotifications.add(UUID_DATA_NOTIFY)
+        }
+
+        Log.d(TAG, "=== AUDIO UPLOAD START ===")
+        Log.d(TAG, "Audio size: ${pcmData.size} bytes")
+        Log.d(TAG, "Target signature: ${targetSignature.toHexString()}")
+
+        // 1. Send Init: 08 10 + length(3B LE) + ringKey(4B)
+        val sizeBytes = pcmData.size
+        val initPayload = byteArrayOf(
+            0x08, 0x10,
+            (sizeBytes and 0xFF).toByte(),
+            ((sizeBytes shr 8) and 0xFF).toByte(),
+            ((sizeBytes shr 16) and 0xFF).toByte(),
+            targetSignature[0], targetSignature[1], targetSignature[2], targetSignature[3]
+        )
+
+        Log.d(TAG, "Sending Init: ${initPayload.toHexString()}")
+        uploadInitAckReceived = false
+
+        // Write init packet and wait for callback (like original writeChar with withResponse=true)
+        val initSuccess = writeCharAndWait(dataWriteChar, initPayload)
+        if (!initSuccess) {
+            Log.e(TAG, "Failed to send init command")
+            return false
+        }
+
+        // Wait for init response (04 ff 10 XX)
+        repeat(20) {
+            if (uploadInitAckReceived) return@repeat
+            delay(100)
+        }
+
+        if (!uploadInitAckReceived) {
+            Log.e(TAG, "No Init response received")
+            return false
+        }
+
+        // 2. Send audio data in packets
+        // Protocol: 4 packets per block, wait for ACK after last packet
+        val packetSize = 128
+        val packetsPerBlock = 4
+        val blockSize = packetSize * packetsPerBlock
+        var offset = 0
+        var blockNum = 0
+        val totalBlocks = (pcmData.size + blockSize - 1) / blockSize
+        var totalPacketsSent = 0
+
+        Log.d(
+            TAG,
+            "Upload plan: ${pcmData.size} bytes, $totalBlocks blocks, packetSize=$packetSize"
+        )
+
+        while (offset < pcmData.size) {
+            // Send 4 packets (one block = 512 bytes of audio)
+            for (pktIdx in 0 until packetsPerBlock) {
+                if (offset >= pcmData.size) break
+
+                val remaining = pcmData.size - offset
+                val audioLen = minOf(packetSize, remaining)
+                val audioChunk = pcmData.copyOfRange(offset, offset + audioLen)
+
+                // Pad to packetSize if needed (use 0xFF for silence like official app)
+                val paddedAudio = if (audioChunk.size < packetSize) {
+                    val padding = packetSize - audioChunk.size
+                    Log.d(
+                        TAG,
+                        "Packet $totalPacketsSent: ${audioChunk.size} bytes + $padding padding"
+                    )
+                    audioChunk + ByteArray(padding) { 0xFF.toByte() }
+                } else {
+                    audioChunk
+                }
+
+                // Packet format: 81 08 + 128 bytes audio
+                val packet = byteArrayOf(0x81.toByte(), 0x08.toByte()) + paddedAudio
+                val isLastInBlock =
+                    (pktIdx == packetsPerBlock - 1) || (offset + audioLen >= pcmData.size)
+
+                Log.d(
+                    TAG,
+                    "Block $blockNum, Pkt $pktIdx: offset=$offset, audioLen=$audioLen, packetLen=${packet.size}, isLast=$isLastInBlock"
+                )
+
+                if (isLastInBlock) {
+                    // Last packet in block - wait for write callback then wait for device ACK
+                    uploadAckReceived = false
+                    val writeSuccess = writeCharAndWait(dataWriteChar, packet)
+                    if (!writeSuccess) {
+                        Log.w(TAG, "Write failed for block $blockNum last packet")
+                    }
+
+                    // Wait for block ACK from device (04 ff 08 XX)
+                    repeat(50) {
+                        if (uploadAckReceived) return@repeat
+                        delay(100)
+                    }
+
+                    if (!uploadAckReceived) {
+                        Log.w(TAG, "No ACK for block $blockNum, packet $pktIdx")
+                    }
+                } else {
+                    // Regular packet - write with callback, then small delay
+                    val writeSuccess = writeCharAndWait(dataWriteChar, packet)
+                    if (!writeSuccess) {
+                        Log.w(TAG, "Write failed for block $blockNum, packet $pktIdx")
+                    }
+                    delay(20)
+                }
+
+                offset += audioLen
+                totalPacketsSent++
+            }
+
+            blockNum++
+            val progress = minOf(1.0f, offset.toFloat() / pcmData.size)
+            onProgress(progress)
+
+            Log.d(
+                TAG,
+                "Block $blockNum complete: offset=$offset/${pcmData.size}, totalPackets=$totalPacketsSent"
+            )
+
+            if (blockNum % 10 == 0 || offset >= pcmData.size) {
+                Log.d(TAG, "Progress: ${(progress * 100).toInt()}% (block $blockNum/$totalBlocks)")
+            }
+        }
+
+        Log.d(TAG, "=== UPLOAD COMPLETE === Total packets sent: $totalPacketsSent")
+        return true
+    }
+
+    /**
+     * Write characteristic and wait for onCharacteristicWrite callback.
+     * Matches original BluetoothController.writeChar(withResponse=true) behavior.
+     */
+    private suspend fun writeCharAndWait(
+        characteristic: BluetoothGattCharacteristic,
+        data: ByteArray
+    ): Boolean {
+        val currentGatt = gatt ?: return false
+
+        val deferred = CompletableDeferred<Boolean>()
+        writeCompleteDeferred = deferred
+
+        val result =
+            currentGatt.writeCharacteristic(
+                characteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            ) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+
+        if (!result) {
+            writeCompleteDeferred = null
+            return false
+        }
+
+        // Wait for callback with timeout
+        return try {
+            withTimeout(5000) {
+                deferred.await()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Write callback timeout: ${e.message}")
+            false
+        } finally {
+            writeCompleteDeferred = null
+        }
+    }
+
+
+    // Handle upload ACKs in the notification handler
+    internal fun handleUploadAck(value: ByteArray) {
+        if (value.size >= 3 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
+            val cmdId = value[2].toInt() and 0xFF
+            val status = if (value.size >= 4) value[3].toInt() and 0xFF else 0
+
+            when (cmdId) {
+                0x10 -> {
+                    Log.d(TAG, "Init ACK received (status: $status)")
+                    uploadInitAckReceived = true
+                }
+
+                0x08 -> {
+                    Log.d(TAG, "Audio block ACK received (status: $status)")
+                    uploadAckReceived = true
+                }
+            }
+        }
+    }
+}

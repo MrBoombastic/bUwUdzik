@@ -23,7 +23,8 @@ object BluetoothUtils {
      * Check if Bluetooth is currently enabled
      */
     fun isBluetoothEnabled(context: Context): Boolean {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val bluetoothManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         return bluetoothManager?.adapter?.isEnabled == true
     }
 
@@ -38,12 +39,27 @@ object BluetoothUtils {
 
     /**
      * Convert RSSI (dBm) to signal strength percentage
-     * Range: -100 dBm (0%) to -35 dBm (100%)
+     * Range: -100 dBm (0%) to -31 dBm (100%)
      */
     fun rssiToPercentage(rssi: Int): Int = when {
-        rssi >= -35 -> 100
+        rssi >= -31 -> 100
         rssi <= -100 -> 0
-        else -> ((rssi + 100) * 100) / 65
+        else -> ((rssi + 100) * 100) / 69 //nice
+    }
+
+    /**
+     * Correct battery percentage based on battery type.
+     * Alkaline (default): Use raw percentage (0-100)
+     * NiMH: Scale 80% to 100% roughly (as 1.2V nominal reads lower on 1.5V curve)
+     */
+    fun correctBatteryLevel(rawPercentage: Int, batteryType: String): Int {
+        return if (batteryType == "nimh") {
+            // Simple heuristic: NiMH fully charged (~1.4V) might read as ~80% on a device expecting 1.6V+
+            // Scale up by 1.25x, capped at 100%
+            minOf(100, (rawPercentage * 1.25).toInt())
+        } else {
+            rawPercentage
+        }
     }
 }
 

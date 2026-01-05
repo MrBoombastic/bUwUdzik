@@ -14,7 +14,7 @@ lifecycleRuntimeKtx = "2.10.0"
 workRuntimeKtx = "2.11.0"
 navigationCompose = "2.9.6"
 ktor = "3.3.3"
-slf4j = "2.0.16"
+slf4j = "2.0.17"
 
 [libraries]
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }

@@ -13,14 +13,14 @@
     <string name="settings_title">Settings</string>
     <string name="back_desc">Back</string>
     <string name="refresh">Refresh</string>
-    <string name="target_mac_label">Target MAC Address</string>
-    <string name="scan_device_button">Scan Device</string>
+    <string name="target_mac_label">Target MAC address</string>
+    <string name="scan_devices_button">Scan devices</string>
     <string name="scan_mode_label">Scan mode</string>
     <string name="mode_low_power">low power</string>
     <string name="mode_balanced">balanced</string>
     <string name="mode_low_latency">low latency</string>
-
-    <!-- New Settings -->
+    <string name="scan_mode_hint">Used for passive in-app sensor preview when not connected.</string>
+    <string name="master_alarm_label">Enable alarms</string>
     <string name="language_label">Language</string>
     <string name="language_system">system</string>
     <string name="widget_update_interval_label">Widget update interval</string>
@@ -28,7 +28,7 @@
     <string name="minutes_3">3 minutes</string>
     <string name="minutes_5">5 minutes</string>
     <string name="minutes_10">10 minutes</string>
-    <string name="minutes_15">15 minutes</string>
+    <string name="minutes_15">15 minutes (default)</string>
     <string name="minutes_30">30 minutes</string>
     <string name="minutes_45">45 minutes</string>
     <string name="minutes_60">1 hour</string>
@@ -48,6 +48,11 @@
     <string name="theme_light">light</string>
     <string name="theme_dark">dark</string>
 
+    <!-- Battery Type -->
+    <string name="battery_type_label">Battery type</string>
+    <string name="battery_alkaline">alkaline (default)</string>
+    <string name="battery_nimh">NiMH (rechargeable, 1.2V)</string>
+
     <!-- About -->
     <string name="about_app_label">About</string>
     <string name="version_label">Version: %1$s</string>
@@ -57,16 +62,15 @@
     <string name="check_updates_label">Check for updates</string>
     <string name="checking_updates">Checking for updates…</string>
     <string name="no_updates_available">No updates available</string>
-    <string name="update_available">Update available: %1$s</string>
     <string name="update_available_title">Update Available</string>
-    <string name="update_available_message">A new version is available.\n\nCurrent: %1$s\nLatest: %2$s\n\nWould you like to download it now?</string>
+    <string name="update_available_message">A new version is available. Current: %1$s, latest: %2$s. Would you like to download it now?</string>
     <string name="download_update">Download</string>
     <string name="later">Later</string>
     <string name="update_error">Error checking for updates</string>
     <string name="update_download_channel_name">Update download</string>
     <string name="update_download_channel_desc">Notifications for update download progress</string>
     <string name="update_downloading_title">Downloading update</string>
-    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_progress" translatable="false">%1$d%% (%2$d MB / %3$d MB)</string>
     <string name="update_download_complete">Download complete</string>
     <string name="update_download_complete_desc">Update downloaded. Tap to install.</string>
     <string name="update_download_error">Download error</string>
@@ -77,6 +81,7 @@
     <string name="bluetooth_required_title">Bluetooth enabled is required</string>
     <string name="bluetooth_required_desc">This app requires Bluetooth to connect to your devices. Please turn it on to continue.</string>
     <string name="turn_on_bluetooth">Turn on</string>
+    <string name="device_disconnected">Device disconnected</string>
 
     <!-- Device Setup -->
     <string name="setup_title">Device setup</string>
@@ -84,43 +89,43 @@
     <string name="setup_scanning">Scanning for devices…</string>
     <string name="setup_no_devices">No devices found</string>
     <string name="setup_enable_bluetooth">Please enable Bluetooth</string>
-    <string name="setup_rescan">Scan Again</string>
-    <string name="setup_skip">Skip for Now</string>
-    <string name="setup_select_device">Select Device</string>
+    <string name="setup_rescan">Scan again</string>
+    <string name="setup_skip">Skip for now</string>
+    <string name="setup_select_device">Select device</string>
 
     <!-- Time Setting -->
 
     <!-- Alarm Management -->
-    <string name="manage_alarms_label">Manage Alarms</string>
+    <string name="manage_alarms_label">Manage alarms</string>
     <string name="add_alarm_desc">Add alarm</string>
     <string name="max_alarms_message">Maximum number of alarms (16) reached.</string>
     <!-- General Actions -->
-    <string name="ok">OK</string>
+    <string name="ok" translatable="false">OK</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="updating_label">Updating…</string>
 
     <!-- Main Screen Hardcoded -->
-    <string name="connect_to_clock">Connect to Clock</string>
-    <string name="connecting_to_clock">Connecting to clock…</string>
+    <string name="connect_to_device">Connect to device</string>
+    <string name="connecting_to_device">Connecting to device…</string>
     <string name="disconnect">Disconnect</string>
-    <string name="device_settings_button">Device Settings</string>
+    <string name="device_settings_button">Device settings</string>
 
     <!-- Settings Screen Hardcoded -->
-    <string name="set_time_2137">Set Time to 21:37</string>
+    <string name="set_time_2137">Set time to 21:37</string>
     <string name="time_set_success">Time set to 21:37!</string>
     <string name="time_set_failed">Failed to set time</string>
 
     <!-- Device Settings Screen -->
-    <string name="device_settings_title">Device Settings</string>
+    <string name="device_settings_title">Device settings</string>
     <string name="general_header">General</string>
     <string name="language_header">Language</string>
     <string name="lang_english">English</string>
     <string name="lang_chinese">Chinese</string>
-    <string name="temp_unit_header">Temperature Unit</string>
-    <string name="unit_c">°C</string>
-    <string name="unit_f">°F</string>
+    <string name="temp_unit_header">Temperature unit</string>
+    <string name="unit_c" translatable="false">°C</string>
+    <string name="unit_f" translatable="false">°F</string>
     <string name="time_format_header">Time format</string>
     <string name="format_24h">24h</string>
     <string name="format_12h">12h</string>
@@ -144,11 +149,12 @@
     <string name="alarm_deleted_msg" tools:ignore="PluralsCandidate">Alarm %1$d deleted</string>
     <string name="enable_bluetooth_msg">Please enable Bluetooth</string>
     <string name="bluetooth_perms_msg">Bluetooth permissions required</string>
-    <string name="connect_first_msg">Please connect to the clock from the main screen first</string>
+    <string name="connect_first_msg">Please connect to the device from the main screen first</string>
     <string name="no_alarms_msg">No alarms found</string>
+    <string name="master_alarm_off_msg">All alarms are currently disabled</string>
     <string name="snooze_enabled_msg">Snooze enabled</string>
     <string name="select_time_title">Select Time</string>
-    <string name="edit_alarm_title">Edit Alarm %1$d</string>
+    <string name="edit_alarm_title">Edit alarm %1$d</string>
     <string name="repeat_on_label">Repeat on:</string>
     <string name="snooze_label">Snooze</string>
     <string name="delete_alarm_desc">Delete alarm</string>
@@ -164,4 +170,51 @@
     <string name="widget_placeholder_temp" translatable="false">--°C</string>
     <string name="widget_placeholder_hum" translatable="false">💧 --%</string>
     <string name="widget_placeholder_bat" translatable="false">🔋 --%</string>
+
+    <!-- Ringtone Upload Screen -->
+    <string name="ringtone_upload_title">Upload ringtone</string>
+    <string name="ringtone_upload_button">Upload ringtone</string>
+    <string name="current_ringtone_label">Current ringtone</string>
+    <string name="online_ringtones_header">Online ringtones</string>
+    <string name="custom_ringtone_header">Custom ringtone</string>
+    <string name="select_audio_file">Select audio file</string>
+    <string name="file_selected">File selected</string>
+    <string name="audio_format_hint">Supported formats: MP3, WAV, OGG, AAC. Audio will be converted to 8kHz mono.</string>
+    <string name="current_label">Current</string>
+    <string name="converting_audio">Converting audio…</string>
+    <string name="uploading_progress">Uploading: %1$d%%</string>
+    <string name="eta_label">~%1$s left</string>
+    <string name="upload_complete">Upload complete!</string>
+    <string name="upload_failed">Upload failed</string>
+
+    <!-- Audio Trimmer -->
+    <string name="trim_audio_title">Trim audio</string>
+    <string name="loading_audio">Loading audio…</string>
+    <string name="duration_label">Duration</string>
+    <string name="estimated_size_label">Estimated size</string>
+    <string name="file_too_large_warning">File too large! Max ~12 seconds (98 KB).</string>
+    <string name="trim_and_upload">Trim and upload</string>
+    <string name="fine_adjustment">Fine adjustment</string>
+    <string name="start_label">Start</string>
+    <string name="drag_to_adjust_hint">Drag to move selection.</string>
+    <string name="time_placeholder" translatable="false">--:--</string>
+
+    <!-- Pairing UI -->
+    <string name="setup_new_device">Setup new device</string>
+    <string name="pairing_subtitle">Follow these steps to pair your device</string>
+    <string name="pairing_step1_title">Enter pairing mode</string>
+    <string name="pairing_step1_desc">Hold the clock button for 2 seconds</string>
+    <string name="pairing_step2_title">Wait for signal</string>
+    <string name="pairing_step2_desc">The Bluetooth icon on device will blink</string>
+    <string name="pairing_step3_title">Connect</string>
+    <string name="pairing_step3_desc">Tap the button below to pair</string>
+    <string name="pair_and_connect">Pair and connect</string>
+    <string name="unpair_device">Unpair device</string>
+    <string name="unpair_confirm_title">Unpair device?</string>
+    <string name="unpair_confirm_message">You will need to re-pair the clock before connecting again.</string>
+    <string name="unpair_confirm">Unpair</string>
+
+    <!-- Local Settings -->
+    <string name="local_settings_header">Local settings</string>
+    <string name="local_settings_description">These settings are saved on this phone, not the clock.</string>
 </resources>

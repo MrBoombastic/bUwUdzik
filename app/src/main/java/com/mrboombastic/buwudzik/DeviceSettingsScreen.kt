@@ -51,11 +51,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
 
+import com.mrboombastic.buwudzik.SettingsRepository
+import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel) {
     val context = LocalContext.current
     val appContext = context.applicationContext
+    val repository = remember { SettingsRepository(context) }
+    var batteryType by remember { mutableStateOf(repository.batteryType) }
+
     val settings by viewModel.deviceSettings.collectAsState()
     val isBusy by viewModel.clockController.isBusy.collectAsState()
     var isSaving by remember { mutableStateOf(false) }
@@ -185,6 +191,37 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                     nightEndMinute = currentSettings.nightEndMinute
                 }
 
+                // Local Settings Section
+                Text(
+                    stringResource(R.string.local_settings_header),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    stringResource(R.string.local_settings_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+
+                val batteryTypes = mapOf(
+                    "alkaline" to stringResource(R.string.battery_alkaline),
+                    "nimh" to stringResource(R.string.battery_nimh)
+                )
+
+                SettingsDropdown(
+                    value = batteryType,
+                    options = batteryTypes,
+                    label = stringResource(R.string.battery_type_label),
+                    onValueChange = { type ->
+                        batteryType = type
+                        repository.batteryType = type
+                        // Force refresh of sensor data correction if needed, but repository update is enough for next scan
+                    }
+                )
+
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
+
                 // General Settings Section
                 Text(
                     stringResource(R.string.general_header),
@@ -248,6 +285,34 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                     valueRange = 1f..5f,
                     steps = 3
                 )
+
+                Spacer(Modifier.height(8.dp))
+
+                // Ringtone Upload
+                OutlinedCard(
+                    onClick = { navController.navigate("ringtone-upload") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isUiEnabled
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.ringtone_upload_button),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = currentSettings.getRingtoneName(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
 
                 HorizontalDivider(Modifier.padding(vertical = 16.dp))
 

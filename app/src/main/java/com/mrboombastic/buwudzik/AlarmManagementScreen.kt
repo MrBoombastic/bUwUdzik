@@ -33,6 +33,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
 
     val alarms by viewModel.alarms.collectAsState()
     val clockConnected by viewModel.clockConnected.collectAsState()
+    val deviceSettings by viewModel.deviceSettings.collectAsState()
     var statusMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var isUpdating by remember { mutableStateOf(false) }
@@ -44,6 +45,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
     val deletingAlarmMsg = stringResource(R.string.deleting_alarm_msg)
     val alarmDeletedMsg = stringResource(R.string.alarm_deleted_msg)
     val errorPrefixMsg = stringResource(R.string.error_prefix)
+    val savingSettingsMsg = stringResource(R.string.updating_label)
 
     // Auto-clear messages
     LaunchedEffect(statusMessage, errorMessage) {
@@ -209,36 +211,100 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                             modifier = Modifier.padding(16.dp)
                         )
                     } else {
-                        if (alarms.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.no_alarms_msg),
-                                style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                        // Master Alarm Switch
+                        deviceSettings?.let { settings ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
                             ) {
-                                items(alarms) { alarm ->
-                                    AlarmCard(alarm = alarm, enabled = !isUpdating, onToggle = { enabled ->
-                                        coroutineScope.launch {
-                                            isUpdating = true
-                                            errorMessage = ""
-                                            statusMessage = String.format(updatingAlarmMsg, alarm.id + 1)
-                                            val updatedAlarm = alarm.copy(enabled = enabled)
-                                            viewModel.updateAlarm(updatedAlarm) { result ->
-                                                if (result.isSuccess) {
-                                                    statusMessage = String.format(alarmUpdatedMsg, alarm.id + 1)
-                                                } else {
-                                                    errorMessage = String.format(errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.master_alarm_label),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Switch(
+                                        checked = !settings.masterAlarmDisabled,
+                                        onCheckedChange = { enabled ->
+                                            val newSettings = settings.copy(masterAlarmDisabled = !enabled)
+                                            coroutineScope.launch {
+                                                isUpdating = true
+                                                statusMessage = savingSettingsMsg
+                                                viewModel.updateDeviceSettings(newSettings) { result ->
+                                                    isUpdating = false
+                                                    if (result.isFailure) {
+                                                        errorMessage = String.format(errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown")
+                                                    }
                                                 }
-                                                isUpdating = false
                                             }
-                                        }
-                                    }, onEdit = { selectedAlarm = alarm })
+                                        },
+                                        enabled = !isUpdating
+                                    )
                                 }
                             }
+                        }
+
+                        if (deviceSettings?.masterAlarmDisabled == false) {
+                            if (alarms.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.no_alarms_msg),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(alarms) { alarm ->
+                                        AlarmCard(
+                                            alarm = alarm,
+                                            enabled = !isUpdating,
+                                            onToggle = { enabled ->
+                                                coroutineScope.launch {
+                                                    isUpdating = true
+                                                    errorMessage = ""
+                                                    statusMessage =
+                                                        String.format(updatingAlarmMsg, alarm.id + 1)
+                                                    val updatedAlarm = alarm.copy(enabled = enabled)
+                                                    viewModel.updateAlarm(updatedAlarm) { result ->
+                                                        if (result.isSuccess) {
+                                                            statusMessage = String.format(
+                                                                alarmUpdatedMsg,
+                                                                alarm.id + 1
+                                                            )
+                                                        } else {
+                                                            errorMessage = String.format(
+                                                                errorPrefixMsg,
+                                                                result.exceptionOrNull()?.message
+                                                                    ?: "Unknown"
+                                                            )
+                                                        }
+                                                        isUpdating = false
+                                                    }
+                                                }
+                                            },
+                                            onEdit = { selectedAlarm = alarm })
+                                    }
+                                }
+                            }
+                        } else if (deviceSettings != null) {
+                            // Message shown when alarms are globally disabled
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Text(
+                                text = stringResource(R.string.master_alarm_off_msg),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

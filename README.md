@@ -14,6 +14,7 @@ so it's only semi-slop, but you have been warned, etc., etc.
 * Parses and displays sensor data.
 * Management of up to 16 device alarms (on-device storage).
 * In-app support for creating and deleting device alarms.
+* **Global alarm switch** to enable or disable all device alarms at once.
 * Bluetooth state monitoring with automatic prompts to enable it.
 * Interactive real-time previews for brightness and volume settings.
 * Widget for displaying the latest sensor data on the home screen.
@@ -167,24 +168,37 @@ Managed via a single comprehensive payload on **Data Write**.
 * **Set Settings Payload (20 bytes):**
   `13 01 [Vol] [Hdr1] [Hdr2] [Flags] [Timezone] [Duration] [Brightness] [NightStartH] [NightStartM] [NightEndH] [NightEndM] [TzSign] [NightEn] [Sig 4B]`
 
-| Byte  | Value           | Description                                                              |
-|-------|-----------------|--------------------------------------------------------------------------|
-| 0     | `0x13`          | Command ID                                                               |
-| 1     | `0x01` / `0x02` | Set / Read Response                                                      |
-| 2     | `0-10?`         | Sound Volume (Usually `0x05`)                                            |
-| 3-4   | `58 02`         | Fixed Header / Version                                                   |
-| 5     | Bitmask         | Mode Flags: Bit 0: Lang (1=EN), Bit 1: Format (1=12h), Bit 2: Unit (1=F) |
-| 6     | Integer         | Timezone Offset (Units of 6 minutes)                                     |
-| 7     | Seconds         | Backlight Duration (0=Off)                                               |
-| 8     | Packed          | Brightness (High nibble: Day/10, Low nibble: Night/10)                   |
-| 9-10  | HH:MM           | Night Start Time                                                         |
-| 11-12 | HH:MM           | Night End Time                                                           |
-| 13    | `0/1`           | Timezone Sign (1=Positive, 0=Negative)                                   |
-| 14    | `0/1`           | Night Mode Enabled                                                       |
-| 16-19 | `ba 2c 2c 8c`   | Footer/Signature                                                         |
+| Byte  | Value           | Description                                                                                                    |
+|-------|-----------------|----------------------------------------------------------------------------------------------------------------|
+| 0     | `0x13`          | Command ID                                                                                                     |
+| 1     | `0x01` / `0x02` | Set / Read Response                                                                                            |
+| 2     | `0-5?`          | Sound Volume                                                                                                   |
+| 3-4   | `58 02`         | Fixed Header / Version                                                                                         |
+| 5     | Bitmask         | Mode Flags: See the **Mode Flags Breakdown** table below.                                                      |
+| 6     | Integer         | Timezone Offset (Units of 6 minutes)                                                                           |
+| 7     | Seconds         | Backlight Duration (0=Off)                                                                                     |
+| 8     | Packed          | Brightness (High nibble: Day/10, Low nibble: Night/10)                                                         |
+| 9-10  | HH:MM           | Night Start Time                                                                                               |
+| 11-12 | HH:MM           | Night End Time                                                                                                 |
+| 13    | `0/1`           | Timezone Sign (1=Positive, 0=Negative)                                                                         |
+| 14    | `0/1`           | Night Mode Enabled                                                                                             |
+| 16-19 | `Sig 4B`        | Ringtone signature (4 bytes). Identifies the device ringtone — see the "Known Ringtone Signatures" list below. |
 
-**Workaround:** To force Day Mode immediately if disabling night mode doesn't work, set schedule to
-`00:00 - 00:01`.
+#### Mode Flags Breakdown (Byte 5)
+
+This byte acts as a **bitfield** where individual bits control specific boolean settings.
+
+| Bit | Value (Hex) | Description              | 0 (Off/Default) | 1 (On/Active) |
+|-----|-------------|--------------------------|-----------------|---------------|
+| 0   | `0x01`      | Language                 | Chinese         | English       |
+| 1   | `0x02`      | Time Format              | 24-hour         | 12-hour       |
+| 2   | `0x04`      | Temp Unit                | Celsius         | Fahrenheit    |
+| 3   | `0x08`      | *(Reserved ?)*           | -               | -             |
+| 4   | `0x10`      | Master Alarm Disable (!) | Enabled         | Disabled      |
+| 5-7 | -           | *(Unused ?)*             | -               | -             |
+
+**Workaround:** Disabling night mode is being done via setting 1-minute night mode (ie.
+`00:00 - 00:01`). Yup, it's that stupid, even official app does this.
 
 #### 4.1. Set Immediate Brightness (Preview)
 
@@ -217,10 +231,28 @@ Used to play the current or a specific volume ringtone once for testing.
 
 ### 8. Audio Transfer Protocol (Ringtone Upload)
 
+#### Known Ringtone Signatures
+
+The device use these 4 bytes as a ringtone selector.
+
+- Beep - fd c3 66 a5
+- Digital Ringtone - 09 61 bb 77
+- Digital Ringtone 2 - ba 2c 2c 8c
+- Cuckoo - ea 2d 4c 02
+- Telephone - 79 1b ac b3
+- Exotic Guitar - 1d 01 9f d6
+- Lively Piano - 6e 70 b6 59
+- Story Piano - 8f 00 48 86
+- Forest Piano - 26 52 25 19
+
+You can upload custom tunes using your audio and bytes above, but remember to target other ID (
+device can reject if same ID has different hash?).
+
 Allows uploading 8-bit Unsigned PCM, 8000 Hz, Mono audio. Uses **BLE Reliable Write** on **Data
 Write**.
 
-1. **Start:** `08 10 [Size LE 2B] 00 [ba 2c 2c 8c]`
+1. **Start:** `08 10 [Size LE 2B] 00 [Sig 4B]` (replace `Sig 4B` with the desired ringtone signature
+   from the list above)
 2. **Transfer:** Send in chunks with Reliable Write.
 3. **Header Injection:** Prepend `81 08` to the very first packet.
 4. **Completion:** Send Execute Write Request.

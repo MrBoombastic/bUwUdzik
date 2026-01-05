@@ -80,6 +80,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     var selectedAppPackage by remember { mutableStateOf(repository.selectedAppPackage) }
     var theme by remember { mutableStateOf(repository.theme) }
 
+
     var expandedWidgetAction by remember { mutableStateOf(false) }
 
     var installedApps by remember { mutableStateOf<List<ResolveInfo>>(emptyList()) }
@@ -182,6 +183,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
         "dark" to stringResource(R.string.theme_dark)
     )
 
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -240,7 +243,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 ) {
                     Icon(
                         Icons.Default.Search,
-                        contentDescription = stringResource(R.string.scan_device_button)
+                        contentDescription = stringResource(R.string.scan_devices_button)
                     )
                 }
             }
@@ -256,6 +259,12 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     scanMode = mode
                     repository.scanMode = mode
                 }
+            )
+            Text(
+                text = stringResource(R.string.scan_mode_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
             )
 
             // Language
@@ -291,6 +300,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     ThemeUtils.applyTheme(code)
                 }
             )
+
+
 
             // Update Interval
             Spacer(modifier = Modifier.height(12.dp))

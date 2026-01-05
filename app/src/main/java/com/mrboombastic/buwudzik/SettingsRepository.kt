@@ -26,6 +26,9 @@ class SettingsRepository(private val context: Context) {
 
         private const val KEY_SETUP_COMPLETED = "setup_completed"
         private const val KEY_LAST_VERSION_CODE = "last_version_code"
+        
+        private const val KEY_BATTERY_TYPE = "battery_type"
+        const val DEFAULT_BATTERY_TYPE = "alkaline"
     }
 
     /**
@@ -39,6 +42,12 @@ class SettingsRepository(private val context: Context) {
         get() = prefs.getInt(KEY_LAST_VERSION_CODE, -1)
         set(value) {
             prefs.edit { putInt(KEY_LAST_VERSION_CODE, value) }
+        }
+        
+    var batteryType: String
+        get() = prefs.getString(KEY_BATTERY_TYPE, DEFAULT_BATTERY_TYPE) ?: DEFAULT_BATTERY_TYPE
+        set(value) {
+            prefs.edit { putString(KEY_BATTERY_TYPE, value) }
         }
 
     var targetMacAddress: String
