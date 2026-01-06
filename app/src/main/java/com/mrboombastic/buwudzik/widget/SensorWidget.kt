@@ -1,4 +1,13 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.widget
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.MainActivity
+import com.mrboombastic.buwudzik.device.SensorData
+import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.data.SettingsRepository
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -29,7 +38,7 @@ class SensorWidget : AppWidgetProvider() {
     ) {
         if (appWidgetIds.isEmpty()) return
         
-        Log.d(TAG, "onUpdate called for ${appWidgetIds.size} widget(s)")
+        AppLogger.d(TAG, "onUpdate called for ${appWidgetIds.size} widget(s)")
         
         // Batch update all widgets with shared data
         val widgetData = WidgetData.load(context)
@@ -40,7 +49,7 @@ class SensorWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        Log.d(TAG, "First widget added, scheduling updates...")
+        AppLogger.d(TAG, "First widget added, scheduling updates...")
 
         val settingsRepository = SettingsRepository(context)
         MainActivity.scheduleUpdates(context, settingsRepository.updateInterval)
@@ -49,14 +58,14 @@ class SensorWidget : AppWidgetProvider() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        Log.d(TAG, "Last widget removed")
+        AppLogger.d(TAG, "Last widget removed")
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
 
         if (intent.action == ACTION_FORCE_UPDATE) {
-            Log.d(TAG, "Force update requested")
+            AppLogger.d(TAG, "Force update requested")
             
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val widgetIds = appWidgetManager.getAppWidgetIds(
@@ -101,6 +110,7 @@ private data class WidgetData(
                 lastUpdate = sensorRepo.getLastUpdateTimestamp(),
                 locale = locale,
                 selectedAppPackage = settingsRepo.selectedAppPackage
+
             )
         }
     }
@@ -183,4 +193,9 @@ private fun createRootClickIntent(context: Context, selectedAppPackage: String?)
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 }
+
+
+
+
+
 

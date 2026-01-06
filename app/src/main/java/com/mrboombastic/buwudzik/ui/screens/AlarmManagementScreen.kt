@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.ui.screens
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.device.Alarm
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -32,7 +35,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
     val hasPermissions = remember { BluetoothUtils.hasBluetoothPermissions(context) }
 
     val alarms by viewModel.alarms.collectAsState()
-    val clockConnected by viewModel.clockConnected.collectAsState()
+    val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceSettings by viewModel.deviceSettings.collectAsState()
     var statusMessage by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
@@ -103,7 +106,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
             BackNavigationButton(navController)
         })
     }, floatingActionButton = {
-        if (clockConnected && hasPermissions) {
+        if (deviceConnected && hasPermissions) {
             FloatingActionButton(onClick = {
                 if (!isUpdating) {
                     if (alarms.size < 16) {
@@ -203,7 +206,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                 }
 
                 else -> {
-                    if (!clockConnected) {
+                    if (!deviceConnected) {
                         Text(
                             text = stringResource(R.string.connect_first_msg),
                             style = MaterialTheme.typography.bodyLarge,
@@ -528,3 +531,5 @@ fun AlarmEditDialog(alarm: Alarm, onDismiss: () -> Unit, onSave: (Alarm) -> Unit
         }
     })
 }
+
+

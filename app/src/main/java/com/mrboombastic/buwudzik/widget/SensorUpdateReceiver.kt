@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.widget
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -9,8 +12,10 @@ import androidx.work.WorkManager
 
 class SensorUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        Log.d("SensorUpdateReceiver", "Alarm fired! Enqueuing worker.")
+        AppLogger.d("SensorUpdateReceiver", "Alarm fired! Enqueuing worker.")
         val workRequest = OneTimeWorkRequest.Builder(SensorUpdateWorker::class.java).build()
         WorkManager.getInstance(context).enqueue(workRequest)
     }
 }
+
+

@@ -1,4 +1,14 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.ui.screens
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.MainActivity
+import com.mrboombastic.buwudzik.UpdateChecker
+import com.mrboombastic.buwudzik.UpdateCheckResult
 
 import android.bluetooth.le.ScanSettings
 import android.content.Intent
@@ -78,6 +88,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     var language by remember { mutableStateOf(repository.language) }
     var updateInterval by remember { mutableLongStateOf(repository.updateInterval) }
     var selectedAppPackage by remember { mutableStateOf(repository.selectedAppPackage) }
+
     var theme by remember { mutableStateOf(repository.theme) }
 
 
@@ -105,7 +116,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     macAddress = currentMac
                     // If MAC changed from initial value, restart scanning
                     if (currentMac != initialMacAddress) {
-                        Log.d(
+                        AppLogger.d(
                             "SettingsScreen",
                             "MAC changed from $initialMacAddress to $currentMac, restarting scan"
                         )
@@ -126,7 +137,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 val pm = context.packageManager
                 val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
                 val apps = pm.queryIntentActivities(intent, 0)
-                Log.d("SettingsScreen", "Found ${apps.size} launcher apps")
+                AppLogger.d("SettingsScreen", "Found ${apps.size} launcher apps")
                 installedApps = apps.sortedBy { it.loadLabel(pm).toString().lowercase() }
             }
         }
@@ -134,6 +145,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
 
     LaunchedEffect(selectedAppPackage) {
         if (selectedAppPackage != null) {
+
             withContext(Dispatchers.IO) {
                 try {
                     val pm = context.packageManager
@@ -348,7 +360,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                         text = { Text(stringResource(R.string.default_app_label)) },
                         onClick = {
                             selectedAppPackage = null
+
                             repository.selectedAppPackage = null
+
                             expandedWidgetAction = false
                         }
                     )
@@ -361,7 +375,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             text = { Text(label) },
                             onClick = {
                                 selectedAppPackage = pkg
+
                                 repository.selectedAppPackage = pkg
+
                                 expandedWidgetAction = false
                             }
                         )
@@ -495,8 +511,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
 
             // Easter Egg Button
             Spacer(modifier = Modifier.height(16.dp))
-            val clockConnected by viewModel.clockConnected.collectAsState()
-            if (clockConnected) {
+            val deviceConnected by viewModel.deviceConnected.collectAsState()
+            if (deviceConnected) {
                 val successMsg = stringResource(R.string.time_set_success)
                 val failedMsg = stringResource(R.string.time_set_failed)
                 val errorTemplate = stringResource(R.string.error_prefix)
@@ -510,7 +526,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 cal.set(java.util.Calendar.MINUTE, 37)
                                 cal.set(java.util.Calendar.SECOND, 0)
                                 val timestamp = cal.timeInMillis / 1000
-                                val success = viewModel.clockController.synchronizeTime(timestamp)
+                                val success = viewModel.qpController.synchronizeTime(timestamp)
                                 if (success) {
                                     Toast.makeText(
                                         appContext,
@@ -543,3 +559,10 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
         }
     }
 }
+
+
+
+
+
+
+

@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.device
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
@@ -39,7 +42,7 @@ class BluetoothScanner(context: Context) {
     fun scan(
         targetAddress: String? = null, scanMode: Int = ScanSettings.SCAN_MODE_LOW_LATENCY
     ): Flow<SensorData> = callbackFlow {
-        Log.d("BluetoothScanner", "Starting scan flow for target: $targetAddress")
+        AppLogger.d("BluetoothScanner", "Starting scan flow for target: $targetAddress")
         val leScanner = scanner
         if (leScanner == null) {
             Log.e("BluetoothScanner", "BluetoothLeScanner is null")
@@ -89,11 +92,11 @@ class BluetoothScanner(context: Context) {
 
         val settings = ScanSettings.Builder().setScanMode(scanMode).build()
 
-        Log.d("BluetoothScanner", "Invoking startScan...")
+        AppLogger.d("BluetoothScanner", "Invoking startScan...")
         leScanner.startScan(filters, settings, callback)
 
         awaitClose {
-            Log.d("BluetoothScanner", "Flow closing/cancelled. Stopping scan.")
+            AppLogger.d("BluetoothScanner", "Flow closing/cancelled. Stopping scan.")
             leScanner.stopScan(callback)
         }
     }
@@ -126,3 +129,5 @@ class BluetoothScanner(context: Context) {
     }
 
 }
+
+

@@ -1,5 +1,8 @@
 package com.mrboombastic.buwudzik
 
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -67,7 +70,7 @@ class UpdateChecker(private val context: Context) {
     suspend fun checkForUpdates(): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
             val release: GitHubRelease = client.get(GITHUB_API_URL).body()
-            Log.d(TAG, "Latest release: ${release.tagName}")
+            AppLogger.d(TAG, "Latest release: ${release.tagName}")
 
             val latestVersion = release.tagName.removePrefix("v")
             val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
@@ -104,7 +107,7 @@ class UpdateChecker(private val context: Context) {
                 file.delete()
             }
 
-            Log.d(TAG, "Starting download from: $url")
+            AppLogger.d(TAG, "Starting download from: $url")
 
             client.prepareGet(url).execute { httpResponse ->
                 val contentLength = httpResponse.contentLength() ?: -1L
@@ -132,7 +135,7 @@ class UpdateChecker(private val context: Context) {
                 }
             }
 
-            Log.d(TAG, "Download complete, launching installer")
+            AppLogger.d(TAG, "Download complete, launching installer")
             showCompletionNotification(notificationManager)
             launchInstaller(file)
             true
@@ -248,4 +251,6 @@ class UpdateChecker(private val context: Context) {
         client.close()
     }
 }
+
+
 

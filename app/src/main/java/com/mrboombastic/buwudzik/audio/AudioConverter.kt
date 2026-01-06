@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.audio
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.content.Context
 import android.media.MediaCodec
@@ -9,7 +12,7 @@ import android.util.Log
 import java.io.ByteArrayOutputStream
 
 /**
- * Audio converter for Qingping CGD1
+ * Audio converter for QP CGD1
  * Converts audio files to PCM Unsigned 8-bit, 8kHz, Mono
  */
 class AudioConverter(private val context: Context) {
@@ -80,7 +83,7 @@ class AudioConverter(private val context: Context) {
         val originalSampleRate = audioFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
         val channels = audioFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
 
-        Log.d(TAG, "Source: $mime, $originalSampleRate Hz, $channels ch")
+        AppLogger.d(TAG, "Source: $mime, $originalSampleRate Hz, $channels ch")
 
         val codec = MediaCodec.createDecoderByType(mime)
         codec.configure(audioFormat, null, null, 0)
@@ -155,7 +158,7 @@ class AudioConverter(private val context: Context) {
         val pcmData = outputStream.toByteArray()
         val actualDurationMs = (pcmData.size * 1000L) / SAMPLE_RATE
 
-        Log.d(TAG, "Output: ${pcmData.size} bytes, ${actualDurationMs}ms")
+        AppLogger.d(TAG, "Output: ${pcmData.size} bytes, ${actualDurationMs}ms")
 
         return ConversionResult(pcmData, actualDurationMs, originalSampleRate)
     }
@@ -196,4 +199,6 @@ class AudioConverter(private val context: Context) {
     }
 
 }
+
+
 

@@ -1,5 +1,12 @@
 package com.mrboombastic.buwudzik
 
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
+
+import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
+import com.mrboombastic.buwudzik.data.SettingsRepository
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -22,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
 
-            Log.d(TAG, "Boot completed or package replaced, re-scheduling updates...")
+            AppLogger.d(TAG, "Boot completed or package replaced, re-scheduling updates...")
 
             val settingsRepository = SettingsRepository(context)
             val intervalMinutes = settingsRepository.updateInterval
@@ -36,8 +43,9 @@ class BootReceiver : BroadcastReceiver() {
                 .build()
             WorkManager.getInstance(context).enqueue(initialWorkRequest)
 
-            Log.d(TAG, "Scheduled initial update and periodic updates every $intervalMinutes minutes")
+            AppLogger.d(TAG, "Scheduled initial update and periodic updates every $intervalMinutes minutes")
         }
     }
 }
+
 

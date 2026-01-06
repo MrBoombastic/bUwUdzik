@@ -1,4 +1,8 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.audio
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+import com.mrboombastic.buwudzik.R
 
 import android.content.Context
 import android.media.MediaCodec
@@ -19,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -580,9 +583,9 @@ private fun ScrollableWaveformView(
     val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
     val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
     val playheadColor = MaterialTheme.colorScheme.tertiary
-    val selectionOverlayColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
 
-    val density = LocalDensity.current
+    LocalDensity.current
 
     // Use rememberUpdatedState to get current value in gesture callbacks
     val currentSelectionStartMs by androidx.compose.runtime.rememberUpdatedState(selectionStartMs)
@@ -593,7 +596,7 @@ private fun ScrollableWaveformView(
             .pointerInput(totalDurationMs, selectionDurationMs) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    var dragStartMs = currentSelectionStartMs
+                    val dragStartMs = currentSelectionStartMs
                     val startX = down.position.x
                     
                     do {
@@ -720,3 +723,4 @@ private fun parseTimeInput(text: String): Long? {
         null
     }
 }
+

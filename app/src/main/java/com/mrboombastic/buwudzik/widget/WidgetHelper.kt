@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.widget
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -26,11 +29,11 @@ object WidgetHelper {
             val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
 
             if (widgetIds.isEmpty()) {
-                Log.d(TAG, "No widgets to update")
+                AppLogger.d(TAG, "No widgets to update")
                 return
             }
 
-            Log.d(TAG, "Updating ${widgetIds.size} widget(s), isLoading=$isLoading")
+            AppLogger.d(TAG, "Updating ${widgetIds.size} widget(s), isLoading=$isLoading")
             for (widgetId in widgetIds) {
                 updateAppWidget(context, appWidgetManager, widgetId, isLoading)
             }
@@ -44,7 +47,7 @@ object WidgetHelper {
      * Use this for manual refresh or when the app detects new data.
      */
     fun triggerImmediateUpdate(context: Context) {
-        Log.d(TAG, "Triggering immediate widget update...")
+        AppLogger.d(TAG, "Triggering immediate widget update...")
 
         // Show loading state first
         updateAllWidgets(context, isLoading = true)
@@ -55,4 +58,7 @@ object WidgetHelper {
         )
     }
 }
+
+
+
 

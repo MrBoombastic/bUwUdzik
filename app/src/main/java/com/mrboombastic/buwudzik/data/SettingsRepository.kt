@@ -1,4 +1,6 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.data
+
+import com.mrboombastic.buwudzik.widget.WidgetHelper
 
 import android.content.Context
 import android.content.SharedPreferences

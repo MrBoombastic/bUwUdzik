@@ -1,19 +1,23 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.data
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import java.security.SecureRandom
+import androidx.core.content.edit
 
 /**
- * Manages auth tokens for paired Qingping devices.
+ * Manages auth tokens for paired QP devices.
  * Each device (by MAC address) gets its own unique 16-byte token.
  * Token is generated randomly during first pairing and stored for future use.
  */
 class TokenStorage(context: Context) {
     
     companion object {
-        private const val PREFS_NAME = "qingping_tokens"
+        private const val PREFS_NAME = "QP_tokens"
         private const val TAG = "TokenStorage"
         private const val TOKEN_SIZE = 16
     }
@@ -44,25 +48,12 @@ class TokenStorage(context: Context) {
         
         val key = macAddressToKey(macAddress)
         val tokenHex = bytesToHex(token)
-        prefs.edit().putString(key, tokenHex).apply()
+        prefs.edit { putString(key, tokenHex) }
         
-        Log.d(TAG, "Generated new token for $macAddress: $tokenHex")
+        AppLogger.d(TAG, "Generated new token for $macAddress: $tokenHex")
         return token
     }
-    
-    /**
-     * Store a specific token for a device (e.g., after successful pairing).
-     */
-    fun storeToken(macAddress: String, token: ByteArray) {
-        require(token.size == TOKEN_SIZE) { "Token must be $TOKEN_SIZE bytes" }
-        
-        val key = macAddressToKey(macAddress)
-        val tokenHex = bytesToHex(token)
-        prefs.edit().putString(key, tokenHex).apply()
-        
-        Log.d(TAG, "Stored token for $macAddress: $tokenHex")
-    }
-    
+
     /**
      * Check if a device has been paired (has stored token).
      */
@@ -76,19 +67,10 @@ class TokenStorage(context: Context) {
      */
     fun removeToken(macAddress: String) {
         val key = macAddressToKey(macAddress)
-        prefs.edit().remove(key).apply()
-        Log.d(TAG, "Removed token for $macAddress")
+        prefs.edit { remove(key) }
+        AppLogger.d(TAG, "Removed token for $macAddress")
     }
-    
-    /**
-     * Get all paired device MAC addresses.
-     */
-    fun getPairedDevices(): List<String> {
-        return prefs.all.keys
-            .filter { it.startsWith("token_") }
-            .map { it.removePrefix("token_").replace("_", ":").uppercase() }
-    }
-    
+
     private fun macAddressToKey(macAddress: String): String {
         // Convert MAC to safe key: "58:2D:34:50:A0:81" -> "token_58_2d_34_50_a0_81"
         return "token_${macAddress.lowercase().replace(":", "_")}"
@@ -102,3 +84,5 @@ class TokenStorage(context: Context) {
         return hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 }
+
+

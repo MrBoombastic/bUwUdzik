@@ -193,19 +193,19 @@
     <!-- Pairing UI -->
     <string name="setup_new_device">Konfiguracja nowego urządzenia</string>
     <string name="pairing_subtitle">Wykonaj te kroki, aby sparować urządzenie</string>
-    <string name="pairing_step1_title">Tryb parowania</string>
-    <string name="pairing_step1_desc">Przyciśnij zegar na 2 sekundy</string>
+    <string name="pairing_step1_title">Włącz tryb parowania</string>
+    <string name="pairing_step1_desc">Wciśnij przycisk urządzenia na 2 sekundy.</string>
     <string name="pairing_step2_title">Poczekaj na sygnał</string>
-    <string name="pairing_step2_desc">Ikona Bluetooth na urządzeniu zacznie migać</string>
+    <string name="pairing_step2_desc">Ikona Bluetooth na urządzeniu zacznie migać.</string>
     <string name="pairing_step3_title">Połącz</string>
-    <string name="pairing_step3_desc">Stuknij przycisk poniżej, aby sparować</string>
+    <string name="pairing_step3_desc">Stuknij przycisk poniżej, aby sparować.</string>
     <string name="pair_and_connect">Sparuj i połącz</string>
-    <string name="unpair_device">Rozparuj urządzenie</string>
-    <string name="unpair_confirm_title">Rozparować urządzenie?</string>
+    <string name="unpair_device">Odłącz urządzenie</string>
+    <string name="unpair_confirm_title">Odłączyć urządzenie?</string>
     <string name="unpair_confirm_message">Przed ponownym połączeniem będziesz musiał znowu sparować urządzenie.</string>
     <string name="unpair_confirm">Odłącz</string>
 
     <!-- Local Settings -->
     <string name="local_settings_header">Ustawienia lokalne</string>
-    <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zegarze.</string>
+    <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zewnętrznym urządzeniu.</string>
 </resources>

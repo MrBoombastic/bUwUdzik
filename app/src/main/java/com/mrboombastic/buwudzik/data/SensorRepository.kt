@@ -1,7 +1,8 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.mrboombastic.buwudzik.device.SensorData
 
 class SensorRepository(context: Context) {
 

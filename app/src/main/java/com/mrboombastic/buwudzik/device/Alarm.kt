@@ -1,4 +1,4 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.device
 
 import java.util.Locale
 

@@ -41,7 +41,7 @@
         </activity>
 
         <receiver
-                android:name=".SensorWidget"
+                android:name=".widget.SensorWidget"
                 android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -54,7 +54,7 @@
         </receiver>
 
         <receiver
-                android:name=".SensorUpdateReceiver"
+                android:name=".widget.SensorUpdateReceiver"
                 android:exported="false" />
 
         <receiver

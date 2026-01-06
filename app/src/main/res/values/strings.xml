@@ -203,11 +203,11 @@
     <string name="setup_new_device">Setup new device</string>
     <string name="pairing_subtitle">Follow these steps to pair your device</string>
     <string name="pairing_step1_title">Enter pairing mode</string>
-    <string name="pairing_step1_desc">Hold the clock button for 2 seconds</string>
+    <string name="pairing_step1_desc">Press the device button for 2 seconds.</string>
     <string name="pairing_step2_title">Wait for signal</string>
-    <string name="pairing_step2_desc">The Bluetooth icon on device will blink</string>
+    <string name="pairing_step2_desc">The Bluetooth icon on device will blink.</string>
     <string name="pairing_step3_title">Connect</string>
-    <string name="pairing_step3_desc">Tap the button below to pair</string>
+    <string name="pairing_step3_desc">Tap the button below to pair.</string>
     <string name="pair_and_connect">Pair and connect</string>
     <string name="unpair_device">Unpair device</string>
     <string name="unpair_confirm_title">Unpair device?</string>
@@ -216,5 +216,5 @@
 
     <!-- Local Settings -->
     <string name="local_settings_header">Local settings</string>
-    <string name="local_settings_description">These settings are saved on this phone, not the clock.</string>
+    <string name="local_settings_description">These settings are saved on this phone, not the remote device.</string>
 </resources>

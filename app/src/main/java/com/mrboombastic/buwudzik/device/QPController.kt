@@ -1,4 +1,7 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.device
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -11,6 +14,7 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import com.mrboombastic.buwudzik.data.TokenStorage
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -123,9 +127,9 @@ data class DeviceSettings(
 
     fun getRingtoneName(): String {
         // Check for custom slots first
-        QingpingController.getCustomSlotName(ringtoneSignature)?.let { return it }
+        QPController.getCustomSlotName(ringtoneSignature)?.let { return it }
         // Then check standard ringtones
-        return QingpingController.RINGTONE_SIGNATURES.entries
+        return QPController.RINGTONE_SIGNATURES.entries
             .find { it.value.contentEquals(ringtoneSignature) }?.key ?: "Unknown"
     }
 }
@@ -135,14 +139,14 @@ enum class TimeFormat { H24, H12 }
 enum class Language { Chinese, English }
 
 /**
- * Controller for Qingping CGD1 device via BLE GATT
+ * Controller for QP CGD1 device via BLE GATT
  * Maintains a persistent connection with the device
  *
  * Note: All Bluetooth operations require BLUETOOTH_CONNECT permission.
  * Permission is checked at the UI layer before any operations are performed.
  */
 @SuppressLint("MissingPermission")
-class QingpingController(private val context: Context) {
+class QPController(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val gattMutex = Mutex()
@@ -170,9 +174,9 @@ class QingpingController(private val context: Context) {
     }
 
     companion object {
-        private const val TAG = "QingpingController"
+        private const val TAG = "QPController"
 
-        // UUIDs for Qingping CGD1
+        // UUIDs for QP CGD1
         private val UUID_AUTH_WRITE = UUID.fromString("00000001-0000-1000-8000-00805f9b34fb")
         private val UUID_AUTH_NOTIFY = UUID.fromString("00000002-0000-1000-8000-00805f9b34fb")
         private val UUID_DATA_WRITE = UUID.fromString("0000000b-0000-1000-8000-00805f9b34fb")
@@ -253,8 +257,6 @@ class QingpingController(private val context: Context) {
             }
         }
 
-        // Token size in bytes
-        private const val TOKEN_SIZE = 16
     }
     
     // Token storage for persistence
@@ -294,10 +296,10 @@ class QingpingController(private val context: Context) {
     private fun prepareTokenForDevice(macAddress: String): ByteArray {
         val existingToken = tokenStorage.getToken(macAddress)
         return if (existingToken != null) {
-            Log.d(TAG, "Using stored token for $macAddress")
+            AppLogger.d(TAG, "Using stored token for $macAddress")
             existingToken
         } else {
-            Log.d(TAG, "Generating new token for $macAddress (fresh pairing)")
+            AppLogger.d(TAG, "Generating new token for $macAddress (fresh pairing)")
             tokenStorage.generateAndStoreToken(macAddress)
         }
     }
@@ -362,7 +364,7 @@ class QingpingController(private val context: Context) {
             0x10 -> "Audio Init"
             else -> "Cmd $cmdId"
         }
-        Log.d(TAG, "Received ACK for $cmdName with status $status")
+        AppLogger.d(TAG, "Received ACK for $cmdName with status $status")
 
         // Handle audio upload ACKs
         if (cmdId == 0x08 || cmdId == 0x10) {
@@ -372,11 +374,11 @@ class QingpingController(private val context: Context) {
         if (status == 0x00 || status == 0x09 || (cmdId == 0x01 && status == 0x02)) {
             // cmdId 0x01 = Auth Init success, mark that we need to send Auth Confirm
             if (cmdId == 0x01) {
-                Log.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
+                AppLogger.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
                 authInitAckReceived = true
                 // Don't write here - wait for onCharacteristicWrite callback
             } else if (cmdId == 0x02) {
-                Log.d(TAG, "Authentication successful!")
+                AppLogger.d(TAG, "Authentication successful!")
                 isAuthenticated = true
                 pendingAuthWriteChar = null
             }
@@ -391,11 +393,11 @@ class QingpingController(private val context: Context) {
     private val gattCallback = object : BluetoothGattCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            Log.d(TAG, "onConnectionStateChange status=$status newState=$newState")
+            AppLogger.d(TAG, "onConnectionStateChange status=$status newState=$newState")
             when (newState) {
                 BluetoothProfile.STATE_CONNECTED -> {
                     isConnected = true
-                    Log.d(TAG, "Connected to GATT server, discovering services...")
+                    AppLogger.d(TAG, "Connected to GATT server, discovering services...")
                     gatt?.discoverServices()
                 }
 
@@ -403,7 +405,7 @@ class QingpingController(private val context: Context) {
                     isConnected = false
                     isAuthenticated = false
                     enabledNotifications.clear()
-                    Log.d(TAG, "Disconnected from GATT server (status: $status)")
+                    AppLogger.d(TAG, "Disconnected from GATT server (status: $status)")
 
                     // Emit disconnection event with reason
                     _disconnectionEvent.value = DisconnectionReason.fromGattStatus(status)
@@ -430,9 +432,9 @@ class QingpingController(private val context: Context) {
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            Log.d(TAG, "onServicesDiscovered status=$status")
+            AppLogger.d(TAG, "onServicesDiscovered status=$status")
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Services discovered successfully")
+                AppLogger.d(TAG, "Services discovered successfully")
                 connectContinuation?.resume(true)
                 connectContinuation = null
             } else {
@@ -445,7 +447,7 @@ class QingpingController(private val context: Context) {
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray
         ) {
-            Log.d(TAG, "onCharacteristicChanged ${characteristic.uuid}: ${value.toHexString()}")
+            AppLogger.d(TAG, "onCharacteristicChanged ${characteristic.uuid}: ${value.toHexString()}")
 
             when (characteristic.uuid) {
                 UUID_AUTH_NOTIFY -> {
@@ -453,7 +455,7 @@ class QingpingController(private val context: Context) {
                         try {
                             val length = if (value.size > 1) value[1].toInt() and 0xFF else 0
                             val version = String(value, 2, minOf(length, value.size - 2))
-                            Log.d(TAG, "Received firmware version: $version")
+                            AppLogger.d(TAG, "Received firmware version: $version")
                             firmwareVersionReadContinuation?.resume(version)
                             firmwareVersionReadContinuation = null
                         } catch (e: Exception) {
@@ -480,7 +482,7 @@ class QingpingController(private val context: Context) {
                         }
                     } else if (value.size >= 3 && value[0] == 0x11.toByte() && value[1] == 0x06.toByte()) {
                         val baseIndex = value[2].toInt() and 0xFF
-                        Log.d(TAG, "Parsing alarms packet starting at index $baseIndex")
+                        AppLogger.d(TAG, "Parsing alarms packet starting at index $baseIndex")
 
                         var offset = 3
                         var currentIndex = baseIndex
@@ -496,12 +498,12 @@ class QingpingController(private val context: Context) {
                             if (hour != 255 && minute != 255) {
                                 val alarm = Alarm(currentIndex, enabled, hour, minute, days, snooze)
                                 alarmBuffer.add(alarm)
-                                Log.d(
+                                AppLogger.d(
                                     TAG,
                                     "Parsed alarm #$currentIndex: ${alarm.getTimeString()} enabled=$enabled days=$days"
                                 )
                             } else {
-                                Log.d(TAG, "Empty alarm slot #$currentIndex")
+                                AppLogger.d(TAG, "Empty alarm slot #$currentIndex")
                             }
 
                             highestIndexSeen = currentIndex
@@ -510,7 +512,7 @@ class QingpingController(private val context: Context) {
                         }
 
                         if (highestIndexSeen >= 15) {
-                            Log.d(
+                            AppLogger.d(
                                 TAG,
                                 "Received all 16 alarm slots (up to index 15), returning ${alarmBuffer.size} alarms"
                             )
@@ -523,7 +525,7 @@ class QingpingController(private val context: Context) {
                             alarmCompletionJob?.cancel()
                             alarmCompletionJob = scope.launch {
                                 delay(1000)
-                                Log.d(
+                                AppLogger.d(
                                     TAG,
                                     "Timeout waiting for more packets, returning ${alarmBuffer.size} alarms"
                                 )
@@ -533,7 +535,7 @@ class QingpingController(private val context: Context) {
                             }
                         }
                     } else if (value.size >= 15 && value[0] == 0x13.toByte() && (value[1] == 0x01.toByte() || value[1] == 0x02.toByte())) {
-                        Log.d(TAG, "Received device settings packet: ${value.toHexString()}")
+                        AppLogger.d(TAG, "Received device settings packet: ${value.toHexString()}")
                         lastSettingsPacket = value.copyOf()
                         try {
                             val volume = value[2].toInt() and 0xFF
@@ -584,7 +586,7 @@ class QingpingController(private val context: Context) {
                             deviceSettingsReadContinuation = null
                         }
                     } else {
-                        Log.d(TAG, "Unhandled data packet: ${value.toHexString()}")
+                        AppLogger.d(TAG, "Unhandled data packet: ${value.toHexString()}")
                     }
                 }
 
@@ -598,7 +600,7 @@ class QingpingController(private val context: Context) {
                         val temperature = tempRaw / 100.0f
                         val humidity = humRaw / 100.0f
 
-                        Log.d(TAG, "Sensor data: Temp=$temperature °C, Hum=$humidity %")
+                        AppLogger.d(TAG, "Sensor data: Temp=$temperature °C, Hum=$humidity %")
                         onSensorData?.invoke(temperature, humidity)
                         onLastUpdated?.invoke(System.currentTimeMillis())
                     } else {
@@ -612,7 +614,7 @@ class QingpingController(private val context: Context) {
         override fun onCharacteristicWrite(
             gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int
         ) {
-            Log.d(TAG, "onCharacteristicWrite ${characteristic?.uuid} status=$status")
+            AppLogger.d(TAG, "onCharacteristicWrite ${characteristic?.uuid} status=$status")
             val deferred = writeCompleteDeferred
             writeCompleteDeferred = null
 
@@ -625,7 +627,7 @@ class QingpingController(private val context: Context) {
                 // Check if we need to send Auth Confirm (11 02) after Auth Init write completes
                 if (authInitAckReceived && characteristic?.uuid == UUID_AUTH_WRITE) {
                     authInitAckReceived = false // Clear flag
-                    Log.d(TAG, "Auth Init write complete, now sending Auth Confirm (11 02)...")
+                    AppLogger.d(TAG, "Auth Init write complete, now sending Auth Confirm (11 02)...")
                     pendingAuthWriteChar?.let { char ->
                         gatt?.writeCharacteristic(
                             char,
@@ -641,14 +643,14 @@ class QingpingController(private val context: Context) {
         override fun onDescriptorWrite(
             gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int
         ) {
-            Log.d(TAG, "onDescriptorWrite status=$status for ${descriptor?.characteristic?.uuid}")
+            AppLogger.d(TAG, "onDescriptorWrite status=$status for ${descriptor?.characteristic?.uuid}")
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Notification enabled for ${descriptor?.characteristic?.uuid}")
+                AppLogger.d(TAG, "Notification enabled for ${descriptor?.characteristic?.uuid}")
 
                 when (descriptor?.characteristic?.uuid) {
                     UUID_AUTH_NOTIFY -> {
                         pendingAuthWrite?.let { char ->
-                            Log.d(TAG, "Descriptor write complete, sending Auth Init (11 01)...")
+                            AppLogger.d(TAG, "Descriptor write complete, sending Auth Init (11 01)...")
                             pendingAuthWriteChar = char // Save for second step
                             gatt?.writeCharacteristic(
                                 char,
@@ -661,7 +663,7 @@ class QingpingController(private val context: Context) {
 
                     UUID_DATA_NOTIFY -> {
                         pendingDataCommand?.let { cmd ->
-                            Log.d(
+                            AppLogger.d(
                                 TAG,
                                 "Descriptor write complete, now sending data command: ${cmd.toHexString()}..."
                             )
@@ -707,7 +709,7 @@ class QingpingController(private val context: Context) {
 
         override fun onReadRemoteRssi(gatt: BluetoothGatt, rssi: Int, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Read RSSI: $rssi")
+                AppLogger.d(TAG, "Read RSSI: $rssi")
                 onRssiUpdate?.invoke(rssi)
             } else {
                 Log.w(TAG, "Failed to read RSSI, status: $status")
@@ -721,7 +723,7 @@ class QingpingController(private val context: Context) {
         val macAddress = device.address
         currentDeviceMac = macAddress
         currentToken = prepareTokenForDevice(macAddress)
-        Log.d(TAG, "Token prepared for $macAddress: ${currentToken?.toHexString()}")
+        AppLogger.d(TAG, "Token prepared for $macAddress: ${currentToken?.toHexString()}")
         
         if (!isConnected) {
             connect(device)
@@ -746,7 +748,7 @@ class QingpingController(private val context: Context) {
 
     private suspend fun connect(device: BluetoothDevice): Boolean =
         suspendCancellableCoroutine { continuation ->
-            Log.d(TAG, "Connecting to device: ${device.address}")
+            AppLogger.d(TAG, "Connecting to device: ${device.address}")
             connectContinuation = continuation
 
             gatt = device.connectGatt(context, false, gattCallback)
@@ -764,7 +766,7 @@ class QingpingController(private val context: Context) {
                     return@suspendCancellableCoroutine
                 }
 
-                Log.d(TAG, "Starting authentication...")
+                AppLogger.d(TAG, "Starting authentication...")
                 pendingAckContinuations[0x02] = continuation
 
                 val authService =
@@ -782,7 +784,7 @@ class QingpingController(private val context: Context) {
                 val descriptor = authNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
 
                 pendingAuthWrite = authWriteChar
-                Log.d(TAG, "Enabling auth notifications...")
+                AppLogger.d(TAG, "Enabling auth notifications...")
 
                 descriptor?.let {
                     val status = currentGatt.writeDescriptor(
@@ -817,7 +819,7 @@ class QingpingController(private val context: Context) {
                     }
 
                     val date = java.util.Date(timestamp * 1000)
-                    Log.d(TAG, "Synchronizing time to: $date (Unix: $timestamp)")
+                    AppLogger.d(TAG, "Synchronizing time to: $date (Unix: $timestamp)")
                     pendingAckContinuations[0x09] = continuation
 
                     val command = byteArrayOf(
@@ -861,7 +863,7 @@ class QingpingController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            Log.d(TAG, "Reading device settings...")
+            AppLogger.d(TAG, "Reading device settings...")
             deviceSettingsReadContinuation = continuation
 
             val dataService =
@@ -878,7 +880,7 @@ class QingpingController(private val context: Context) {
 
             // Check if notifications already enabled
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                Log.d(TAG, "Data notifications already enabled, sending command directly...")
+                AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
                 val status = currentGatt.writeCharacteristic(
                     dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
@@ -892,7 +894,7 @@ class QingpingController(private val context: Context) {
                 val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
 
                 pendingDataCommand = command
-                Log.d(TAG, "Enabling data notifications for settings...")
+                AppLogger.d(TAG, "Enabling data notifications for settings...")
 
                 descriptor?.let {
                     val status = currentGatt.writeDescriptor(
@@ -930,7 +932,7 @@ class QingpingController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            Log.d(TAG, "Reading firmware version...")
+            AppLogger.d(TAG, "Reading firmware version...")
             firmwareVersionReadContinuation = continuation
 
             val authService =
@@ -1034,7 +1036,7 @@ class QingpingController(private val context: Context) {
                         payload[12] = settings.nightEndMinute.toByte()
                     } else {
                         // Fix: Hardware often ignores the enable bit, so set a minimal 1-min window
-                        Log.d(TAG, "Night Mode disabled: forcing schedule to 00:00 - 00:01")
+                        AppLogger.d(TAG, "Night Mode disabled: forcing schedule to 00:00 - 00:01")
                         payload[9] = 0
                         payload[10] = 0
                         payload[11] = 0
@@ -1064,7 +1066,7 @@ class QingpingController(private val context: Context) {
                         return@suspendCancellableCoroutine
                     }
 
-                    Log.d(TAG, "Sending write settings command: ${payload.toHexString()}")
+                    AppLogger.d(TAG, "Sending write settings command: ${payload.toHexString()}")
 
                     scope.launch {
                         val started = writeCharacteristicWithRetry(dataWriteChar, payload)
@@ -1112,7 +1114,7 @@ class QingpingController(private val context: Context) {
                 }
 
                 pendingAckContinuations[0x03] = continuation
-                Log.d(TAG, "Immediate brightness update: $percentage% (value: $value)")
+                AppLogger.d(TAG, "Immediate brightness update: $percentage% (value: $value)")
 
                 scope.launch {
                     val started = writeCharacteristicWithRetry(dataWriteChar, command)
@@ -1137,7 +1139,7 @@ class QingpingController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            Log.d(TAG, "Enabling sensor notifications...")
+            AppLogger.d(TAG, "Enabling sensor notifications...")
             sensorNotificationContinuation = continuation
 
             val sensorService =
@@ -1214,7 +1216,7 @@ class QingpingController(private val context: Context) {
                     return@suspendCancellableCoroutine
                 }
 
-                Log.d(TAG, "Setting alarm #$alarmId to ${hour}:${minute}")
+                AppLogger.d(TAG, "Setting alarm #$alarmId to ${hour}:${minute}")
                 val status = currentGatt.writeCharacteristic(
                     dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
@@ -1262,7 +1264,7 @@ class QingpingController(private val context: Context) {
                     return@suspendCancellableCoroutine
                 }
 
-                Log.d(TAG, "Deleting alarm #$alarmId")
+                AppLogger.d(TAG, "Deleting alarm #$alarmId")
                 val status = currentGatt.writeCharacteristic(
                     dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
@@ -1286,7 +1288,7 @@ class QingpingController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            Log.d(TAG, "Reading alarms...")
+            AppLogger.d(TAG, "Reading alarms...")
             alarmReadContinuation = continuation
             alarmBuffer.clear()
 
@@ -1305,7 +1307,7 @@ class QingpingController(private val context: Context) {
 
             // Check if notifications already enabled
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                Log.d(TAG, "Data notifications already enabled, sending command directly...")
+                AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
                 val status = currentGatt.writeCharacteristic(
                     dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                 )
@@ -1319,7 +1321,7 @@ class QingpingController(private val context: Context) {
                 val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
 
                 pendingDataCommand = command
-                Log.d(TAG, "Enabling data notifications for alarms...")
+                AppLogger.d(TAG, "Enabling data notifications for alarms...")
 
                 descriptor?.let {
                     val status = currentGatt.writeDescriptor(
@@ -1354,7 +1356,7 @@ class QingpingController(private val context: Context) {
         gatt = null
         isConnected = false
         isAuthenticated = false
-        Log.d(TAG, "Disconnected and closed GATT")
+        AppLogger.d(TAG, "Disconnected and closed GATT")
     }
 
     private fun ByteArray.toHexString(): String {
@@ -1364,10 +1366,10 @@ class QingpingController(private val context: Context) {
     suspend fun previewRingtone(settings: DeviceSettings? = null): Boolean = gattMutex.withLock {
         val command = if (settings != null) {
             val vol = settings.volume.coerceIn(1, 5).toByte()
-            Log.d(TAG, "Previewing ringtone with volume $vol")
+            AppLogger.d(TAG, "Previewing ringtone with volume $vol")
             byteArrayOf(0x02, 0x04, vol)
         } else {
-            Log.d(TAG, "Previewing ringtone with default/current volume")
+            AppLogger.d(TAG, "Previewing ringtone with default/current volume")
             byteArrayOf(0x01, 0x04)
         }
         writeToDataCharacteristic(command, 0x04)
@@ -1454,9 +1456,9 @@ class QingpingController(private val context: Context) {
             enabledNotifications.add(UUID_DATA_NOTIFY)
         }
 
-        Log.d(TAG, "=== AUDIO UPLOAD START ===")
-        Log.d(TAG, "Audio size: ${pcmData.size} bytes")
-        Log.d(TAG, "Target signature: ${targetSignature.toHexString()}")
+        AppLogger.d(TAG, "=== AUDIO UPLOAD START ===")
+        AppLogger.d(TAG, "Audio size: ${pcmData.size} bytes")
+        AppLogger.d(TAG, "Target signature: ${targetSignature.toHexString()}")
 
         // 1. Send Init: 08 10 + length(3B LE) + ringKey(4B)
         val sizeBytes = pcmData.size
@@ -1468,7 +1470,7 @@ class QingpingController(private val context: Context) {
             targetSignature[0], targetSignature[1], targetSignature[2], targetSignature[3]
         )
 
-        Log.d(TAG, "Sending Init: ${initPayload.toHexString()}")
+        AppLogger.d(TAG, "Sending Init: ${initPayload.toHexString()}")
         uploadInitAckReceived = false
 
         // Write init packet and wait for callback (like original writeChar with withResponse=true)
@@ -1499,7 +1501,7 @@ class QingpingController(private val context: Context) {
         val totalBlocks = (pcmData.size + blockSize - 1) / blockSize
         var totalPacketsSent = 0
 
-        Log.d(
+        AppLogger.d(
             TAG,
             "Upload plan: ${pcmData.size} bytes, $totalBlocks blocks, packetSize=$packetSize"
         )
@@ -1516,7 +1518,7 @@ class QingpingController(private val context: Context) {
                 // Pad to packetSize if needed (use 0xFF for silence like official app)
                 val paddedAudio = if (audioChunk.size < packetSize) {
                     val padding = packetSize - audioChunk.size
-                    Log.d(
+                    AppLogger.d(
                         TAG,
                         "Packet $totalPacketsSent: ${audioChunk.size} bytes + $padding padding"
                     )
@@ -1530,7 +1532,7 @@ class QingpingController(private val context: Context) {
                 val isLastInBlock =
                     (pktIdx == packetsPerBlock - 1) || (offset + audioLen >= pcmData.size)
 
-                Log.d(
+                AppLogger.d(
                     TAG,
                     "Block $blockNum, Pkt $pktIdx: offset=$offset, audioLen=$audioLen, packetLen=${packet.size}, isLast=$isLastInBlock"
                 )
@@ -1569,17 +1571,17 @@ class QingpingController(private val context: Context) {
             val progress = minOf(1.0f, offset.toFloat() / pcmData.size)
             onProgress(progress)
 
-            Log.d(
+            AppLogger.d(
                 TAG,
                 "Block $blockNum complete: offset=$offset/${pcmData.size}, totalPackets=$totalPacketsSent"
             )
 
             if (blockNum % 10 == 0 || offset >= pcmData.size) {
-                Log.d(TAG, "Progress: ${(progress * 100).toInt()}% (block $blockNum/$totalBlocks)")
+                AppLogger.d(TAG, "Progress: ${(progress * 100).toInt()}% (block $blockNum/$totalBlocks)")
             }
         }
 
-        Log.d(TAG, "=== UPLOAD COMPLETE === Total packets sent: $totalPacketsSent")
+        AppLogger.d(TAG, "=== UPLOAD COMPLETE === Total packets sent: $totalPacketsSent")
         return true
     }
 
@@ -1628,15 +1630,17 @@ class QingpingController(private val context: Context) {
 
             when (cmdId) {
                 0x10 -> {
-                    Log.d(TAG, "Init ACK received (status: $status)")
+                    AppLogger.d(TAG, "Init ACK received (status: $status)")
                     uploadInitAckReceived = true
                 }
 
                 0x08 -> {
-                    Log.d(TAG, "Audio block ACK received (status: $status)")
+                    AppLogger.d(TAG, "Audio block ACK received (status: $status)")
                     uploadAckReceived = true
                 }
             }
         }
     }
 }
+
+

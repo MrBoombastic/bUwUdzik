@@ -1,4 +1,11 @@
-package com.mrboombastic.buwudzik
+package com.mrboombastic.buwudzik.ui.screens
+
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.device.BluetoothScanner
+import com.mrboombastic.buwudzik.data.SettingsRepository
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -111,7 +118,7 @@ fun DeviceSetupScreen(navController: NavController) {
     DisposableEffect(Unit) {
         onDispose {
             scanJob?.cancel()
-            Log.d("DeviceSetupScreen", "Screen disposed, scan job cancelled")
+            AppLogger.d("DeviceSetupScreen", "Screen disposed, scan job cancelled")
         }
     }
 
@@ -335,11 +342,11 @@ private fun startDeviceScan(
                         devices.add(device)
                     }
 
-                    Log.d("DeviceSetupScreen", "Found device: ${device.name} at ${device.address}")
+                    AppLogger.d("DeviceSetupScreen", "Found device: ${device.name} at ${device.address}")
                 }
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            Log.d("DeviceSetupScreen", "Scan timeout after 15 seconds - found ${devices.size} device(s)")
+            AppLogger.d("DeviceSetupScreen", "Scan timeout after 15 seconds - found ${devices.size} device(s)")
         } catch (e: Exception) {
             Log.e("DeviceSetupScreen", "Scan error", e)
         } finally {
@@ -348,4 +355,9 @@ private fun startDeviceScan(
     }
     onStateChange(job, true)
 }
+
+
+
+
+
 

@@ -1,5 +1,8 @@
 package com.mrboombastic.buwudzik
 
+import com.mrboombastic.buwudzik.utils.AppLogger
+
+
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.bluetooth.BluetoothManager
@@ -86,7 +89,21 @@ import androidx.navigation.compose.rememberNavController
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.device.Alarm
+import com.mrboombastic.buwudzik.device.BluetoothScanner
+import com.mrboombastic.buwudzik.device.DeviceSettings
+import com.mrboombastic.buwudzik.device.QPController
+import com.mrboombastic.buwudzik.device.SensorData
+import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
+import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
+import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
 import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
+import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
+import com.mrboombastic.buwudzik.widget.SensorUpdateReceiver
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import kotlinx.coroutines.Job
@@ -111,11 +128,11 @@ class MainViewModel(
     private val _sensorData = MutableStateFlow<SensorData?>(null)
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
 
-    private val _clockConnected = MutableStateFlow(false)
-    val clockConnected: StateFlow<Boolean> = _clockConnected.asStateFlow()
+    private val _deviceConnected = MutableStateFlow(false)
+    val deviceConnected: StateFlow<Boolean> = _deviceConnected.asStateFlow()
 
-    private val _clockConnecting = MutableStateFlow(false)
-    val clockConnecting: StateFlow<Boolean> = _clockConnecting.asStateFlow()
+    private val _deviceConnecting = MutableStateFlow(false)
+    val deviceConnecting: StateFlow<Boolean> = _deviceConnecting.asStateFlow()
 
     private val _alarms = MutableStateFlow<List<Alarm>>(emptyList())
     val alarms: StateFlow<List<Alarm>> = _alarms.asStateFlow()
@@ -129,13 +146,13 @@ class MainViewModel(
     private val _isPaired = MutableStateFlow(false)
     val isPaired: StateFlow<Boolean> = _isPaired.asStateFlow()
 
-    val clockController = QingpingController(applicationContext)
+    val qpController = QPController(applicationContext)
 
     // Expose disconnection event from controller
-    val disconnectionEvent = clockController.disconnectionEvent
+    val disconnectionEvent = qpController.disconnectionEvent
 
     fun clearDisconnectionEvent() {
-        clockController.clearDisconnectionEvent()
+        qpController.clearDisconnectionEvent()
     }
     
     /**
@@ -143,7 +160,7 @@ class MainViewModel(
      */
     fun checkPairingStatus() {
         val mac = settingsRepository.targetMacAddress
-        _isPaired.value = if (mac.isNotEmpty()) clockController.isDevicePaired(mac) else false
+        _isPaired.value = if (mac.isNotEmpty()) qpController.isDevicePaired(mac) else false
     }
     
     /**
@@ -152,7 +169,7 @@ class MainViewModel(
     fun unpairDevice() {
         val mac = settingsRepository.targetMacAddress
         if (mac.isNotEmpty()) {
-            clockController.unpairDevice(mac)
+            qpController.unpairDevice(mac)
             checkPairingStatus()
         }
     }
@@ -163,9 +180,9 @@ class MainViewModel(
     fun handleUnexpectedDisconnect() {
         rssiPollJob?.cancel()
         rssiPollJob = null
-        _clockConnected.value = false
-        _clockConnecting.value = false
-        Log.d("MainViewModel", "Handled unexpected disconnect, starting scan")
+        _deviceConnected.value = false
+        _deviceConnecting.value = false
+        AppLogger.d("MainViewModel", "Handled unexpected disconnect, starting scan")
         startScanning()
     }
 
@@ -185,22 +202,22 @@ class MainViewModel(
         } else {
             // scanJob automatically cancels or fails, but good to be explicit
             scanJob?.cancel()
-            _clockConnected.value = false
+            _deviceConnected.value = false
         }
     }
 
     fun startScanning() {
         if (scanJob?.isActive == true) {
-            Log.d("MainViewModel", "Scan already active, ignoring start request.")
+            AppLogger.d("MainViewModel", "Scan already active, ignoring start request.")
             return
         }
 
         val targetMac = settingsRepository.targetMacAddress
         val scanMode = settingsRepository.scanMode
-        Log.d("MainViewModel", "Starting scanning flow for $targetMac with mode $scanMode...")
+        AppLogger.d("MainViewModel", "Starting scanning flow for $targetMac with mode $scanMode...")
         scanJob = viewModelScope.launch {
             scanner.scan(targetMac, scanMode).collect { data ->
-                Log.d("MainViewModel", "Received data: $data")
+                AppLogger.d("MainViewModel", "Received data: $data")
                 val correctedBattery = BluetoothUtils.correctBatteryLevel(
                     data.battery,
                     settingsRepository.batteryType
@@ -213,15 +230,15 @@ class MainViewModel(
     }
 
     fun restartScanning() {
-        Log.d("MainViewModel", "Restarting scan...")
+        AppLogger.d("MainViewModel", "Restarting scan...")
         scanJob?.cancel()
         scanJob = null
         _sensorData.value = null
         startScanning()
     }
 
-    fun connectToClock(reloadAlarms: Boolean = true) {
-        if (_clockConnecting.value || _clockConnected.value) return
+    fun connectToDevice(reloadAlarms: Boolean = true) {
+        if (_deviceConnecting.value || _deviceConnected.value) return
 
         val targetMac = settingsRepository.targetMacAddress
         if (targetMac.isEmpty()) {
@@ -229,7 +246,7 @@ class MainViewModel(
             return
         }
 
-        _clockConnecting.value = true
+        _deviceConnecting.value = true
         // Stop scanning before connecting
         scanJob?.cancel()
         
@@ -244,13 +261,13 @@ class MainViewModel(
                 val adapter = bluetoothManager.adapter
                 val device = adapter.getRemoteDevice(targetMac)
 
-                val success = clockController.connectAndAuthenticate(device)
+                val success = qpController.connectAndAuthenticate(device)
                 if (success) {
-                    _clockConnected.value = true
+                    _deviceConnected.value = true
                     checkPairingStatus()
                     
                     // Setup real-time updates
-                    clockController.onSensorData = { temperature, humidity ->
+                    qpController.onSensorData = { temperature, humidity ->
                         val currentData = _sensorData.value
                         val targetMac = settingsRepository.targetMacAddress
                         
@@ -269,7 +286,7 @@ class MainViewModel(
                         )
                     }
 
-                    clockController.onRssiUpdate = { rssi ->
+                    qpController.onRssiUpdate = { rssi ->
                         _sensorData.value = _sensorData.value?.copy(rssi = rssi)
                     }
 
@@ -277,18 +294,18 @@ class MainViewModel(
                     rssiPollJob?.cancel()
                     rssiPollJob = viewModelScope.launch {
                         while (true) {
-                            clockController.readRssi()
+                            qpController.readRssi()
                             delay(5000) // Poll every 5 seconds
                         }
                     }
 
                     if (reloadAlarms) {
-                        Log.d("MainViewModel", "Clock connected, reading alarms and settings...")
+                        AppLogger.d("MainViewModel", "Clock connected, reading alarms and settings...")
                         launch {
                             try {
-                                val alarms = clockController.readAlarms()
+                                val alarms = qpController.readAlarms()
                                 _alarms.value = alarms
-                                Log.d("MainViewModel", "Loaded ${alarms.size} alarms")
+                                AppLogger.d("MainViewModel", "Loaded ${alarms.size} alarms")
                             } catch (e: Exception) {
                                 Log.e("MainViewModel", "Error loading alarms", e)
                             }
@@ -296,9 +313,9 @@ class MainViewModel(
                             delay(200) // Small gap to avoid BLE race conditions
 
                             try {
-                                val settings = clockController.readDeviceSettings()
+                                val settings = qpController.readDeviceSettings()
                                 _deviceSettings.value = settings
-                                Log.d("MainViewModel", "Loaded device settings: $settings")
+                                AppLogger.d("MainViewModel", "Loaded device settings: $settings")
                             } catch (e: Exception) {
                                 Log.e("MainViewModel", "Error loading settings", e)
                             }
@@ -306,10 +323,10 @@ class MainViewModel(
                             delay(200)
 
                             try {
-                                val version = clockController.readFirmwareVersion()
+                                val version = qpController.readFirmwareVersion()
                                 _deviceSettings.value =
                                     _deviceSettings.value?.copy(firmwareVersion = version)
-                                Log.d("MainViewModel", "Loaded firmware version: $version")
+                                AppLogger.d("MainViewModel", "Loaded firmware version: $version")
                             } catch (e: Exception) {
                                 Log.e("MainViewModel", "Error loading firmware version", e)
                             }
@@ -321,11 +338,11 @@ class MainViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error connecting to clock", e)
-                _clockConnected.value = false
+                _deviceConnected.value = false
                 startScanning() // Restart scanning on error
             } finally {
                 if (reloadAlarms) {
-                    _clockConnecting.value = false
+                    _deviceConnecting.value = false
                 }
             }
         }
@@ -334,10 +351,10 @@ class MainViewModel(
     fun reloadAlarms() {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "Reloading alarms...")
-                val alarms = clockController.readAlarms()
+                AppLogger.d("MainViewModel", "Reloading alarms...")
+                val alarms = qpController.readAlarms()
                 _alarms.value = alarms
-                Log.d("MainViewModel", "Reloaded ${alarms.size} alarms")
+                AppLogger.d("MainViewModel", "Reloaded ${alarms.size} alarms")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error reloading alarms", e)
             }
@@ -347,7 +364,7 @@ class MainViewModel(
     fun updateAlarm(alarm: Alarm, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                clockController.setAlarm(
+                qpController.setAlarm(
                     hour = alarm.hour,
                     minute = alarm.minute,
                     alarmId = alarm.id,
@@ -367,7 +384,7 @@ class MainViewModel(
     fun deleteAlarm(alarmId: Int, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                clockController.deleteAlarm(alarmId)
+                qpController.deleteAlarm(alarmId)
                 reloadAlarms()
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -381,7 +398,7 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
-                clockController.writeDeviceSettings(settings)
+                qpController.writeDeviceSettings(settings)
                 _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -394,25 +411,25 @@ class MainViewModel(
     fun reloadDeviceSettings() {
         viewModelScope.launch {
             try {
-                Log.d("MainViewModel", "Reloading device settings...")
-                val settings = clockController.readDeviceSettings()
+                AppLogger.d("MainViewModel", "Reloading device settings...")
+                val settings = qpController.readDeviceSettings()
                 val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
                 _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
-                Log.d("MainViewModel", "Reloaded device settings")
+                AppLogger.d("MainViewModel", "Reloaded device settings")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error reloading device settings", e)
             }
         }
     }
 
-    fun disconnectFromClock() {
+    fun disconnectFromDevice() {
         rssiPollJob?.cancel()
         rssiPollJob = null
         connectionJob?.cancel()
         connectionJob = null
-        clockController.disconnect()
-        _clockConnected.value = false
-        Log.d("MainViewModel", "Disconnected from clock, restarting scan.")
+        qpController.disconnect()
+        _deviceConnected.value = false
+        AppLogger.d("MainViewModel", "Disconnected from clock, restarting scan.")
         startScanning()
     }
 
@@ -442,7 +459,7 @@ class MainActivity : AppCompatActivity() {
             alarmManager.cancel(pendingIntent)
 
             if (intervalMinutes < 15) {
-                Log.d(TAG, "Scheduling AlarmManager for $intervalMinutes min intervals")
+                AppLogger.d(TAG, "Scheduling AlarmManager for $intervalMinutes min intervals")
                 val intervalMillis = intervalMinutes * 60 * 1000
                 val triggerAt = System.currentTimeMillis() + intervalMillis
                 // Use setRepeating for simplicity, though imprecise on modern Android.
@@ -451,7 +468,7 @@ class MainActivity : AppCompatActivity() {
                     AlarmManager.RTC_WAKEUP, triggerAt, intervalMillis, pendingIntent
                 )
             } else {
-                Log.d(TAG, "Scheduling WorkManager for $intervalMinutes min intervals")
+                AppLogger.d(TAG, "Scheduling WorkManager for $intervalMinutes min intervals")
 
                 // Use flex time for battery optimization (run anytime within last 5 min of interval)
                 val flexMinutes = minOf(5L, intervalMinutes / 3)
@@ -467,7 +484,7 @@ class MainActivity : AppCompatActivity() {
                     "SensorUpdateWork", ExistingPeriodicWorkPolicy.UPDATE, workRequest
                 )
 
-                Log.d(TAG, "WorkManager scheduled with ${intervalMinutes}min interval, ${flexMinutes}min flex")
+                AppLogger.d(TAG, "WorkManager scheduled with ${intervalMinutes}min interval, ${flexMinutes}min flex")
             }
         }
     }
@@ -657,7 +674,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         // We can check result.resultCode, but the receiver will update the state anyway
-        Log.d("HomeScreen", "Bluetooth enable request result: ${result.resultCode}")
+        AppLogger.d("HomeScreen", "Bluetooth enable request result: ${result.resultCode}")
     }
 
     // Register Receiver
@@ -680,7 +697,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(), onResult = { perms ->
             val allGranted = perms.values.all { it }
-            Log.d(
+            AppLogger.d(
                 "MainActivity", "Permissions result: $perms, All Granted: $allGranted"
             )
             if (allGranted) {
@@ -696,7 +713,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
         val allGranted = permissionsToRequest.all {
             ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
         }
-        Log.d("MainActivity", "Initial permission check. All granted: $allGranted")
+        AppLogger.d("MainActivity", "Initial permission check. All granted: $allGranted")
         if (allGranted) {
             viewModel.startScanning()
         } else {
@@ -761,8 +778,8 @@ fun Dashboard(
     viewModel: MainViewModel,
     modifier: Modifier = Modifier
 ) {
-    val clockConnected by viewModel.clockConnected.collectAsState()
-    val clockConnecting by viewModel.clockConnecting.collectAsState()
+    val deviceConnected by viewModel.deviceConnected.collectAsState()
+    val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
     var showUnpairDialog by remember { mutableStateOf(false) }
 
@@ -776,7 +793,7 @@ fun Dashboard(
                 TextButton(
                     onClick = {
                         showUnpairDialog = false
-                        viewModel.disconnectFromClock()
+                        viewModel.disconnectFromDevice()
                         viewModel.unpairDevice()
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -858,14 +875,14 @@ fun Dashboard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (clockConnecting) {
+            if (deviceConnecting) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = stringResource(R.string.connecting_to_device),
                     style = MaterialTheme.typography.bodyMedium
                 )
-            } else if (!clockConnected) {
+            } else if (!deviceConnected) {
                 if (!isPaired) {
                     ElevatedCard(
                         colors = CardDefaults.elevatedCardColors(
@@ -1002,7 +1019,7 @@ fun Dashboard(
                 }
 
                 Button(
-                    onClick = { viewModel.connectToClock() },
+                    onClick = { viewModel.connectToDevice() },
                     modifier = Modifier.fillMaxWidth(0.8f)
                 ) {
                     Text(if (isPaired) stringResource(R.string.connect_to_device) else stringResource(R.string.pair_and_connect))
@@ -1043,7 +1060,7 @@ fun Dashboard(
                     MenuTile(
                         title = stringResource(R.string.disconnect),
                         icon = Icons.AutoMirrored.Filled.ExitToApp,
-                        onClick = { viewModel.disconnectFromClock() },
+                        onClick = { viewModel.disconnectFromDevice() },
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
@@ -1101,3 +1118,9 @@ fun MenuTile(
         }
     }
 }
+
+
+
+
+
+
