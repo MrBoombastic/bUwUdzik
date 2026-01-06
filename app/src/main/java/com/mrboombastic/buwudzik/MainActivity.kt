@@ -1,7 +1,5 @@
 package com.mrboombastic.buwudzik
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -39,10 +37,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhonelinkSetup
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -89,8 +87,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.DeviceSettings
@@ -102,10 +100,11 @@ import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
 import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
-import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
-import com.mrboombastic.buwudzik.widget.SensorUpdateReceiver
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
+import com.mrboombastic.buwudzik.utils.AppLogger
+import com.mrboombastic.buwudzik.widget.SensorUpdateReceiver
+import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -154,7 +153,7 @@ class MainViewModel(
     fun clearDisconnectionEvent() {
         qpController.clearDisconnectionEvent()
     }
-    
+
     /**
      * Check pairing status and update state
      */
@@ -162,7 +161,7 @@ class MainViewModel(
         val mac = settingsRepository.targetMacAddress
         _isPaired.value = if (mac.isNotEmpty()) qpController.isDevicePaired(mac) else false
     }
-    
+
     /**
      * Remove pairing (stored token) for the current target device
      */
@@ -219,8 +218,7 @@ class MainViewModel(
             scanner.scan(targetMac, scanMode).collect { data ->
                 AppLogger.d("MainViewModel", "Received data: $data")
                 val correctedBattery = BluetoothUtils.correctBatteryLevel(
-                    data.battery,
-                    settingsRepository.batteryType
+                    data.battery, settingsRepository.batteryType
                 )
                 val correctedData = data.copy(battery = correctedBattery)
                 _sensorData.value = correctedData
@@ -249,7 +247,7 @@ class MainViewModel(
         _deviceConnecting.value = true
         // Stop scanning before connecting
         scanJob?.cancel()
-        
+
         // Cancel any previous connection attempt
         connectionJob?.cancel()
 
@@ -265,12 +263,12 @@ class MainViewModel(
                 if (success) {
                     _deviceConnected.value = true
                     checkPairingStatus()
-                    
+
                     // Setup real-time updates
                     qpController.onSensorData = { temperature, humidity ->
                         val currentData = _sensorData.value
                         val targetMac = settingsRepository.targetMacAddress
-                        
+
                         _sensorData.value = currentData?.copy(
                             temperature = temperature.toDouble(),
                             humidity = humidity.toDouble(),
@@ -300,7 +298,9 @@ class MainViewModel(
                     }
 
                     if (reloadAlarms) {
-                        AppLogger.d("MainViewModel", "Clock connected, reading alarms and settings...")
+                        AppLogger.d(
+                            "MainViewModel", "Clock connected, reading alarms and settings..."
+                        )
                         launch {
                             try {
                                 val alarms = qpController.readAlarms()
@@ -474,17 +474,18 @@ class MainActivity : AppCompatActivity() {
                 val flexMinutes = minOf(5L, intervalMinutes / 3)
 
                 val workRequest = PeriodicWorkRequestBuilder<SensorUpdateWorker>(
-                    intervalMinutes, TimeUnit.MINUTES,
-                    flexMinutes, TimeUnit.MINUTES
-                )
-                    .setInitialDelay(1, TimeUnit.MINUTES) // Small delay to avoid immediate trigger
+                    intervalMinutes, TimeUnit.MINUTES, flexMinutes, TimeUnit.MINUTES
+                ).setInitialDelay(1, TimeUnit.MINUTES) // Small delay to avoid immediate trigger
                     .build()
 
                 workManager.enqueueUniquePeriodicWork(
                     "SensorUpdateWork", ExistingPeriodicWorkPolicy.UPDATE, workRequest
                 )
 
-                AppLogger.d(TAG, "WorkManager scheduled with ${intervalMinutes}min interval, ${flexMinutes}min flex")
+                AppLogger.d(
+                    TAG,
+                    "WorkManager scheduled with ${intervalMinutes}min interval, ${flexMinutes}min flex"
+                )
             }
         }
     }
@@ -535,8 +536,9 @@ class MainActivity : AppCompatActivity() {
         val viewModel: MainViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    @Suppress("UNCHECKED_CAST")
-                    return MainViewModel(scanner, settingsRepository, applicationContext) as T
+                    @Suppress("UNCHECKED_CAST") return MainViewModel(
+                        scanner, settingsRepository, applicationContext
+                    ) as T
                 }
             }
         }
@@ -559,7 +561,7 @@ class MainActivity : AppCompatActivity() {
                         disconnectionEvent?.let { reason ->
                             // Reset connection state FIRST
                             viewModel.handleUnexpectedDisconnect()
-                            
+
                             // Navigate to home screen
                             navController.navigate("home") {
                                 popUpTo("home") { inclusive = true }
@@ -575,8 +577,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Scaffold(
-                        snackbarHost = { SnackbarHost(snackbarHostState) }
-                    ) { padding ->
+                        snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
                         NavHost(
                             navController = navController,
                             startDestination = startDestination,
@@ -604,11 +605,10 @@ class MainActivity : AppCompatActivity() {
                                     targetOffsetX = { fullWidth -> fullWidth },
                                     animationSpec = tween(300, easing = FastOutSlowInEasing)
                                 ) + fadeOut(animationSpec = tween(150))
-                            }
-                        ) {
+                            }) {
                             composable("setup") { DeviceSetupScreen(navController) }
                             composable("home") { HomeScreen(viewModel, navController) }
-                            composable("settings") { 
+                            composable("settings") {
                                 // Handle system back to properly navigate back or to home
                                 BackHandler {
                                     if (!navController.popBackStack()) {
@@ -617,9 +617,9 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                SettingsScreen(navController, viewModel) 
+                                SettingsScreen(navController, viewModel)
                             }
-                            composable("alarms") { 
+                            composable("alarms") {
                                 BackHandler {
                                     if (!navController.popBackStack()) {
                                         navController.navigate("home") {
@@ -627,7 +627,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                AlarmManagementScreen(navController, viewModel) 
+                                AlarmManagementScreen(navController, viewModel)
                             }
                             composable("device-settings") {
                                 BackHandler {
@@ -638,8 +638,7 @@ class MainActivity : AppCompatActivity() {
                                     }
                                 }
                                 DeviceSettingsScreen(
-                                    navController,
-                                    viewModel
+                                    navController, viewModel
                                 )
                             }
                             composable("ringtone-upload") {
@@ -651,8 +650,7 @@ class MainActivity : AppCompatActivity() {
                                     }
                                 }
                                 RingtoneUploadScreen(
-                                    navController,
-                                    viewModel
+                                    navController, viewModel
                                 )
                             }
                         }
@@ -733,13 +731,11 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                         val intent =
                             Intent(android.bluetooth.BluetoothAdapter.ACTION_REQUEST_ENABLE)
                         enableBluetoothLauncher.launch(intent)
-                    }
-                ) {
+                    }) {
                     Text(stringResource(R.string.turn_on_bluetooth))
                 }
             },
-            icon = { Icon(Icons.Default.Settings, contentDescription = null) }
-        )
+            icon = { Icon(Icons.Default.Settings, contentDescription = null) })
     }
 
     Scaffold(
@@ -750,11 +746,9 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                     contentDescription = stringResource(R.string.settings_desc)
                 )
             }
-        }
-    ) { padding ->
+        }) { padding ->
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize()
+            horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()
         ) {
             Dashboard(
                 sensorData = sensorData,
@@ -784,7 +778,7 @@ fun Dashboard(
     var showUnpairDialog by remember { mutableStateOf(false) }
 
     // Unpair confirmation dialog
-    if (showUnpairDialog) {
+    @Suppress("AssignedValueIsNeverRead") if (showUnpairDialog) {
         AlertDialog(
             onDismissRequest = { showUnpairDialog = false },
             title = { Text(stringResource(R.string.unpair_confirm_title)) },
@@ -795,8 +789,7 @@ fun Dashboard(
                         showUnpairDialog = false
                         viewModel.disconnectFromDevice()
                         viewModel.unpairDevice()
-                    },
-                    colors = ButtonDefaults.textButtonColors(
+                    }, colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
@@ -807,8 +800,7 @@ fun Dashboard(
                 TextButton(onClick = { showUnpairDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
-            }
-        )
+            })
     }
 
     Column(
@@ -918,9 +910,9 @@ fun Dashboard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            
+
                             Spacer(modifier = Modifier.height(24.dp))
-                            
+
                             // Step 1
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -932,8 +924,11 @@ fun Dashboard(
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text("1", fontWeight = FontWeight.Bold, 
-                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Text(
+                                            "1",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -950,9 +945,9 @@ fun Dashboard(
                                     )
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             // Step 2
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -964,8 +959,11 @@ fun Dashboard(
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text("2", fontWeight = FontWeight.Bold,
-                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Text(
+                                            "2",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -982,9 +980,9 @@ fun Dashboard(
                                     )
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.height(16.dp))
-                            
+
                             // Step 3
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -996,8 +994,11 @@ fun Dashboard(
                                     modifier = Modifier.size(28.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text("3", fontWeight = FontWeight.Bold,
-                                             color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        Text(
+                                            "3",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -1022,10 +1023,15 @@ fun Dashboard(
                     onClick = { viewModel.connectToDevice() },
                     modifier = Modifier.fillMaxWidth(0.8f)
                 ) {
-                    Text(if (isPaired) stringResource(R.string.connect_to_device) else stringResource(R.string.pair_and_connect))
+                    Text(
+                        if (isPaired) stringResource(R.string.connect_to_device) else stringResource(
+                            R.string.pair_and_connect
+                        )
+                    )
                 }
-                
+
                 if (isPaired) {
+                    @Suppress("AssignedValueIsNeverRead")
                     TextButton(
                         onClick = { showUnpairDialog = true },
                         colors = ButtonDefaults.textButtonColors(
@@ -1034,7 +1040,7 @@ fun Dashboard(
                     ) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = null, 
+                            contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1050,13 +1056,11 @@ fun Dashboard(
                     MenuTile(
                         title = stringResource(R.string.manage_alarms_label),
                         icon = Icons.Default.Alarm,
-                        onClick = { navController.navigate("alarms") }
-                    )
+                        onClick = { navController.navigate("alarms") })
                     MenuTile(
                         title = stringResource(R.string.device_settings_button),
                         icon = Icons.Default.Settings,
-                        onClick = { navController.navigate("device-settings") }
-                    )
+                        onClick = { navController.navigate("device-settings") })
                     MenuTile(
                         title = stringResource(R.string.disconnect),
                         icon = Icons.AutoMirrored.Filled.ExitToApp,
@@ -1064,9 +1068,9 @@ fun Dashboard(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     )
-                    
+
                     if (isPaired) {
-                        MenuTile(
+                        @Suppress("AssignedValueIsNeverRead") MenuTile(
                             title = stringResource(R.string.unpair_device),
                             icon = Icons.Default.Warning,
                             onClick = { showUnpairDialog = true },
@@ -1094,8 +1098,7 @@ fun MenuTile(
             .fillMaxWidth()
             .height(72.dp),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = containerColor,
-            contentColor = contentColor
+            containerColor = containerColor, contentColor = contentColor
         )
     ) {
         Row(
@@ -1105,9 +1108,7 @@ fun MenuTile(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(28.dp)
+                imageVector = icon, contentDescription = null, modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.width(20.dp))
             Text(

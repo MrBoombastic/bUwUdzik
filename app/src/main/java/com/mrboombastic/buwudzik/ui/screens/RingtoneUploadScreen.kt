@@ -1,16 +1,7 @@
 package com.mrboombastic.buwudzik.ui.screens
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.MainViewModel
-import com.mrboombastic.buwudzik.audio.AudioConverter
-import com.mrboombastic.buwudzik.audio.AudioTrimmerDialog
-import com.mrboombastic.buwudzik.device.QPController
 
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -66,7 +57,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.audio.AudioConverter
+import com.mrboombastic.buwudzik.audio.AudioTrimmerDialog
+import com.mrboombastic.buwudzik.device.QPController
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
+import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -143,6 +140,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     // Show snackbar for errors
+    @Suppress("AssignedValueIsNeverRead")
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(
@@ -230,6 +228,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     // Audio trimmer dialog for custom files
+    @Suppress("AssignedValueIsNeverRead")
     if (showAudioTrimmer && selectedCustomUri != null) {
         AudioTrimmerDialog(
             uri = selectedCustomUri!!,

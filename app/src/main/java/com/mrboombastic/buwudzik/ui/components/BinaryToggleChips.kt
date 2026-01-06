@@ -24,8 +24,7 @@ fun <T> BinaryToggleChips(
     enabled: Boolean = true
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        verticalAlignment = Alignment.CenterVertically, modifier = modifier
     ) {
         Text(label, modifier = Modifier.weight(1f))
         FilterChip(

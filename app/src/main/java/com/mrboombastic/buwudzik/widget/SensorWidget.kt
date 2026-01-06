@@ -1,13 +1,5 @@
 package com.mrboombastic.buwudzik.widget
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.MainActivity
-import com.mrboombastic.buwudzik.device.SensorData
-import com.mrboombastic.buwudzik.data.SensorRepository
-import com.mrboombastic.buwudzik.data.SettingsRepository
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -15,11 +7,16 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.MainActivity
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.device.SensorData
+import com.mrboombastic.buwudzik.utils.AppLogger
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,13 +34,19 @@ class SensorWidget : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         if (appWidgetIds.isEmpty()) return
-        
+
         AppLogger.d(TAG, "onUpdate called for ${appWidgetIds.size} widget(s)")
-        
+
         // Batch update all widgets with shared data
         val widgetData = WidgetData.load(context)
         for (appWidgetId in appWidgetIds) {
-            updateAppWidgetInternal(context, appWidgetManager, appWidgetId, widgetData, isLoading = false)
+            updateAppWidgetInternal(
+                context,
+                appWidgetManager,
+                appWidgetId,
+                widgetData,
+                isLoading = false
+            )
         }
     }
 
@@ -66,19 +69,25 @@ class SensorWidget : AppWidgetProvider() {
 
         if (intent.action == ACTION_FORCE_UPDATE) {
             AppLogger.d(TAG, "Force update requested")
-            
+
             val appWidgetManager = AppWidgetManager.getInstance(context)
             val widgetIds = appWidgetManager.getAppWidgetIds(
                 ComponentName(context, SensorWidget::class.java)
             )
-            
+
             if (widgetIds.isNotEmpty()) {
                 // Show loading state with cached data
                 val widgetData = WidgetData.load(context)
                 for (appWidgetId in widgetIds) {
-                    updateAppWidgetInternal(context, appWidgetManager, appWidgetId, widgetData, isLoading = true)
+                    updateAppWidgetInternal(
+                        context,
+                        appWidgetManager,
+                        appWidgetId,
+                        widgetData,
+                        isLoading = true
+                    )
                 }
-                
+
                 // Trigger background update
                 WorkManager.getInstance(context).enqueue(
                     OneTimeWorkRequest.Builder(SensorUpdateWorker::class.java).build()
@@ -101,10 +110,10 @@ private data class WidgetData(
         fun load(context: Context): WidgetData {
             val sensorRepo = SensorRepository(context)
             val settingsRepo = SettingsRepository(context)
-            
+
             val lang = settingsRepo.language
             val locale = if (lang == "system") Locale.getDefault() else Locale.forLanguageTag(lang)
-            
+
             return WidgetData(
                 sensorData = sensorRepo.getSensorData(),
                 lastUpdate = sensorRepo.getLastUpdateTimestamp(),
@@ -151,19 +160,30 @@ private fun updateAppWidgetInternal(
         PendingIntent.getBroadcast(
             context,
             0,
-            Intent(context, SensorWidget::class.java).apply { action = SensorWidget.ACTION_FORCE_UPDATE },
+            Intent(context, SensorWidget::class.java).apply {
+                action = SensorWidget.ACTION_FORCE_UPDATE
+            },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     )
 
     // Root click intent
-    views.setOnClickPendingIntent(R.id.widget_root, createRootClickIntent(context, data.selectedAppPackage))
+    views.setOnClickPendingIntent(
+        R.id.widget_root,
+        createRootClickIntent(context, data.selectedAppPackage)
+    )
 
     // Sensor data
     val sensorData = data.sensorData
     if (sensorData != null) {
-        views.setTextViewText(R.id.widget_temp, "%.1f°C".format(data.locale, sensorData.temperature))
-        views.setTextViewText(R.id.widget_humidity, "💧 %.1f%%".format(data.locale, sensorData.humidity))
+        views.setTextViewText(
+            R.id.widget_temp,
+            "%.1f°C".format(data.locale, sensorData.temperature)
+        )
+        views.setTextViewText(
+            R.id.widget_humidity,
+            "💧 %.1f%%".format(data.locale, sensorData.humidity)
+        )
         views.setTextViewText(R.id.widget_battery, "🔋 ${sensorData.battery}%")
         views.setTextViewText(
             R.id.widget_last_update,
@@ -183,9 +203,9 @@ private fun createRootClickIntent(context: Context, selectedAppPackage: String?)
     val intent = if (!selectedAppPackage.isNullOrEmpty()) {
         context.packageManager.getLaunchIntentForPackage(selectedAppPackage)
     } else null
-    
+
     val finalIntent = intent ?: Intent(context, MainActivity::class.java)
-    
+
     return PendingIntent.getActivity(
         context,
         0,

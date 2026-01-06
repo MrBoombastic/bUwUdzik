@@ -29,10 +29,9 @@ fun <T> SettingsDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
+    @Suppress("AssignedValueIsNeverRead")
     ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
+        expanded = expanded, onExpandedChange = { expanded = !expanded }, modifier = modifier
     ) {
         OutlinedTextField(
             value = options[value] ?: value.toString(),
@@ -47,17 +46,12 @@ fun <T> SettingsDropdown(
                 .fillMaxWidth()
         )
         ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+            expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (key, displayLabel) ->
-                DropdownMenuItem(
-                    text = { Text(displayLabel) },
-                    onClick = {
-                        onValueChange(key)
-                        expanded = false
-                    }
-                )
+                DropdownMenuItem(text = { Text(displayLabel) }, onClick = {
+                    onValueChange(key)
+                    expanded = false
+                })
             }
         }
     }

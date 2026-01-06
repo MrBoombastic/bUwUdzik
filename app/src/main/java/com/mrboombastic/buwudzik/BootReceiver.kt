@@ -1,18 +1,14 @@
 package com.mrboombastic.buwudzik
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-
-import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
-import com.mrboombastic.buwudzik.data.SettingsRepository
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.utils.AppLogger
+import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
 import java.util.concurrent.TimeUnit
 
 /**
@@ -27,7 +23,8 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
-            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
+        ) {
 
             AppLogger.d(TAG, "Boot completed or package replaced, re-scheduling updates...")
 
@@ -43,7 +40,10 @@ class BootReceiver : BroadcastReceiver() {
                 .build()
             WorkManager.getInstance(context).enqueue(initialWorkRequest)
 
-            AppLogger.d(TAG, "Scheduled initial update and periodic updates every $intervalMinutes minutes")
+            AppLogger.d(
+                TAG,
+                "Scheduled initial update and periodic updates every $intervalMinutes minutes"
+            )
         }
     }
 }

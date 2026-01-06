@@ -1,10 +1,9 @@
 package com.mrboombastic.buwudzik.data
 
-import com.mrboombastic.buwudzik.widget.WidgetHelper
-
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.mrboombastic.buwudzik.widget.WidgetHelper
 
 class SettingsRepository(private val context: Context) {
     private val prefs: SharedPreferences =
@@ -28,7 +27,7 @@ class SettingsRepository(private val context: Context) {
 
         private const val KEY_SETUP_COMPLETED = "setup_completed"
         private const val KEY_LAST_VERSION_CODE = "last_version_code"
-        
+
         private const val KEY_BATTERY_TYPE = "battery_type"
         const val DEFAULT_BATTERY_TYPE = "alkaline"
     }
@@ -45,7 +44,7 @@ class SettingsRepository(private val context: Context) {
         set(value) {
             prefs.edit { putInt(KEY_LAST_VERSION_CODE, value) }
         }
-        
+
     var batteryType: String
         get() = prefs.getString(KEY_BATTERY_TYPE, DEFAULT_BATTERY_TYPE) ?: DEFAULT_BATTERY_TYPE
         set(value) {

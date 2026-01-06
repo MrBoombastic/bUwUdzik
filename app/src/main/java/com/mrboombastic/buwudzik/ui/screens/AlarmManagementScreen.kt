@@ -1,17 +1,52 @@
 package com.mrboombastic.buwudzik.ui.screens
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.MainViewModel
-import com.mrboombastic.buwudzik.device.Alarm
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +55,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import kotlinx.coroutines.launch
@@ -61,7 +99,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
 
     // Edit alarm dialog
     selectedAlarm?.let { alarm ->
-        AlarmEditDialog(
+        @Suppress("AssignedValueIsNeverRead") AlarmEditDialog(
             alarm = alarm,
             onDismiss = { selectedAlarm = null },
             onSave = { updatedAlarm ->
@@ -75,7 +113,9 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                             statusMessage = String.format(alarmUpdatedMsg, updatedAlarm.id + 1)
                             selectedAlarm = null
                         } else {
-                            errorMessage = String.format(errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown")
+                            errorMessage = String.format(
+                                errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown"
+                            )
                         }
                         isUpdating = false
                     }
@@ -92,19 +132,22 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                             statusMessage = String.format(alarmDeletedMsg, alarm.id + 1)
                             selectedAlarm = null
                         } else {
-                            errorMessage = String.format(errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown")
+                            errorMessage = String.format(
+                                errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown"
+                            )
                         }
                         isUpdating = false
                     }
                 }
-            }
-        )
+            })
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.alarm_management_title)) }, navigationIcon = {
-            BackNavigationButton(navController)
-        })
+        TopAppBar(
+            title = { Text(stringResource(R.string.alarm_management_title)) },
+            navigationIcon = {
+                BackNavigationButton(navController)
+            })
     }, floatingActionButton = {
         if (deviceConnected && hasPermissions) {
             FloatingActionButton(onClick = {
@@ -114,7 +157,8 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                         // Find first unused ID just in case, though usually simple append works
                         val usedIds = alarms.map { it.id }.toSet()
                         val newId = (0..15).firstOrNull { !usedIds.contains(it) } ?: alarms.size
-                        
+
+                        @Suppress("AssignedValueIsNeverRead")
                         if (newId < 16) {
                             selectedAlarm = Alarm(
                                 id = newId,
@@ -125,14 +169,18 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                                 snooze = false
                             )
                         } else {
-                            Toast.makeText(context, R.string.max_alarms_message, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, R.string.max_alarms_message, Toast.LENGTH_SHORT)
+                                .show()
                         }
                     } else {
-                        Toast.makeText(context, R.string.max_alarms_message, Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.max_alarms_message, Toast.LENGTH_SHORT)
+                            .show()
                     }
                 }
             }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_alarm_desc))
+                Icon(
+                    Icons.Default.Add, contentDescription = stringResource(R.string.add_alarm_desc)
+                )
             }
         }
     }, snackbarHost = {
@@ -217,7 +265,9 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                         // Master Alarm Switch
                         deviceSettings?.let { settings ->
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -238,14 +288,19 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                                     Switch(
                                         checked = !settings.masterAlarmDisabled,
                                         onCheckedChange = { enabled ->
-                                            val newSettings = settings.copy(masterAlarmDisabled = !enabled)
+                                            val newSettings =
+                                                settings.copy(masterAlarmDisabled = !enabled)
                                             coroutineScope.launch {
                                                 isUpdating = true
                                                 statusMessage = savingSettingsMsg
                                                 viewModel.updateDeviceSettings(newSettings) { result ->
                                                     isUpdating = false
                                                     if (result.isFailure) {
-                                                        errorMessage = String.format(errorPrefixMsg, result.exceptionOrNull()?.message ?: "Unknown")
+                                                        errorMessage = String.format(
+                                                            errorPrefixMsg,
+                                                            result.exceptionOrNull()?.message
+                                                                ?: "Unknown"
+                                                        )
                                                     }
                                                 }
                                             }
@@ -269,21 +324,21 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     items(alarms) { alarm ->
-                                        AlarmCard(
+                                        @Suppress("AssignedValueIsNeverRead") AlarmCard(
                                             alarm = alarm,
                                             enabled = !isUpdating,
                                             onToggle = { enabled ->
                                                 coroutineScope.launch {
                                                     isUpdating = true
                                                     errorMessage = ""
-                                                    statusMessage =
-                                                        String.format(updatingAlarmMsg, alarm.id + 1)
+                                                    statusMessage = String.format(
+                                                        updatingAlarmMsg, alarm.id + 1
+                                                    )
                                                     val updatedAlarm = alarm.copy(enabled = enabled)
                                                     viewModel.updateAlarm(updatedAlarm) { result ->
                                                         if (result.isSuccess) {
                                                             statusMessage = String.format(
-                                                                alarmUpdatedMsg,
-                                                                alarm.id + 1
+                                                                alarmUpdatedMsg, alarm.id + 1
                                                             )
                                                         } else {
                                                             errorMessage = String.format(
@@ -387,7 +442,9 @@ fun AlarmCard(alarm: Alarm, enabled: Boolean, onToggle: (Boolean) -> Unit, onEdi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AlarmEditDialog(alarm: Alarm, onDismiss: () -> Unit, onSave: (Alarm) -> Unit, onDelete: () -> Unit) {
+fun AlarmEditDialog(
+    alarm: Alarm, onDismiss: () -> Unit, onSave: (Alarm) -> Unit, onDelete: () -> Unit
+) {
     var selectedHour by remember { mutableIntStateOf(alarm.hour) }
     var selectedMinute by remember { mutableIntStateOf(alarm.minute) }
     var selectedDays by remember { mutableIntStateOf(alarm.days) }
@@ -400,136 +457,149 @@ fun AlarmEditDialog(alarm: Alarm, onDismiss: () -> Unit, onSave: (Alarm) -> Unit
             initialHour = selectedHour, initialMinute = selectedMinute, is24Hour = true
         )
 
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text(stringResource(R.string.select_time_title)) },
-            text = {
-                TimePicker(state = timePickerState)
-            },
-            confirmButton = {
-                Button(onClick = {
-                    selectedHour = timePickerState.hour
-                    selectedMinute = timePickerState.minute
-                    showTimePicker = false
-                }) {
-                    Text(stringResource(R.string.ok))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            })
+        @Suppress("AssignedValueIsNeverRead") AlertDialog(onDismissRequest = {
+            showTimePicker = false
+        }, title = { Text(stringResource(R.string.select_time_title)) }, text = {
+            TimePicker(state = timePickerState)
+        }, confirmButton = {
+            Button(onClick = {
+                selectedHour = timePickerState.hour
+                selectedMinute = timePickerState.minute
+                showTimePicker = false
+            }) {
+                Text(stringResource(R.string.ok))
+            }
+        }, dismissButton = {
+            TextButton(onClick = {
+                showTimePicker = false
+            }) {
+                Text(stringResource(R.string.cancel))
+            }
+        })
     }
 
-    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.edit_alarm_title, alarm.id+1)) }, text = {
-        Column {
-            // Time display with click to edit
-            OutlinedButton(
-                onClick = { showTimePicker = true },
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_alarm_title, alarm.id + 1)) },
+        text = {
+            Column {
+                // Time display with click to edit
+                @Suppress("AssignedValueIsNeverRead") OutlinedButton(
+                    onClick = {
+                        showTimePicker = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    Text(
+                        text = String.format(
+                            Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute
+                        ), style = MaterialTheme.typography.headlineLarge
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
                 Text(
-                    text = String.format(
-                        Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute
-                    ), style = MaterialTheme.typography.headlineLarge
+                    text = stringResource(R.string.repeat_on_label),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                // Day selection chips
+                val days = listOf(
+                    stringResource(R.string.day_mon),
+                    stringResource(R.string.day_tue),
+                    stringResource(R.string.day_wed),
+                    stringResource(R.string.day_thu),
+                    stringResource(R.string.day_fri),
+                    stringResource(R.string.day_sat),
+                    stringResource(R.string.day_sun)
+                )
+                val daysInRows = days.chunked(4)
 
-            Text(
-                text = stringResource(R.string.repeat_on_label),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            // Day selection chips
-            val days = listOf(
-                stringResource(R.string.day_mon),
-                stringResource(R.string.day_tue),
-                stringResource(R.string.day_wed),
-                stringResource(R.string.day_thu),
-                stringResource(R.string.day_fri),
-                stringResource(R.string.day_sat),
-                stringResource(R.string.day_sun)
-            )
-            val daysInRows = days.chunked(4)
-
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                daysInRows.forEach { rowDays ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        rowDays.forEach { day ->
-                            val index = days.indexOf(day)
-                            val isSelected = (selectedDays and (1 shl index)) != 0
-                            FilterChip(
-                                selected = isSelected, onClick = {
-                                selectedDays = if (isSelected) {
-                                    selectedDays and (1 shl index).inv()
-                                } else {
-                                    selectedDays or (1 shl index)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    daysInRows.forEach { rowDays ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            rowDays.forEach { day ->
+                                val index = days.indexOf(day)
+                                val isSelected = (selectedDays and (1 shl index)) != 0
+                                FilterChip(
+                                    selected = isSelected, onClick = {
+                                        selectedDays = if (isSelected) {
+                                            selectedDays and (1 shl index).inv()
+                                        } else {
+                                            selectedDays or (1 shl index)
+                                        }
+                                    }, label = {
+                                        Box(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(day, fontSize = 14.sp)
+                                        }
+                                    }, modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                )
+                            }
+                            // Add spacers to fill the row if it's not full
+                            if (rowDays.size < 4) {
+                                repeat(4 - rowDays.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
-                            }, label = {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(day, fontSize = 14.sp)
-                                }
-                            }, modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                            )
-                        }
-                        // Add spacers to fill the row if it's not full
-                        if (rowDays.size < 4) {
-                            for (i in 0 until (4 - rowDays.size)) {
-                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.snooze_label), style = MaterialTheme.typography.bodyMedium)
-                Switch(
-                    checked = snoozeEnabled, onCheckedChange = { snoozeEnabled = it })
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        stringResource(R.string.snooze_label),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Switch(
+                        checked = snoozeEnabled, onCheckedChange = { snoozeEnabled = it })
+                }
             }
-        }
-    }, confirmButton = {
-        Button(onClick = {
-            onSave(
-                alarm.copy(
-                    hour = selectedHour,
-                    minute = selectedMinute,
-                    days = selectedDays,
-                    snooze = snoozeEnabled
+        },
+        confirmButton = {
+            Button(onClick = {
+                onSave(
+                    alarm.copy(
+                        hour = selectedHour,
+                        minute = selectedMinute,
+                        days = selectedDays,
+                        snooze = snoozeEnabled
+                    )
                 )
-            )
-        }) {
-            Text(stringResource(R.string.save))
-        }
-    }, dismissButton = {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_alarm_desc), tint = MaterialTheme.colorScheme.error)
+            }) {
+                Text(stringResource(R.string.save))
             }
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete_alarm_desc),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
-        }
-    })
+        })
 }
 
 

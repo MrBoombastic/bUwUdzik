@@ -1,9 +1,4 @@
 package com.mrboombastic.buwudzik.ui.screens
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.MainViewModel
-import com.mrboombastic.buwudzik.device.TempUnit
-import com.mrboombastic.buwudzik.device.TimeFormat
-import com.mrboombastic.buwudzik.device.Language
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,16 +43,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.device.Language
+import com.mrboombastic.buwudzik.device.TempUnit
+import com.mrboombastic.buwudzik.device.TimeFormat
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.BinaryToggleChips
+import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
 import com.mrboombastic.buwudzik.ui.components.TimePickerDialog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
-
-import com.mrboombastic.buwudzik.data.SettingsRepository
-import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,35 +83,32 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Effect to show snackbar when errorMessage changes
-    LaunchedEffect(errorMessage) {
+    @Suppress("AssignedValueIsNeverRead") LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(
-                message = it,
-                duration = SnackbarDuration.Long
+                message = it, duration = SnackbarDuration.Long
             )
             errorMessage = null
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.device_settings_title)) },
-                navigationIcon = {
-                    BackNavigationButton(navController, enabled = isUiEnabled)
-                },
-                actions = {
-                    if (isSaving || isBusy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 16.dp)
-                                .size(24.dp),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                })
-        }) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
+        TopAppBar(
+            title = { Text(stringResource(R.string.device_settings_title)) },
+            navigationIcon = {
+                BackNavigationButton(navController, enabled = isUiEnabled)
+            },
+            actions = {
+                if (isSaving || isBusy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .size(24.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            })
+    }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -148,6 +144,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 val timezoneSign = currentSettings.timezoneSign
 
                 // Define save function using current state
+                @Suppress("AssignedValueIsNeverRead")
                 val saveSettings = {
                     val newSettings = currentSettings.copy(
                         tempUnit = tempUnit,
@@ -174,7 +171,9 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                                 if (ex is kotlinx.coroutines.TimeoutCancellationException) {
                                     appContext.getString(R.string.device_timeout_message)
                                 } else {
-                                    appContext.getString(R.string.save_failed_message, ex?.message ?: "Unknown")
+                                    appContext.getString(
+                                        R.string.save_failed_message, ex?.message ?: "Unknown"
+                                    )
                                 }
                         }
                     }
@@ -222,8 +221,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         batteryType = type
                         repository.batteryType = type
                         // Force refresh of sensor data correction if needed, but repository update is enough for next scan
-                    }
-                )
+                    })
 
                 HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
@@ -283,12 +281,9 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                                 viewModel.qpController.previewRingtone(tempSettings)
                             }
                         }
-                    },
-                    onValueChangeFinished = {
+                    }, onValueChangeFinished = {
                         saveSettings()
-                    },
-                    valueRange = 1f..5f,
-                    steps = 3
+                    }, valueRange = 1f..5f, steps = 3
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -371,19 +366,21 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         modifier = Modifier.weight(1f)
                     )
                     Switch(
-                        checked = nightModeEnabled,
-                        onCheckedChange = {
+                        checked = nightModeEnabled, onCheckedChange = {
                             nightModeEnabled = it
                             saveSettings()
-                        },
-                        enabled = isUiEnabled
+                        }, enabled = isUiEnabled
                     )
                 }
                 Spacer(Modifier.height(8.dp))
 
                 if (nightModeEnabled) {
                     // Night Mode Brightness
-                    Text(stringResource(R.string.night_brightness_label, nightModeBrightness.toInt()))
+                    Text(
+                        stringResource(
+                            R.string.night_brightness_label, nightModeBrightness.toInt()
+                        )
+                    )
                     Slider(
                         value = nightModeBrightness, enabled = isUiEnabled, onValueChange = {
                             nightModeBrightness = it
@@ -415,7 +412,10 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                             enabled = isUiEnabled
                         ) {
                             Column(Modifier.padding(12.dp)) {
-                                Text(stringResource(R.string.start_time_label), style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    stringResource(R.string.start_time_label),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                                 Text(
                                     String.format(
                                         Locale.getDefault(),
@@ -436,7 +436,10 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                             enabled = isUiEnabled
                         ) {
                             Column(Modifier.padding(12.dp)) {
-                                Text(stringResource(R.string.end_time_label), style = MaterialTheme.typography.labelMedium)
+                                Text(
+                                    stringResource(R.string.end_time_label),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                                 Text(
                                     String.format(
                                         Locale.getDefault(),
@@ -483,7 +486,9 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 if (currentSettings.firmwareVersion.isNotEmpty()) {
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     Text(
-                        text = stringResource(R.string.firmware_version_fmt, currentSettings.firmwareVersion),
+                        text = stringResource(
+                            R.string.firmware_version_fmt, currentSettings.firmwareVersion
+                        ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth(),

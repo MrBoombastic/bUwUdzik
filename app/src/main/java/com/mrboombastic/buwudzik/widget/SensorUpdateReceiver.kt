@@ -1,14 +1,12 @@
 package com.mrboombastic.buwudzik.widget
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.utils.AppLogger
 
 class SensorUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

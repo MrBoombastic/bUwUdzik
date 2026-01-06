@@ -1,8 +1,5 @@
 package com.mrboombastic.buwudzik.device
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
@@ -12,6 +9,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
+import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -71,7 +69,8 @@ class BluetoothScanner(context: Context) {
                 val serviceData = result.scanRecord?.getServiceData(serviceUUID) ?: return
 
                 try {
-                    val sensorData = parseCGD1(serviceData, result.rssi, displayName, device.address)
+                    val sensorData =
+                        parseCGD1(serviceData, result.rssi, displayName, device.address)
                     if (sensorData != null) trySend(sensorData)
 
                 } catch (e: Exception) {
@@ -85,9 +84,7 @@ class BluetoothScanner(context: Context) {
         }
 
         val filters = emptyList<ScanFilter>().plus(
-            ScanFilter.Builder()
-                .setServiceData(serviceUUID, null)
-                .build()
+            ScanFilter.Builder().setServiceData(serviceUUID, null).build()
         )
 
         val settings = ScanSettings.Builder().setScanMode(scanMode).build()
@@ -101,7 +98,9 @@ class BluetoothScanner(context: Context) {
         }
     }
 
-    private fun parseCGD1(serviceData: ByteArray, rssi: Int, name: String?, macAddress: String): SensorData? {
+    private fun parseCGD1(
+        serviceData: ByteArray, rssi: Int, name: String?, macAddress: String
+    ): SensorData? {
         if (serviceData.size < 17) return null
 
         // Byte 1 must be 0x0C (CGD1 model ID)

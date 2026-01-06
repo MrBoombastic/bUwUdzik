@@ -1,11 +1,5 @@
 package com.mrboombastic.buwudzik.widget
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-import com.mrboombastic.buwudzik.data.SettingsRepository
-import com.mrboombastic.buwudzik.data.SensorRepository
-import com.mrboombastic.buwudzik.device.BluetoothScanner
 
 import android.appwidget.AppWidgetManager
 import android.bluetooth.BluetoothManager
@@ -14,6 +8,10 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.device.BluetoothScanner
+import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -44,13 +42,14 @@ class SensorUpdateWorker(
             return Result.success()
         }
 
-        val bluetoothManager = applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val bluetoothManager =
+            applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         if (bluetoothManager?.adapter == null) {
             Log.e(TAG, "Bluetooth adapter not available.")
             updateWidgetWithError()
             return Result.failure()
         }
-        
+
         if (!bluetoothManager.adapter.isEnabled) {
             Log.w(TAG, "Bluetooth is disabled. Cannot scan for sensors.")
             updateWidget()
@@ -71,7 +70,10 @@ class SensorUpdateWorker(
         }
 
         return if (result != null) {
-            AppLogger.d(TAG, "Got data: temp=${result.temperature}°C, humidity=${result.humidity}%, battery=${result.battery}%")
+            AppLogger.d(
+                TAG,
+                "Got data: temp=${result.temperature}°C, humidity=${result.humidity}%, battery=${result.battery}%"
+            )
             repository.saveSensorData(result)
             updateWidget()
             Result.success()
@@ -88,7 +90,10 @@ class SensorUpdateWorker(
 
             // Retry if we haven't exceeded max attempts
             if (runAttemptCount < MAX_RETRY_ATTEMPTS) {
-                AppLogger.d(TAG, "Will retry (attempt ${runAttemptCount + 1} of $MAX_RETRY_ATTEMPTS)")
+                AppLogger.d(
+                    TAG,
+                    "Will retry (attempt ${runAttemptCount + 1} of $MAX_RETRY_ATTEMPTS)"
+                )
                 Result.retry()
             } else {
                 Log.w(TAG, "Max retry attempts reached, giving up for this cycle.")

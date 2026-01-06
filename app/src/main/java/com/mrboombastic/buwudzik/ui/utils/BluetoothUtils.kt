@@ -15,8 +15,7 @@ object BluetoothUtils {
      * Required Bluetooth permissions for scanning and connecting
      */
     val BLUETOOTH_PERMISSIONS = arrayOf(
-        Manifest.permission.BLUETOOTH_SCAN,
-        Manifest.permission.BLUETOOTH_CONNECT
+        Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT
     )
 
     /**

@@ -1,14 +1,5 @@
 package com.mrboombastic.buwudzik.ui.screens
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.MainViewModel
-import com.mrboombastic.buwudzik.data.SettingsRepository
-import com.mrboombastic.buwudzik.MainActivity
-import com.mrboombastic.buwudzik.UpdateChecker
-import com.mrboombastic.buwudzik.UpdateCheckResult
 
 import android.bluetooth.le.ScanSettings
 import android.content.Intent
@@ -32,12 +23,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -64,10 +55,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.MainActivity
+import com.mrboombastic.buwudzik.MainViewModel
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.UpdateCheckResult
+import com.mrboombastic.buwudzik.UpdateChecker
+import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
+import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -160,17 +158,14 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
         }
     }
 
-    val scanModes =
-        mapOf(
-            ScanSettings.SCAN_MODE_LOW_POWER to stringResource(R.string.mode_low_power),
-            ScanSettings.SCAN_MODE_BALANCED to stringResource(R.string.mode_balanced),
-            ScanSettings.SCAN_MODE_LOW_LATENCY to stringResource(R.string.mode_low_latency)
-        )
+    val scanModes = mapOf(
+        ScanSettings.SCAN_MODE_LOW_POWER to stringResource(R.string.mode_low_power),
+        ScanSettings.SCAN_MODE_BALANCED to stringResource(R.string.mode_balanced),
+        ScanSettings.SCAN_MODE_LOW_LATENCY to stringResource(R.string.mode_low_latency)
+    )
 
     val languages = mapOf(
-        "system" to stringResource(R.string.language_system),
-        "en" to "English",
-        "pl" to "polski"
+        "system" to stringResource(R.string.language_system), "en" to "English", "pl" to "polski"
     )
 
     val intervals = mapOf(
@@ -199,26 +194,22 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    BackNavigationButton(navController) {
-                        // Ensure MAC is not empty before going back
-                        val finalMac = macAddress.trim().ifEmpty { SettingsRepository.DEFAULT_MAC }
-                        if (finalMac != repository.targetMacAddress) {
-                            repository.targetMacAddress = finalMac
-                        }
-
-                        // Restart scanning if MAC or scan mode changed
-                        if (finalMac != initialMacAddress || scanMode != initialScanMode) {
-                            viewModel.restartScanning()
-                        }
-                        navController.popBackStack()
+            TopAppBar(title = { Text(stringResource(R.string.settings_title)) }, navigationIcon = {
+                BackNavigationButton(navController) {
+                    // Ensure MAC is not empty before going back
+                    val finalMac = macAddress.trim().ifEmpty { SettingsRepository.DEFAULT_MAC }
+                    if (finalMac != repository.targetMacAddress) {
+                        repository.targetMacAddress = finalMac
                     }
+
+                    // Restart scanning if MAC or scan mode changed
+                    if (finalMac != initialMacAddress || scanMode != initialScanMode) {
+                        viewModel.restartScanning()
+                    }
+                    navController.popBackStack()
                 }
-            )
-        }
-    ) { padding ->
+            })
+        }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -250,8 +241,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                         // Mark setup as incomplete to show device selection
                         repository.isSetupCompleted = false
                         navController.navigate("setup")
-                    },
-                    modifier = Modifier.padding(top = 8.dp)
+                    }, modifier = Modifier.padding(top = 8.dp)
                 ) {
                     Icon(
                         Icons.Default.Search,
@@ -270,8 +260,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 onValueChange = { mode ->
                     scanMode = mode
                     repository.scanMode = mode
-                }
-            )
+                })
             Text(
                 text = stringResource(R.string.scan_mode_hint),
                 style = MaterialTheme.typography.bodySmall,
@@ -296,8 +285,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                         LocaleListCompat.forLanguageTags(code)
                     }
                     AppCompatDelegate.setApplicationLocales(appLocale)
-                }
-            )
+                })
 
             // Theme
             Spacer(modifier = Modifier.height(12.dp))
@@ -310,9 +298,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     theme = code
                     repository.theme = code
                     ThemeUtils.applyTheme(code)
-                }
-            )
-
+                })
 
 
             // Update Interval
@@ -327,8 +313,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     repository.updateInterval = minutes
                     // Reschedule updates immediately
                     MainActivity.scheduleUpdates(context, minutes)
-                }
-            )
+                })
 
 
             // Widget Action
@@ -336,8 +321,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
 
             ExposedDropdownMenuBox(
                 expanded = expandedWidgetAction,
-                onExpandedChange = { expandedWidgetAction = !expandedWidgetAction }
-            ) {
+                onExpandedChange = { expandedWidgetAction = !expandedWidgetAction }) {
                 OutlinedTextField(
                     value = selectedAppLabel ?: stringResource(R.string.default_app_label),
                     onValueChange = {},
@@ -364,23 +348,19 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             repository.selectedAppPackage = null
 
                             expandedWidgetAction = false
-                        }
-                    )
+                        })
 
                     installedApps.forEach { resolveInfo ->
                         val pm = context.packageManager
                         val label = resolveInfo.loadLabel(pm).toString()
                         val pkg = resolveInfo.activityInfo.packageName
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                selectedAppPackage = pkg
+                        DropdownMenuItem(text = { Text(label) }, onClick = {
+                            selectedAppPackage = pkg
 
-                                repository.selectedAppPackage = pkg
+                            repository.selectedAppPackage = pkg
 
-                                expandedWidgetAction = false
-                            }
-                        )
+                            expandedWidgetAction = false
+                        })
                     }
                 }
             }
@@ -437,9 +417,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             }
                         }
                     }
-                },
-                enabled = !isCheckingUpdates,
-                modifier = Modifier.fillMaxWidth()
+                }, enabled = !isCheckingUpdates, modifier = Modifier.fillMaxWidth()
             ) {
                 if (isCheckingUpdates) {
                     CircularProgressIndicator(
@@ -448,17 +426,17 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     )
                 }
                 Text(
-                    text = if (isCheckingUpdates)
-                        stringResource(R.string.checking_updates)
-                    else
-                        stringResource(R.string.check_updates_label)
+                    text = if (isCheckingUpdates) stringResource(R.string.checking_updates)
+                    else stringResource(R.string.check_updates_label)
                 )
             }
 
             // Update Available Dialog
             if (showUpdateDialog && updateResult != null) {
                 androidx.compose.material3.AlertDialog(
-                    onDismissRequest = { showUpdateDialog = false },
+                    onDismissRequest = {
+                        showUpdateDialog = false
+                    },
                     title = { Text(stringResource(R.string.update_available_title)) },
                     text = {
                         Text(
@@ -481,19 +459,16 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                         updateChecker.close()
                                     }
                                 }
-                            }
-                        ) {
+                            }) {
                             Text(stringResource(R.string.download_update))
                         }
                     },
                     dismissButton = {
                         androidx.compose.material3.TextButton(
-                            onClick = { showUpdateDialog = false }
-                        ) {
+                            onClick = { showUpdateDialog = false }) {
                             Text(stringResource(R.string.later))
                         }
-                    }
-                )
+                    })
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -529,15 +504,11 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 val success = viewModel.qpController.synchronizeTime(timestamp)
                                 if (success) {
                                     Toast.makeText(
-                                        appContext,
-                                        successMsg,
-                                        Toast.LENGTH_SHORT
+                                        appContext, successMsg, Toast.LENGTH_SHORT
                                     ).show()
                                 } else {
                                     Toast.makeText(
-                                        appContext,
-                                        failedMsg,
-                                        Toast.LENGTH_SHORT
+                                        appContext, failedMsg, Toast.LENGTH_SHORT
                                     ).show()
                                 }
                             } catch (e: Exception) {
@@ -549,8 +520,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 ).show()
                             }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                    }, modifier = Modifier.fillMaxWidth()
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(stringResource(R.string.set_time_2137))

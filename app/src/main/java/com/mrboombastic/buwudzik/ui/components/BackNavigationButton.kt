@@ -11,9 +11,7 @@ import com.mrboombastic.buwudzik.R
 
 @Composable
 fun BackNavigationButton(
-    navController: NavController,
-    enabled: Boolean = true,
-    onClick: (() -> Unit)? = null
+    navController: NavController, enabled: Boolean = true, onClick: (() -> Unit)? = null
 ) {
     IconButton(
         onClick = {
@@ -30,8 +28,7 @@ fun BackNavigationButton(
                     }
                 }
             }
-        },
-        enabled = enabled
+        }, enabled = enabled
     ) {
         Icon(
             Icons.AutoMirrored.Filled.ArrowBack,

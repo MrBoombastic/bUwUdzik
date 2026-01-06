@@ -1,13 +1,12 @@
 package com.mrboombastic.buwudzik.data
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import java.security.SecureRandom
 import androidx.core.content.edit
+import com.mrboombastic.buwudzik.utils.AppLogger
+import java.security.SecureRandom
 
 /**
  * Manages auth tokens for paired QP devices.
@@ -15,16 +14,17 @@ import androidx.core.content.edit
  * Token is generated randomly during first pairing and stored for future use.
  */
 class TokenStorage(context: Context) {
-    
+
     companion object {
         private const val PREFS_NAME = "QP_tokens"
         private const val TAG = "TokenStorage"
         private const val TOKEN_SIZE = 16
     }
-    
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val secureRandom = SecureRandom()
-    
+
     /**
      * Get the stored token for a device, or null if not paired yet.
      */
@@ -38,18 +38,18 @@ class TokenStorage(context: Context) {
             null
         }
     }
-    
+
     /**
      * Generate a new random token for a device and store it.
      */
     fun generateAndStoreToken(macAddress: String): ByteArray {
         val token = ByteArray(TOKEN_SIZE)
         secureRandom.nextBytes(token)
-        
+
         val key = macAddressToKey(macAddress)
         val tokenHex = bytesToHex(token)
         prefs.edit { putString(key, tokenHex) }
-        
+
         AppLogger.d(TAG, "Generated new token for $macAddress: $tokenHex")
         return token
     }
@@ -61,7 +61,7 @@ class TokenStorage(context: Context) {
         val key = macAddressToKey(macAddress)
         return prefs.contains(key)
     }
-    
+
     /**
      * Remove stored token for a device (unpair).
      */
@@ -75,11 +75,11 @@ class TokenStorage(context: Context) {
         // Convert MAC to safe key: "58:2D:34:50:A0:81" -> "token_58_2d_34_50_a0_81"
         return "token_${macAddress.lowercase().replace(":", "_")}"
     }
-    
+
     private fun bytesToHex(bytes: ByteArray): String {
         return bytes.joinToString("") { "%02x".format(it) }
     }
-    
+
     private fun hexToBytes(hex: String): ByteArray {
         return hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
