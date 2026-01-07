@@ -3,8 +3,9 @@ package com.mrboombastic.buwudzik.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.mrboombastic.buwudzik.device.SensorData
+import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 
-class SensorRepository(context: Context) {
+class SensorRepository(private val context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("sensor_prefs", Context.MODE_PRIVATE)
@@ -19,17 +20,30 @@ class SensorRepository(context: Context) {
         private const val KEY_TIMESTAMP = "timestamp"
     }
 
-    fun saveSensorData(data: SensorData) {
+    /**
+     * Saves sensor data with battery level correction applied.
+     * This is the single point where battery correction happens (DRY).
+     * @return The corrected SensorData for UI display consistency.
+     */
+    fun saveSensorData(data: SensorData): SensorData {
+        val settingsRepo = SettingsRepository(context)
+        val correctedBattery = BluetoothUtils.correctBatteryLevel(
+            data.battery, settingsRepo.batteryType
+        )
+        val correctedData = data.copy(battery = correctedBattery)
+        
         prefs.edit().apply {
-            putFloat(KEY_TEMP, data.temperature.toFloat())
-            putFloat(KEY_HUMIDITY, data.humidity.toFloat())
-            putInt(KEY_BATTERY, data.battery)
-            putInt(KEY_RSSI, data.rssi)
-            putString(KEY_NAME, data.name)
-            putString(KEY_MAC_ADDRESS, data.macAddress)
+            putFloat(KEY_TEMP, correctedData.temperature.toFloat())
+            putFloat(KEY_HUMIDITY, correctedData.humidity.toFloat())
+            putInt(KEY_BATTERY, correctedData.battery)
+            putInt(KEY_RSSI, correctedData.rssi)
+            putString(KEY_NAME, correctedData.name)
+            putString(KEY_MAC_ADDRESS, correctedData.macAddress)
             putLong(KEY_TIMESTAMP, System.currentTimeMillis())
             apply()
         }
+
+        return correctedData
     }
 
     fun getSensorData(): SensorData? {
