@@ -220,12 +220,8 @@ class MainViewModel(
         scanJob = viewModelScope.launch(Dispatchers.IO) {
             scanner.scan(targetMac, scanMode).collect { data ->
                 AppLogger.d("MainViewModel", "Received data: $data")
-                val correctedBattery = BluetoothUtils.correctBatteryLevel(
-                    data.battery, settingsRepository.batteryType
-                )
-                val correctedData = data.copy(battery = correctedBattery)
+                val correctedData = sensorRepository.saveSensorData(data)
                 _sensorData.value = correctedData
-                sensorRepository.saveSensorData(correctedData)
             }
         }
     }
