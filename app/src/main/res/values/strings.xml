@@ -181,7 +181,7 @@
     <string name="custom_ringtone_header">Custom ringtone</string>
     <string name="select_audio_file">Select audio file</string>
     <string name="file_selected">File selected</string>
-    <string name="audio_format_hint">Supported formats: MP3, WAV, OGG, AAC. Audio will be converted to 8kHz mono.</string>
+    <string name="audio_format_hint">Audio will be converted to 8kHz mono.</string>
     <string name="current_label">Current</string>
     <string name="converting_audio">Converting audio…</string>
     <string name="uploading_progress">Uploading: %1$d%%</string>
