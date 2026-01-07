@@ -74,9 +74,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 data class OnlineRingtone(
-    val name: String,
-    val url: String,
-    val signature: ByteArray
+    val name: String, val url: String, val signature: ByteArray
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -134,8 +132,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                         )
                     }
                 }.wav",
-                signature = sig
-            )
+                signature = sig)
         }
     }
 
@@ -151,12 +148,10 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     // Show snackbar for errors
-    @Suppress("AssignedValueIsNeverRead")
-    LaunchedEffect(errorMessage) {
+    @Suppress("AssignedValueIsNeverRead") LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(
-                message = it,
-                duration = SnackbarDuration.Long
+                message = it, duration = SnackbarDuration.Long
             )
             errorMessage = null
         }
@@ -180,9 +175,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                     isConverting = true
                     val result = withContext(Dispatchers.IO) {
                         audioConverter.convertToPcm(
-                            selectedCustomUri!!,
-                            startMs = trimStartMs,
-                            durationMs = trimDurationMs
+                            selectedCustomUri!!, startMs = trimStartMs, durationMs = trimDurationMs
                         )
                     }
                     pcmData = audioConverter.addPadding(result.pcmData)
@@ -198,8 +191,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 estimatedTimeRemaining = null
 
                 val success = viewModel.qpController.uploadRingtone(
-                    pcmData = pcmData,
-                    targetSignature = targetSignature
+                    pcmData = pcmData, targetSignature = targetSignature
                 ) { progress ->
                     uploadProgress = progress
 
@@ -213,8 +205,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
 
                 if (success) {
                     snackbarHostState.showSnackbar(
-                        message = uploadCompleteText,
-                        duration = SnackbarDuration.Short
+                        message = uploadCompleteText, duration = SnackbarDuration.Short
                     )
                     // Refresh settings to get updated ringtone
                     viewModel.reloadDeviceSettings()
@@ -231,57 +222,50 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     // Audio trimmer dialog for custom files
-    @Suppress("AssignedValueIsNeverRead")
-    if (showAudioTrimmer && selectedCustomUri != null) {
-        AudioTrimmerDialog(
-            uri = selectedCustomUri!!,
-            onConfirm = { startMs, durationMs ->
-                trimStartMs = startMs
-                trimDurationMs = durationMs
-                showAudioTrimmer = false
+    @Suppress("AssignedValueIsNeverRead") if (showAudioTrimmer && selectedCustomUri != null) {
+        AudioTrimmerDialog(uri = selectedCustomUri!!, onConfirm = { startMs, durationMs ->
+            trimStartMs = startMs
+            trimDurationMs = durationMs
+            showAudioTrimmer = false
 
-                // Use online ringtone signature if selected, otherwise fallback to custom slot
-                val targetSig = selectedOnlineRingtone?.signature
-                    ?: QPController.getCustomSlotSignature(currentSignature)
+            // Use online ringtone signature if selected, otherwise fallback to custom slot
+            val targetSig =
+                selectedOnlineRingtone?.signature ?: QPController.getCustomSlotSignature(
+                    currentSignature
+                )
 
-                convertAndUpload(targetSig)
-            },
-            onDismiss = {
-                showAudioTrimmer = false
-                // Cleanup temp file if cancelled
-                if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
-                    try {
-                        File(context.cacheDir, "temp_ringtone.wav").delete()
-                    } catch (e: Exception) {
-                        AppLogger.e("RingtoneUpload", "Failed to delete temp file", e)
-                    }
+            convertAndUpload(targetSig)
+        }, onDismiss = {
+            showAudioTrimmer = false
+            // Cleanup temp file if cancelled
+            if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
+                try {
+                    File(context.cacheDir, "temp_ringtone.wav").delete()
+                } catch (e: Exception) {
+                    AppLogger.e("RingtoneUpload", "Failed to delete temp file", e)
                 }
-                selectedCustomUri = null
             }
-        )
+            selectedCustomUri = null
+        })
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.ringtone_upload_title)) },
-                navigationIcon = {
-                    BackNavigationButton(navController, enabled = !isUploading)
-                },
-                actions = {
-                    if (isUploading || isBusy || isConverting || isDownloading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 16.dp)
-                                .size(24.dp),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
+        TopAppBar(
+            title = { Text(stringResource(R.string.ringtone_upload_title)) },
+            navigationIcon = {
+                BackNavigationButton(navController, enabled = !isUploading)
+            },
+            actions = {
+                if (isUploading || isBusy || isConverting || isDownloading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .padding(end = 16.dp)
+                            .size(24.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            )
-        }
-    ) { padding ->
+            })
+    }) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -322,16 +306,14 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             // Upload progress
             if (isUploading || isDownloading) {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
+                    modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         if (isDownloading) {
                             Text(
-                                text = downloadingText,
-                                style = MaterialTheme.typography.bodyMedium
+                                text = downloadingText, style = MaterialTheme.typography.bodyMedium
                             )
                         } else if (isConverting) {
                             Text(
@@ -345,10 +327,8 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                             ) {
                                 Text(
                                     text = stringResource(
-                                        R.string.uploading_progress,
-                                        (uploadProgress * 100).toInt()
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium
+                                        R.string.uploading_progress, (uploadProgress * 100).toInt()
+                                    ), style = MaterialTheme.typography.bodyMedium
                                 )
                                 estimatedTimeRemaining?.let { eta ->
                                     Text(
@@ -381,12 +361,11 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             onlineRingtones.forEach { ringtone ->
                 val isCurrentRingtone = currentSignature.safeContentEquals(ringtone.signature)
 
-                Card(
+                @Suppress("AssignedValueIsNeverRead") Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .selectable(
-                            selected = selectedOnlineRingtone == ringtone,
-                            onClick = {
+                            selected = selectedOnlineRingtone == ringtone, onClick = {
                                 if (!isCurrentRingtone && !isUploading && !isDownloading) {
                                     selectedOnlineRingtone = ringtone
                                     selectedCustomUri = null
@@ -456,10 +435,8 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                                         }
                                     }
                                 }
-                            },
-                            role = Role.RadioButton
-                        ),
-                    colors = CardDefaults.cardColors(
+                            }, role = Role.RadioButton
+                        ), colors = CardDefaults.cardColors(
                         containerColor = when {
                             isCurrentRingtone -> MaterialTheme.colorScheme.secondaryContainer
                             selectedOnlineRingtone == ringtone -> MaterialTheme.colorScheme.primaryContainer
@@ -476,10 +453,8 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                         Icon(
                             imageVector = Icons.Default.CloudDownload,
                             contentDescription = null,
-                            tint = if (isCurrentRingtone)
-                                MaterialTheme.colorScheme.secondary
-                            else
-                                MaterialTheme.colorScheme.primary
+                            tint = if (isCurrentRingtone) MaterialTheme.colorScheme.secondary
+                            else MaterialTheme.colorScheme.primary
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -522,15 +497,12 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = Icons.Default.AudioFile,
-                    contentDescription = null
+                    imageVector = Icons.Default.AudioFile, contentDescription = null
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = selectedCustomUri?.let {
-                        stringResource(R.string.file_selected)
-                    } ?: stringResource(R.string.select_audio_file)
-                )
+                Text(text = selectedCustomUri?.let {
+                    stringResource(R.string.file_selected)
+                } ?: stringResource(R.string.select_audio_file))
             }
 
             Text(

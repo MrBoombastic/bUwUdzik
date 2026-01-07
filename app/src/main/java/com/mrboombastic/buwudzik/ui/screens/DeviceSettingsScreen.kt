@@ -485,7 +485,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
 
                 // Firmware Version
                 if (currentSettings.firmwareVersion.isNotEmpty()) {
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(Modifier.padding(vertical = 16.dp))
                     Text(
                         text = stringResource(
                             R.string.firmware_version_fmt, currentSettings.firmwareVersion

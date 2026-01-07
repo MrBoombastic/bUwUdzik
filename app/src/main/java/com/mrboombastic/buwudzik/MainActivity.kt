@@ -1,6 +1,7 @@
 package com.mrboombastic.buwudzik
 
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.bluetooth.BluetoothManager
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -98,8 +100,10 @@ import com.mrboombastic.buwudzik.device.DeviceSettings
 import com.mrboombastic.buwudzik.device.QPController
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
 import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
@@ -310,8 +314,7 @@ class MainViewModel(
                                 }
                                 _alarms.value = alarmsWithTitles
                                 AppLogger.d(
-                                    "MainViewModel",
-                                    "Loaded ${alarmsWithTitles.size} alarms"
+                                    "MainViewModel", "Loaded ${alarmsWithTitles.size} alarms"
                                 )
                             } catch (e: Exception) {
                                 Log.e("MainViewModel", "Error loading alarms", e)
@@ -590,7 +593,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    Scaffold(
+                    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter") Scaffold(
                         snackbarHost = { SnackbarHost(snackbarHostState) }) { _ ->
                         NavHost(
                             navController = navController,
@@ -665,6 +668,26 @@ class MainActivity : AppCompatActivity() {
                                 RingtoneUploadScreen(
                                     navController, viewModel
                                 )
+                            }
+                            composable("device-sharing") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceSharingScreen(navController)
+                            }
+                            composable("device-import") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceImportScreen(navController, viewModel)
                             }
                         }
                     }
@@ -1046,8 +1069,24 @@ fun Dashboard(
                 }
 
                 if (isPaired) {
-                    @Suppress("AssignedValueIsNeverRead")
                     TextButton(
+                        onClick = { navController.navigate("device-sharing") },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.share_device_button))
+                    }
+                }
+
+                if (isPaired) {
+                    @Suppress("AssignedValueIsNeverRead") TextButton(
                         onClick = { showUnpairDialog = true },
                         colors = ButtonDefaults.textButtonColors(
                             contentColor = MaterialTheme.colorScheme.error

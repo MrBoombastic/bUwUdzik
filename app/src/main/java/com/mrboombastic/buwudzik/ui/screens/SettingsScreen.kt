@@ -261,6 +261,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 }
             }
 
+
             // Scan Mode
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -440,6 +441,18 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     text = if (isCheckingUpdates) stringResource(R.string.checking_updates)
                     else stringResource(R.string.check_updates_label)
                 )
+            }
+
+
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Import Device Button
+            Button(
+                onClick = { navController.navigate("device-import") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.import_device_button))
             }
 
             // Update Available Dialog

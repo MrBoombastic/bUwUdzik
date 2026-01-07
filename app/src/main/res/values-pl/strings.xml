@@ -212,4 +212,16 @@
     <!-- Local Settings -->
     <string name="local_settings_header">Ustawienia lokalne</string>
     <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zewnętrznym urządzeniu.</string>
+
+    <!-- Device Sharing -->
+    <string name="share_device_title">Udostępnij urządzenie</string>
+    <string name="import_device_title">Importuj urządzenie</string>
+    <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia</string>
+    <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
+    <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
+    <string name="import_error">Nieprawidłowy kod QR</string>
+    <string name="no_device_to_share">Brak sparowanego urządzenia do udostępnienia</string>
+    <string name="share_device_button">Udostępnij urządzenie</string>
+    <string name="import_device_button">Importuj urządzenie</string>
+    <string name="camera_permission_required">Wymagane jest uprawnienie do aparatu, aby skanować kody QR</string>
 </resources>

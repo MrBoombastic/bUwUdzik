@@ -40,6 +40,14 @@ class TokenStorage(context: Context) {
     }
 
     /**
+     * Get the stored token as hex string, or null if not paired yet.
+     */
+    fun getTokenHex(macAddress: String): String? {
+        val key = macAddressToKey(macAddress)
+        return prefs.getString(key, null)
+    }
+
+    /**
      * Generate a new random token without storing it.
      * Use storeToken after pairing is confirmed.
      */
@@ -82,11 +90,17 @@ class TokenStorage(context: Context) {
         return "token_${macAddress.lowercase().replace(":", "_")}"
     }
 
-    private fun bytesToHex(bytes: ByteArray): String {
+    /**
+     * Convert bytes to hex string.
+     */
+    fun bytesToHex(bytes: ByteArray): String {
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    private fun hexToBytes(hex: String): ByteArray {
+    /**
+     * Convert hex string to bytes.
+     */
+    fun hexToBytes(hex: String): ByteArray {
         return hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 }

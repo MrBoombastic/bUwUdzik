@@ -37,4 +37,24 @@ class AlarmTitleRepository(context: Context) {
     fun deleteTitle(alarmId: Int) {
         prefs.edit { remove("$KEY_PREFIX$alarmId") }
     }
+
+    /**
+     * Get all alarm titles.
+     * Returns a map of Alarm ID to Title.
+     */
+    fun getAllTitles(): Map<Int, String> {
+        val allEntries = prefs.all
+        val titles = mutableMapOf<Int, String>()
+        for ((key, value) in allEntries) {
+            if (key.startsWith(KEY_PREFIX) && value is String) {
+                try {
+                    val id = key.substring(KEY_PREFIX.length).toInt()
+                    titles[id] = value
+                } catch (_: NumberFormatException) {
+                    // Ignore invalid keys
+                }
+            }
+        }
+        return titles
+    }
 }
