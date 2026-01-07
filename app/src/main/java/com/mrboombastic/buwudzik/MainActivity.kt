@@ -34,6 +34,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Alarm
@@ -578,11 +580,10 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Scaffold(
-                        snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                        snackbarHost = { SnackbarHost(snackbarHostState) }) { _ ->
                         NavHost(
                             navController = navController,
                             startDestination = startDestination,
-                            modifier = Modifier.padding(padding),
                             enterTransition = {
                                 slideInHorizontally(
                                     initialOffsetX = { fullWidth -> fullWidth },
@@ -805,7 +806,9 @@ fun Dashboard(
     }
 
     Column(
-        modifier = modifier.padding(16.dp),
+        modifier = modifier
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
