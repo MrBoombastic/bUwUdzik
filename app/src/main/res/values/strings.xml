@@ -158,6 +158,8 @@
     <string name="repeat_on_label">Repeat on:</string>
     <string name="snooze_label">Snooze</string>
     <string name="delete_alarm_desc">Delete alarm</string>
+    <string name="alarm_title_label">Title (optional)</string>
+    <string name="alarm_title_hint">e.g. Wake up, Meeting, Medicine…</string>
     <!-- Days -->
     <string name="day_mon">Mon</string>
     <string name="day_tue">Tue</string>

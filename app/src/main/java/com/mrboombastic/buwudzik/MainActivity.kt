@@ -89,6 +89,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.data.AlarmTitleRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.Alarm
@@ -126,6 +127,7 @@ class MainViewModel(
 ) : ViewModel() {
 
     private val sensorRepository = SensorRepository(applicationContext)
+    private val alarmTitleRepository = AlarmTitleRepository(applicationContext)
 
     private val _sensorData = MutableStateFlow<SensorData?>(null)
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
@@ -302,9 +304,15 @@ class MainViewModel(
                         )
                         launch {
                             try {
-                                val alarms = qpController.readAlarms()
-                                _alarms.value = alarms
-                                AppLogger.d("MainViewModel", "Loaded ${alarms.size} alarms")
+                                val deviceAlarms = qpController.readAlarms()
+                                val alarmsWithTitles = deviceAlarms.map { alarm ->
+                                    alarm.copy(title = alarmTitleRepository.getTitle(alarm.id))
+                                }
+                                _alarms.value = alarmsWithTitles
+                                AppLogger.d(
+                                    "MainViewModel",
+                                    "Loaded ${alarmsWithTitles.size} alarms"
+                                )
                             } catch (e: Exception) {
                                 Log.e("MainViewModel", "Error loading alarms", e)
                             }
@@ -351,9 +359,12 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 AppLogger.d("MainViewModel", "Reloading alarms...")
-                val alarms = qpController.readAlarms()
-                _alarms.value = alarms
-                AppLogger.d("MainViewModel", "Reloaded ${alarms.size} alarms")
+                val deviceAlarms = qpController.readAlarms()
+                val alarmsWithTitles = deviceAlarms.map { alarm ->
+                    alarm.copy(title = alarmTitleRepository.getTitle(alarm.id))
+                }
+                _alarms.value = alarmsWithTitles
+                AppLogger.d("MainViewModel", "Reloaded ${alarmsWithTitles.size} alarms")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error reloading alarms", e)
             }
@@ -371,6 +382,8 @@ class MainViewModel(
                     days = alarm.days,
                     snooze = alarm.snooze
                 )
+                // Save title locally
+                alarmTitleRepository.setTitle(alarm.id, alarm.title)
                 reloadAlarms()
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -384,6 +397,8 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 qpController.deleteAlarm(alarmId)
+                // Delete title locally
+                alarmTitleRepository.deleteTitle(alarmId)
                 reloadAlarms()
                 onResult(Result.success(Unit))
             } catch (e: Exception) {

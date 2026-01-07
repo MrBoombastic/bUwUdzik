@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -413,6 +414,16 @@ fun AlarmCard(alarm: Alarm, enabled: Boolean, onToggle: (Boolean) -> Unit, onEdi
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                // Show title if present
+                if (alarm.title.isNotBlank()) {
+                    Text(
+                        text = alarm.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
                 Text(
                     text = alarm.getTimeString(),
                     style = MaterialTheme.typography.headlineMedium,
@@ -449,6 +460,7 @@ fun AlarmEditDialog(
     var selectedMinute by remember { mutableIntStateOf(alarm.minute) }
     var selectedDays by remember { mutableIntStateOf(alarm.days) }
     var snoozeEnabled by remember { mutableStateOf(alarm.snooze) }
+    var alarmTitle by remember { mutableStateOf(alarm.title) }
     var showTimePicker by remember { mutableStateOf(false) }
 
 
@@ -497,6 +509,18 @@ fun AlarmEditDialog(
                         ), style = MaterialTheme.typography.headlineLarge
                     )
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Title input field
+                OutlinedTextField(
+                    value = alarmTitle,
+                    onValueChange = { alarmTitle = it },
+                    label = { Text(stringResource(R.string.alarm_title_label)) },
+                    placeholder = { Text(stringResource(R.string.alarm_title_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -579,7 +603,8 @@ fun AlarmEditDialog(
                         hour = selectedHour,
                         minute = selectedMinute,
                         days = selectedDays,
-                        snooze = snoozeEnabled
+                        snooze = snoozeEnabled,
+                        title = alarmTitle.trim()
                     )
                 )
             }) {

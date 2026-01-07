@@ -153,6 +153,8 @@
     <string name="repeat_on_label">Powtarzaj w:</string>
     <string name="snooze_label">Drzemka</string>
     <string name="delete_alarm_desc">Usuń budzik</string>
+    <string name="alarm_title_label">Tytuł (opcjonalny)</string>
+    <string name="alarm_title_hint">np. pobudka, spotkanie, lekarstwo…</string>
     <!-- Days -->
     <string name="day_mon">pon.</string>
     <string name="day_tue">wt.</string>
