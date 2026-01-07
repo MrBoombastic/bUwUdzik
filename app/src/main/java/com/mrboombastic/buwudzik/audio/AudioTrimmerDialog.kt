@@ -310,6 +310,10 @@ fun AudioTrimmerDialog(
                     setDataSource(context, uri)
                     prepare()
                     seekTo(selectionStartMs.toInt())
+                    setOnCompletionListener {
+                        isPlaying = false
+                        playbackPosition = 0f
+                    }
                     start()
                 }
                 mediaPlayer = mp
