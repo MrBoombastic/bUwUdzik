@@ -40,18 +40,24 @@ class TokenStorage(context: Context) {
     }
 
     /**
-     * Generate a new random token for a device and store it.
+     * Generate a new random token without storing it.
+     * Use storeToken after pairing is confirmed.
      */
-    fun generateAndStoreToken(macAddress: String): ByteArray {
+    fun generateToken(): ByteArray {
         val token = ByteArray(TOKEN_SIZE)
         secureRandom.nextBytes(token)
+        AppLogger.d(TAG, "Generated new token: ${bytesToHex(token)}")
+        return token
+    }
 
+    /**
+     * Store a token for a device after successful pairing.
+     */
+    fun storeToken(macAddress: String, token: ByteArray) {
         val key = macAddressToKey(macAddress)
         val tokenHex = bytesToHex(token)
         prefs.edit { putString(key, tokenHex) }
-
-        AppLogger.d(TAG, "Generated new token for $macAddress: $tokenHex")
-        return token
+        AppLogger.d(TAG, "Stored token for $macAddress: $tokenHex")
     }
 
     /**

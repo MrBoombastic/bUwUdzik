@@ -258,22 +258,25 @@ class QPController(private val context: Context) {
 
     /**
      * Prepare token for connection. If device is already paired, use stored token.
-     * Otherwise, generate a new random token for pairing.
+     * Otherwise, generate a new random token for pairing (without storing yet).
      */
     private fun prepareTokenForDevice(macAddress: String): ByteArray {
         val existingToken = tokenStorage.getToken(macAddress)
         return if (existingToken != null) {
             AppLogger.d(TAG, "Using stored token for $macAddress")
+            isPendingPairing = false
             existingToken
         } else {
             AppLogger.d(TAG, "Generating new token for $macAddress (fresh pairing)")
-            tokenStorage.generateAndStoreToken(macAddress)
+            isPendingPairing = true // Mark that we need to store token after successful auth
+            tokenStorage.generateToken() // Generate but don't store yet
         }
     }
 
     private var gatt: BluetoothGatt? = null
     private var isAuthenticated = false
     private var isConnected = false
+    private var isPendingPairing = false // Track if we need to store token after successful auth
 
     // Pending operations
     private var connectContinuation: Continuation<Boolean>? = null
@@ -353,6 +356,16 @@ class QPController(private val context: Context) {
                     AppLogger.d(TAG, "Authentication successful! Device is now authenticated.")
                     isAuthenticated = true
                     pendingAuthWriteChar = null
+                    // Store token only after successful authentication
+                    if (isPendingPairing) {
+                        currentDeviceMac?.let { mac ->
+                            currentToken?.let { token ->
+                                tokenStorage.storeToken(mac, token)
+                                AppLogger.d(TAG, "Token stored for $mac after successful pairing")
+                            }
+                        }
+                        isPendingPairing = false
+                    }
                 }
                 pendingAckContinuations.remove(cmdId)?.resume(true)
             } else {
