@@ -198,6 +198,8 @@
     <string name="start_label">Start</string>
     <string name="drag_to_adjust_hint">Drag to move selection.</string>
     <string name="time_placeholder" translatable="false">--:--</string>
+    <string name="custom_ringtone_name">Custom</string>
+    <string name="downloading_ringtone">Downloading ringtone…</string>
 
     <!-- Pairing UI -->
     <string name="setup_new_device">Setup new device</string>

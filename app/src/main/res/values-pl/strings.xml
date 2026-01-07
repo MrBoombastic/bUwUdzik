@@ -189,6 +189,8 @@
     <string name="fine_adjustment">Precyzyjna edycja</string>
     <string name="start_label">Początek</string>
     <string name="drag_to_adjust_hint">Przeciągnij, by przesunąć zaznaczenie.</string>
+    <string name="custom_ringtone_name">Własny</string>
+    <string name="downloading_ringtone">Pobieranie dzwonka…</string>
 
     <!-- Pairing UI -->
     <string name="setup_new_device">Konfiguracja nowego urządzenia</string>

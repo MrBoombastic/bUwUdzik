@@ -306,7 +306,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Text(
-                                text = currentSettings.getRingtoneName(),
+                                text = currentSettings.getRingtoneName()
+                                    ?: stringResource(R.string.custom_ringtone_name),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

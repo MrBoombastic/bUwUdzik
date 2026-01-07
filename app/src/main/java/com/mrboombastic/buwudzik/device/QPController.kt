@@ -107,14 +107,15 @@ data class DeviceSettings(
         return result
     }
 
-    fun getRingtoneName(): String {
-        // Check for custom slots first
-        QPController.getCustomSlotName(ringtoneSignature)?.let { return it }
+    /**
+     * Get the ringtone name. Returns null for custom ringtones - caller should use localized string.
+     */
+    fun getRingtoneName(): String? {
+        // Check for custom slots first - return null so caller can use localized string
+        if (QPController.isCustomSlot(ringtoneSignature)) return null
         // Then check standard ringtones
         return QPController.RINGTONE_SIGNATURES.entries.find {
-            it.value.contentEquals(
-                ringtoneSignature
-            )
+            it.value.contentEquals(ringtoneSignature)
         }?.key ?: "Unknown"
     }
 }
@@ -212,16 +213,13 @@ class QPController(private val context: Context) {
             }
         }
 
-
         /**
-         * Get custom slot name for display
+         * Check if signature is a custom slot (for i18n - caller should use localized string)
          */
-        fun getCustomSlotName(signature: ByteArray): String? {
-            return when {
-                signature.contentEquals(CUSTOM_RINGTONE_SLOT_1) -> "Custom" // doesn't matter for end user
-                signature.contentEquals(CUSTOM_RINGTONE_SLOT_2) -> "Custom"
-                else -> null
-            }
+        fun isCustomSlot(signature: ByteArray): Boolean {
+            return signature.contentEquals(CUSTOM_RINGTONE_SLOT_1) || signature.contentEquals(
+                CUSTOM_RINGTONE_SLOT_2
+            )
         }
 
     }
@@ -1217,14 +1215,21 @@ class QPController(private val context: Context) {
                     // Ensure data notifications are enabled to receive ACK
                     if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
                         currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                        val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                        val descriptor =
+                            dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
                         descriptor?.let {
-                            currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                            currentGatt.writeDescriptor(
+                                it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            )
                         }
                         enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
 
-                    AppLogger.d(TAG, "Setting alarm #$alarmId to ${hour}:${minute}, snooze=$snooze, days=$days, command=${command.joinToString(" ") { "%02x".format(it) }}")
+                    AppLogger.d(
+                        TAG,
+                        "Setting alarm #$alarmId to ${hour}:${minute}, snooze=$snooze, days=$days, command=${
+                            command.joinToString(" ") { "%02x".format(it) }
+                        }")
                     val status = currentGatt.writeCharacteristic(
                         dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
@@ -1278,9 +1283,12 @@ class QPController(private val context: Context) {
                     // Ensure data notifications are enabled to receive ACK
                     if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
                         currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                        val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                        val descriptor =
+                            dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
                         descriptor?.let {
-                            currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                            currentGatt.writeDescriptor(
+                                it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            )
                         }
                         enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
@@ -1429,8 +1437,6 @@ class QPController(private val context: Context) {
             }
         }
     }
-
-    // ==================== AUDIO UPLOAD ====================
 
     private var uploadAckReceived = false
     private var uploadInitAckReceived = false

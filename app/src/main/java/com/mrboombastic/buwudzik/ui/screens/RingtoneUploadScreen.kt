@@ -67,6 +67,9 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -110,11 +113,13 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     var trimDurationMs by remember { mutableLongStateOf(10000L) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isConverting by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
 
     val audioConverter = remember { AudioConverter(context) }
 
     // Current ringtone from device
-    val currentRingtoneName = settings?.getRingtoneName() ?: "Unknown"
+    val customRingtoneName = stringResource(R.string.custom_ringtone_name)
+    val currentRingtoneName = settings?.getRingtoneName() ?: customRingtoneName
     val currentSignature = settings?.ringtoneSignature
 
     // Available online ringtones from QP server
@@ -122,7 +127,13 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
         QPController.RINGTONE_SIGNATURES.map { (name, sig) ->
             OnlineRingtone(
                 name = name,
-                url = "https://qingplus.cleargrass.com/raw/rings/${name.lowercase().replace(" ", "_")}.pcm",
+                url = "https://qingfseu.oss-eu-central-1.aliyuncs.com/rings/${
+                    sig.joinToString("") {
+                        "%02x".format(
+                            it
+                        )
+                    }
+                }.wav",
                 signature = sig
             )
         }
@@ -154,6 +165,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     // Pre-capture string resources for use in coroutines
     val uploadCompleteText = stringResource(R.string.upload_complete)
     val uploadFailedText = stringResource(R.string.upload_failed)
+    val downloadingText = stringResource(R.string.downloading_ringtone)
 
     fun convertAndUpload(targetSignature: ByteArray) {
         coroutineScope.launch {
@@ -163,16 +175,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             try {
                 val pcmData: ByteArray
 
-                if (selectedOnlineRingtone != null) {
-                    // Download from server and add padding
-                    isConverting = true
-                    val downloadedData = withContext(Dispatchers.IO) {
-                        downloadPcmFile(selectedOnlineRingtone!!.url)
-                    }
-                    pcmData = audioConverter.addPadding(downloadedData)
-                    AppLogger.d("RingtoneUpload", "Downloaded ${downloadedData.size} bytes, padded to ${pcmData.size} bytes")
-                    isConverting = false
-                } else if (selectedCustomUri != null) {
+                if (selectedCustomUri != null) {
                     // Convert local file with trimming
                     isConverting = true
                     val result = withContext(Dispatchers.IO) {
@@ -236,12 +239,23 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 trimStartMs = startMs
                 trimDurationMs = durationMs
                 showAudioTrimmer = false
-                // For custom files, automatically use alternating custom slot (dead/beef)
-                val customSlot = QPController.getCustomSlotSignature(currentSignature)
-                convertAndUpload(customSlot)
+
+                // Use online ringtone signature if selected, otherwise fallback to custom slot
+                val targetSig = selectedOnlineRingtone?.signature
+                    ?: QPController.getCustomSlotSignature(currentSignature)
+
+                convertAndUpload(targetSig)
             },
             onDismiss = {
                 showAudioTrimmer = false
+                // Cleanup temp file if cancelled
+                if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
+                    try {
+                        File(context.cacheDir, "temp_ringtone.wav").delete()
+                    } catch (e: Exception) {
+                        AppLogger.e("RingtoneUpload", "Failed to delete temp file", e)
+                    }
+                }
                 selectedCustomUri = null
             }
         )
@@ -256,7 +270,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                     BackNavigationButton(navController, enabled = !isUploading)
                 },
                 actions = {
-                    if (isUploading || isBusy || isConverting) {
+                    if (isUploading || isBusy || isConverting || isDownloading) {
                         CircularProgressIndicator(
                             modifier = Modifier
                                 .padding(end = 16.dp)
@@ -306,7 +320,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             }
 
             // Upload progress
-            if (isUploading) {
+            if (isUploading || isDownloading) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
@@ -314,7 +328,12 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                     )
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        if (isConverting) {
+                        if (isDownloading) {
+                            Text(
+                                text = downloadingText,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        } else if (isConverting) {
                             Text(
                                 text = stringResource(R.string.converting_audio),
                                 style = MaterialTheme.typography.bodyMedium
@@ -325,21 +344,26 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = stringResource(R.string.uploading_progress, (uploadProgress * 100).toInt()),
+                                    text = stringResource(
+                                        R.string.uploading_progress,
+                                        (uploadProgress * 100).toInt()
+                                    ),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 estimatedTimeRemaining?.let { eta ->
                                     Text(
                                         text = stringResource(R.string.eta_label, formatEta(eta)),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                            alpha = 0.7f
+                                        )
                                     )
                                 }
                             }
                         }
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(
-                            progress = { if (isConverting) 0f else uploadProgress },
+                            progress = { if (isConverting || isDownloading) 0f else uploadProgress },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
@@ -363,12 +387,74 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                         .selectable(
                             selected = selectedOnlineRingtone == ringtone,
                             onClick = {
-                                if (!isCurrentRingtone && !isUploading) {
+                                if (!isCurrentRingtone && !isUploading && !isDownloading) {
                                     selectedOnlineRingtone = ringtone
                                     selectedCustomUri = null
-                                    // For online ringtones, use their own signature directly
-                                    // No slot picker needed - just start upload
-                                    convertAndUpload(ringtone.signature)
+
+                                    // Download and show trimmer instead of direct upload
+                                    coroutineScope.launch {
+                                        isDownloading = true
+                                        try {
+                                            var wavData = downloadPcmFile(ringtone.url)
+
+                                            // Check if we got the JSON manifest instead of WAV
+                                            // server might return the manifest for 404s or root queries
+                                            val firstChar =
+                                                if (wavData.isNotEmpty()) wavData[0].toInt()
+                                                    .toChar() else ' '
+                                            if (firstChar == '{') {
+                                                try {
+                                                    val jsonStr = String(wavData)
+                                                    val json = org.json.JSONObject(jsonStr)
+                                                    val sigHex =
+                                                        ringtone.signature.joinToString("") {
+                                                            "%02x".format(it)
+                                                        }
+
+                                                    val realUrl = if (json.has(sigHex)) {
+                                                        // Assuming schema {"hex": {"wav": "url", ...}}
+                                                        json.getJSONObject(sigHex).getString("wav")
+                                                    } else {
+                                                        null
+                                                    }
+
+                                                    if (realUrl != null) {
+                                                        wavData = downloadPcmFile(realUrl)
+                                                    } else {
+                                                        throw IOException("Could not find ringtone entry in manifest for signature $sigHex")
+                                                    }
+                                                } catch (e: Exception) {
+                                                    throw IOException(
+                                                        "Failed to parse JSON manifest: ${e.message}. Content start: ${
+                                                            String(
+                                                                wavData.take(50).toByteArray()
+                                                            )
+                                                        }"
+                                                    )
+                                                }
+                                            }
+
+                                            // Validate WAV header
+                                            val header = String(wavData.take(4).toByteArray())
+                                            if (header != "RIFF") {
+                                                // Log the first few bytes to see what we got (e.g. HTML error)
+                                                val contentPreview =
+                                                    String(wavData.take(100).toByteArray())
+                                                throw IOException("Invalid WAV file. Header: '$header'. Content: '$contentPreview'")
+                                            }
+
+                                            // Save as WAV directly (remote file is .wav)
+                                            val file = File(context.cacheDir, "temp_ringtone.wav")
+                                            FileOutputStream(file).use { it.write(wavData) }
+                                            selectedCustomUri = Uri.fromFile(file)
+                                            showAudioTrimmer = true
+                                        } catch (e: Exception) {
+                                            errorMessage = e.message ?: "Download failed"
+                                            selectedOnlineRingtone = null
+                                        } finally {
+                                            isDownloading = false
+                                        }
+                                    }
                                 }
                             },
                             role = Role.RadioButton
@@ -463,6 +549,9 @@ private suspend fun downloadPcmFile(url: String): ByteArray = withContext(Dispat
     connection.connectTimeout = 15000
     connection.readTimeout = 30000
     try {
+        if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+            throw IOException("HTTP error code: ${connection.responseCode}")
+        }
         connection.inputStream.use { it.readBytes() }
     } finally {
         connection.disconnect()
@@ -485,11 +574,4 @@ private fun formatEta(ms: Long): String {
         "${secs}s"
     }
 }
-
-
-
-
-
-
-
 
