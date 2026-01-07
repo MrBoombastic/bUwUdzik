@@ -10,17 +10,18 @@ so it's only semi-slop, but you have been warned, etc., etc.
 
 ## Features
 
+* Initial setup screen to guide the user through finding and selecting their device.
 * Scans for a specific Bluetooth LE device by its MAC address.
+* Share saved device with others using QR code.
 * Parses and displays sensor data.
-* Management of up to 16 device alarms (on-device storage).
-* In-app support for creating and deleting device alarms.
-* **Global alarm switch** to enable or disable all device alarms at once.
+* Management of up to 16 device alarms.
+* **Custom ringtones uploading.**
+* Global alarm switch to enable or disable all device alarms at once.
 * Bluetooth state monitoring with automatic prompts to enable it.
 * Interactive real-time previews for brightness and volume settings.
-* Widget for displaying the latest sensor data on the home screen.
+* Widget for displaying sensor data on the home screen.
 * Configurable background updates to fetch data periodically.
 * Settings to customize the device's MAC address, theme (light/dark/system), and language.
-* Initial setup screen to guide the user through finding and selecting their device.
 
 ## Technical Details
 
