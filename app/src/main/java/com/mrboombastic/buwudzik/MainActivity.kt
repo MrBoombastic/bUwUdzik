@@ -133,7 +133,7 @@ class MainViewModel(
     private val sensorRepository = SensorRepository(applicationContext)
     private val alarmTitleRepository = AlarmTitleRepository(applicationContext)
 
-    private val _sensorData = MutableStateFlow<SensorData?>(null)
+    private val _sensorData = MutableStateFlow<SensorData?>(sensorRepository.getSensorData())
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
 
     private val _deviceConnected = MutableStateFlow(false)
@@ -216,7 +216,7 @@ class MainViewModel(
 
     fun startScanning() {
         if (scanJob?.isActive == true) {
-            AppLogger.d("MainViewModel", "Scan already active, ignoring start request.")
+            AppLogger.v("MainViewModel", "Scan already active, ignoring start request.")
             return
         }
 

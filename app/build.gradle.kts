@@ -18,8 +18,8 @@ android {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 8
-        versionName = "1.3.0"
+        versionCode = 9
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -73,7 +73,6 @@ dependencies {
     implementation(libs.slf4j.simple)
     implementation(libs.androidx.profileinstaller)
     implementation(libs.zxing.android.embedded)
-    implementation(libs.mlkit.barcode.scanning)
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)

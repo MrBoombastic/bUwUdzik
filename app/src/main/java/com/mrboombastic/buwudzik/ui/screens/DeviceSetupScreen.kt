@@ -1,11 +1,5 @@
 package com.mrboombastic.buwudzik.ui.screens
 
-import com.mrboombastic.buwudzik.utils.AppLogger
-
-
-import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.device.BluetoothScanner
-import com.mrboombastic.buwudzik.data.SettingsRepository
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -35,13 +29,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,9 +44,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
+import com.mrboombastic.buwudzik.utils.AppLogger
 
 data class DiscoveredDevice(
     val name: String?,
@@ -68,14 +62,12 @@ fun DeviceSetupScreen(navController: NavController) {
     val context = LocalContext.current
     val settingsRepository = remember { SettingsRepository(context) }
     val scanner = remember { BluetoothScanner(context) }
-    val coroutineScope = rememberCoroutineScope()
 
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     val isBluetoothEnabled = bluetoothManager?.adapter?.isEnabled == true
 
     var isScanning by remember { mutableStateOf(false) }
     val discoveredDevices = remember { mutableStateListOf<DiscoveredDevice>() }
-    var scanJob by remember { mutableStateOf<Job?>(null) }
 
     val permissionsToRequest = remember {
         val perms = mutableListOf<String>()
@@ -92,10 +84,7 @@ fun DeviceSetupScreen(navController: NavController) {
     ) { perms ->
         hasPermissions = perms.values.all { it }
         if (hasPermissions && isBluetoothEnabled) {
-            startDeviceScan(scanner, coroutineScope, discoveredDevices) { job, scanning ->
-                scanJob = job
-                isScanning = scanning
-            }
+            isScanning = true
         }
     }
 
@@ -107,18 +96,18 @@ fun DeviceSetupScreen(navController: NavController) {
         if (!hasPermissions) {
             launcher.launch(permissionsToRequest)
         } else if (isBluetoothEnabled) {
-            startDeviceScan(scanner, coroutineScope, discoveredDevices) { job, scanning ->
-                scanJob = job
-                isScanning = scanning
-            }
+            isScanning = true
         }
     }
 
-    // Cancel scan job when leaving the screen
-    DisposableEffect(Unit) {
-        onDispose {
-            scanJob?.cancel()
-            AppLogger.d("DeviceSetupScreen", "Screen disposed, scan job cancelled")
+    // Handle background scanning with LaunchedEffect
+    LaunchedEffect(isScanning) {
+        if (isScanning) {
+            try {
+                performDeviceScan(scanner, discoveredDevices)
+            } finally {
+                isScanning = false
+            }
         }
     }
 
@@ -201,7 +190,7 @@ fun DeviceSetupScreen(navController: NavController) {
                     DeviceCard(
                         device = device,
                         onClick = {
-                            scanJob?.cancel()
+                            isScanning = false
                             settingsRepository.targetMacAddress = device.address
                             settingsRepository.isSetupCompleted = true
 
@@ -231,12 +220,8 @@ fun DeviceSetupScreen(navController: NavController) {
                 if (hasPermissions && isBluetoothEnabled) {
                     OutlinedButton(
                         onClick = {
-                            scanJob?.cancel()
                             discoveredDevices.clear()
-                            startDeviceScan(scanner, coroutineScope, discoveredDevices) { job, scanning ->
-                                scanJob = job
-                                isScanning = scanning
-                            }
+                            isScanning = true
                         },
                         modifier = Modifier.weight(1f),
                         enabled = !isScanning
@@ -247,7 +232,7 @@ fun DeviceSetupScreen(navController: NavController) {
 
                 TextButton(
                     onClick = {
-                        scanJob?.cancel()
+                        isScanning = false
                         // Use default MAC address when skipping setup
                         settingsRepository.targetMacAddress = SettingsRepository.DEFAULT_MAC
                         settingsRepository.isSetupCompleted = true
@@ -324,46 +309,42 @@ fun DeviceCard(
     }
 }
 
-private fun startDeviceScan(
+private suspend fun performDeviceScan(
     scanner: BluetoothScanner,
-    scope: kotlinx.coroutines.CoroutineScope,
-    devices: MutableList<DiscoveredDevice>,
-    onStateChange: (Job?, Boolean) -> Unit
+    devices: MutableList<DiscoveredDevice>
 ) {
-    val job = scope.launch {
-        onStateChange(null, true)
-        try {
-            kotlinx.coroutines.withTimeout(15000L) { // Timeout after 15 seconds
-                scanner.scan(targetAddress = null).collect { sensorData ->
-                    val existingIndex = devices.indexOfFirst { it.address == sensorData.macAddress }
-                    val device = DiscoveredDevice(
-                        name = sensorData.name,
-                        address = sensorData.macAddress,
-                        rssi = sensorData.rssi
-                    )
+    try {
+        kotlinx.coroutines.withTimeout(15000L) { // Timeout after 15 seconds
+            scanner.scan(targetAddress = null).collect { sensorData ->
+                val existingIndex = devices.indexOfFirst { it.address == sensorData.macAddress }
+                val device = DiscoveredDevice(
+                    name = sensorData.name,
+                    address = sensorData.macAddress,
+                    rssi = sensorData.rssi
+                )
 
-                    if (existingIndex >= 0) {
-                        devices[existingIndex] = device
-                    } else {
-                        devices.add(device)
-                    }
-
-                    AppLogger.d("DeviceSetupScreen", "Found device: ${device.name} at ${device.address}")
+                if (existingIndex >= 0) {
+                    devices[existingIndex] = device
+                } else {
+                    devices.add(device)
                 }
+
+                AppLogger.d(
+                    "DeviceSetupScreen",
+                    "Found device: ${device.name} at ${device.address}"
+                )
             }
-        } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
-            AppLogger.d("DeviceSetupScreen", "Scan timeout after 15 seconds - found ${devices.size} device(s)")
-        } catch (e: Exception) {
-            Log.e("DeviceSetupScreen", "Scan error", e)
-        } finally {
-            onStateChange(null, false)
         }
+    } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
+        AppLogger.d(
+            "DeviceSetupScreen",
+            "Scan timeout after 15 seconds - found ${devices.size} device(s)"
+        )
+    } catch (_: kotlinx.coroutines.CancellationException) {
+        // Normal cancellation when leaving composition - not an error
+        AppLogger.d("DeviceSetupScreen", "Scan cancelled (navigation or composition change)")
+    } catch (e: Exception) {
+        Log.e("DeviceSetupScreen", "Scan error", e)
     }
-    onStateChange(job, true)
 }
-
-
-
-
-
 

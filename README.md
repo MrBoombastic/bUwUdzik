@@ -36,25 +36,18 @@ versions.
 
 ## Screenshots
 
-### Setup screen
-
-<img src="docs/setup.png" alt="Setup screen" width="400"/>
-
-### Waiting for the data
-
-<img src="docs/scan.png" alt="Waiting for the data" width="400"/>
-
-### Main screen
-
-<img src="docs/main.png" alt="Main screen" width="400"/>
-
-### Settings screen
-
-<img src="docs/settings.png" alt="Settings screen" width="400"/>
-
-### Widget on home screen
-
-<img src="docs/widget.png" alt="Widget on home screen" width="400"/>
+<img src="docs/setup.png" width="23%">a</img>
+<img src="docs/pair.png" width="23%"></img>
+<img src="docs/settings.png" width="23%"></img>
+<img src="docs/s1.png" width="23%"></img>
+<img src="docs/s2.png" width="23%"></img>
+<img src="docs/s3.png" width="23%"></img>
+<img src="docs/s4.png" width="23%"></img>
+<img src="docs/s5.png" width="23%"></img>
+<img src="docs/s6.png" width="23%"></img>
+<img src="docs/s7.png" width="23%"></img>
+<img src="docs/import.png" width="23%"></img>
+<img src="docs/widget.png" width="23%"></img>
 
 ## Protocol Specification
 
