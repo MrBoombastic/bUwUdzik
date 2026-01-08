@@ -1,4 +1,4 @@
-# bUwUdzik
+# clOwOck
 
 Android app for displaying data from the Qingping CGD1 - Bluetooth LE alarm
 clock with sensors.
