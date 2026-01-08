@@ -8,6 +8,6 @@
     <color name="widget_humidity">#FF9ECAFF</color>
     <color name="widget_button_bg">#FF4A4458</color>
     <color name="widget_button_bg_pressed">#FF6750A4</color>
-
+    <color name="bg_dark_splash">#0E1214</color>
 </resources>
 
