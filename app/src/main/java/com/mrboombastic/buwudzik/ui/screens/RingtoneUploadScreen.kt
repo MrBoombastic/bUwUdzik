@@ -1,6 +1,5 @@
 package com.mrboombastic.buwudzik.ui.screens
 
-
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +60,7 @@ import com.mrboombastic.buwudzik.MainViewModel
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.audio.AudioConverter
 import com.mrboombastic.buwudzik.audio.AudioTrimmerDialog
+import com.mrboombastic.buwudzik.audio.ChannelMode
 import com.mrboombastic.buwudzik.device.QPController
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -161,8 +161,11 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     val uploadCompleteText = stringResource(R.string.upload_complete)
     val uploadFailedText = stringResource(R.string.upload_failed)
     val downloadingText = stringResource(R.string.downloading_ringtone)
+    val noAudioText = stringResource(R.string.error_no_audio_selected)
+    val downloadFailedText = stringResource(R.string.error_download_failed)
 
-    fun convertAndUpload(targetSignature: ByteArray) {
+
+    fun convertAndUpload(targetSignature: ByteArray, channelMode: ChannelMode) {
         coroutineScope.launch {
             isUploading = true
             uploadProgress = 0f
@@ -173,15 +176,36 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 if (selectedCustomUri != null) {
                     // Convert local file with trimming
                     isConverting = true
+                    AppLogger.d(
+                        "RingtoneUpload",
+                        "Converting: start=${trimStartMs}ms, dur=${trimDurationMs}ms, mode=$channelMode"
+                    )
                     val result = withContext(Dispatchers.IO) {
                         audioConverter.convertToPcm(
-                            selectedCustomUri!!, startMs = trimStartMs, durationMs = trimDurationMs
+                            selectedCustomUri!!,
+                            startMs = trimStartMs,
+                            durationMs = trimDurationMs,
+                            channelMode = channelMode
                         )
                     }
                     pcmData = audioConverter.addPadding(result.pcmData)
+
+                    // Save debug copy
+                    try {
+                        val debugFile = File(context.cacheDir, "last_upload_debug.wav")
+                        withContext(Dispatchers.IO) {
+                            AudioConverter.saveAsWav(result.pcmData, debugFile)
+                        }
+                        AppLogger.d(
+                            "RingtoneUpload", "Saved debug copy to ${debugFile.absolutePath}"
+                        )
+                    } catch (e: Exception) {
+                        AppLogger.e("RingtoneUpload", "Failed to save debug copy", e)
+                    }
+
                     isConverting = false
                 } else {
-                    errorMessage = "No audio selected"
+                    errorMessage = noAudioText
                     isUploading = false
                     return@launch
                 }
@@ -213,7 +237,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                     errorMessage = uploadFailedText
                 }
             } catch (e: Exception) {
-                errorMessage = e.message ?: "Upload failed"
+                errorMessage = e.message ?: uploadFailedText
             } finally {
                 isUploading = false
                 isConverting = false
@@ -223,30 +247,33 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
 
     // Audio trimmer dialog for custom files
     @Suppress("AssignedValueIsNeverRead") if (showAudioTrimmer && selectedCustomUri != null) {
-        AudioTrimmerDialog(uri = selectedCustomUri!!, onConfirm = { startMs, durationMs ->
-            trimStartMs = startMs
-            trimDurationMs = durationMs
-            showAudioTrimmer = false
+        AudioTrimmerDialog(
+            uri = selectedCustomUri!!,
+            onConfirm = { startMs, durationMs, channelMode ->
+                trimStartMs = startMs
+                trimDurationMs = durationMs
+                showAudioTrimmer = false
 
-            // Use online ringtone signature if selected, otherwise fallback to custom slot
-            val targetSig =
-                selectedOnlineRingtone?.signature ?: QPController.getCustomSlotSignature(
-                    currentSignature
-                )
+                // Use online ringtone signature if selected, otherwise fallback to custom slot
+                val targetSig =
+                    selectedOnlineRingtone?.signature ?: QPController.getCustomSlotSignature(
+                        currentSignature
+                    )
 
-            convertAndUpload(targetSig)
-        }, onDismiss = {
-            showAudioTrimmer = false
-            // Cleanup temp file if cancelled
-            if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
-                try {
-                    File(context.cacheDir, "temp_ringtone.wav").delete()
-                } catch (e: Exception) {
-                    AppLogger.e("RingtoneUpload", "Failed to delete temp file", e)
+                convertAndUpload(targetSig, channelMode)
+            },
+            onDismiss = {
+                showAudioTrimmer = false
+                // Cleanup temp file if cancelled
+                if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
+                    try {
+                        File(context.cacheDir, "temp_ringtone.wav").delete()
+                    } catch (e: Exception) {
+                        AppLogger.e("RingtoneUpload", "Failed to delete temp file", e)
+                    }
                 }
-            }
-            selectedCustomUri = null
-        })
+                selectedCustomUri = null
+            })
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, topBar = {
@@ -428,7 +455,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                                             selectedCustomUri = Uri.fromFile(file)
                                             showAudioTrimmer = true
                                         } catch (e: Exception) {
-                                            errorMessage = e.message ?: "Download failed"
+                                            errorMessage = e.message ?: downloadFailedText
                                             selectedOnlineRingtone = null
                                         } finally {
                                             isDownloading = false

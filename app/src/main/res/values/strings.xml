@@ -1,15 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">clOwOck</string>
-
-    <!-- Main Screen -->
     <string name="scanning_status" tools:ignore="Typos">Scanning for supported devices…</string>
     <string name="battery_label">Battery: %1$d%%</string>
     <string name="rssi_label">RSSI: %1$d dBm (%2$d%%)</string>
     <string name="last_update_label">Last update: %1$s</string>
     <string name="permissions_required">Permissions required for scanning</string>
     <string name="settings_desc">Settings</string>
-
-    <!-- Settings Screen -->
     <string name="settings_title">Settings</string>
     <string name="back_desc">Back</string>
     <string name="refresh">Refresh</string>
@@ -37,28 +33,18 @@
     <string name="hours_8">8 hours</string>
     <string name="hours_12">12 hours</string>
     <string name="hours_24">24 hours</string>
-
-    <!-- Widget -->
     <string name="widget_select_app_label">Select app to launch after tapping widget</string>
     <string name="default_app_label">default (this app)</string>
-
-    <!-- Theme -->
     <string name="theme_label">Theme</string>
     <string name="theme_system">system</string>
     <string name="theme_light">light</string>
     <string name="theme_dark">dark</string>
-
-    <!-- Battery Type -->
     <string name="battery_type_label">Battery type</string>
     <string name="battery_alkaline">alkaline (default)</string>
     <string name="battery_nimh">NiMH (rechargeable, 1.2V)</string>
-
-    <!-- About -->
     <string name="about_app_label">About</string>
     <string name="version_label">Version: %1$s</string>
     <string name="author_label">Author: %1$s</string>
-
-    <!-- Updates -->
     <string name="check_updates_label">Check for updates</string>
     <string name="checking_updates">Checking for updates…</string>
     <string name="no_updates_available">No updates available</string>
@@ -75,15 +61,11 @@
     <string name="update_download_complete_desc">Update downloaded. Tap to install.</string>
     <string name="update_download_error">Download error</string>
     <string name="update_download_error_desc">Failed to download update</string>
-
-    <!-- Bluetooth -->
     <string name="bluetooth_disabled">Bluetooth is disabled</string>
     <string name="bluetooth_required_title">Bluetooth enabled is required</string>
     <string name="bluetooth_required_desc">This app requires Bluetooth to connect to your devices. Please turn it on to continue.</string>
     <string name="turn_on_bluetooth">Turn on</string>
     <string name="device_disconnected">Device disconnected</string>
-
-    <!-- Device Setup -->
     <string name="setup_title">Device setup</string>
     <string name="setup_subtitle">Select your device</string>
     <string name="setup_scanning">Scanning for devices…</string>
@@ -92,32 +74,21 @@
     <string name="setup_rescan">Scan again</string>
     <string name="setup_skip">Skip for now</string>
     <string name="setup_select_device">Select device</string>
-
-    <!-- Time Setting -->
-
-    <!-- Alarm Management -->
     <string name="manage_alarms_label">Manage alarms</string>
     <string name="add_alarm_desc">Add alarm</string>
     <string name="max_alarms_message">Maximum number of alarms (16) reached.</string>
-    <!-- General Actions -->
     <string name="ok" translatable="false">OK</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="updating_label">Updating…</string>
-
-    <!-- Main Screen Hardcoded -->
     <string name="connect_to_device">Connect to device</string>
     <string name="connecting_to_device">Connecting to device…</string>
     <string name="disconnect">Disconnect</string>
     <string name="device_settings_button">Device settings</string>
-
-    <!-- Settings Screen Hardcoded -->
     <string name="set_time_2137">Set time to 21:37</string>
     <string name="time_set_success">Time set to 21:37!</string>
     <string name="time_set_failed">Failed to set time</string>
-
-    <!-- Device Settings Screen -->
     <string name="device_settings_title">Device settings</string>
     <string name="general_header">General</string>
     <string name="language_header">Language</string>
@@ -140,8 +111,6 @@
     <string name="firmware_version_fmt">Firmware version: %1$s</string>
     <string name="device_timeout_message">Device timed out. Please move closer and try again.</string>
     <string name="save_failed_message">Failed to save: %1$s</string>
-
-    <!-- Alarm Management Screen -->
     <string name="alarm_management_title">Alarm management</string>
     <string name="updating_alarm_msg">Updating alarm %1$d…</string>
     <string name="alarm_updated_msg" tools:ignore="PluralsCandidate">Alarm %1$d updated</string>
@@ -160,7 +129,6 @@
     <string name="delete_alarm_desc">Delete alarm</string>
     <string name="alarm_title_label">Title (optional)</string>
     <string name="alarm_title_hint">e.g. Wake up, Meeting, Medicine…</string>
-    <!-- Days -->
     <string name="day_mon">Mon</string>
     <string name="day_tue">Tue</string>
     <string name="day_wed">Wed</string>
@@ -172,8 +140,6 @@
     <string name="widget_placeholder_temp" translatable="false">--°C</string>
     <string name="widget_placeholder_hum" translatable="false">💧 --%</string>
     <string name="widget_placeholder_bat" translatable="false">🔋 --%</string>
-
-    <!-- Ringtone Upload Screen -->
     <string name="ringtone_upload_title">Upload ringtone</string>
     <string name="ringtone_upload_button">Upload ringtone</string>
     <string name="current_ringtone_label">Current ringtone</string>
@@ -188,22 +154,27 @@
     <string name="eta_label">~%1$s left</string>
     <string name="upload_complete">Upload complete!</string>
     <string name="upload_failed">Upload failed</string>
-
-    <!-- Audio Trimmer -->
     <string name="trim_audio_title">Trim audio</string>
     <string name="loading_audio">Loading audio…</string>
     <string name="duration_label">Duration</string>
     <string name="estimated_size_label">Estimated size</string>
     <string name="file_too_large_warning">File too large! Max ~12 seconds (98 KB).</string>
     <string name="trim_and_upload">Trim and upload</string>
-    <string name="fine_adjustment">Fine adjustment</string>
     <string name="start_label">Start</string>
     <string name="drag_to_adjust_hint">Drag to move selection.</string>
     <string name="time_placeholder" translatable="false">--:--</string>
     <string name="custom_ringtone_name">Custom</string>
     <string name="downloading_ringtone">Downloading ringtone…</string>
-
-    <!-- Pairing UI -->
+    <string name="channel_mode_label">Audio channel</string>
+    <string name="channel_left">left</string>
+    <string name="channel_mix">both</string>
+    <string name="channel_right">right</string>
+    <string name="content_desc_stop">Stop</string>
+    <string name="content_desc_play_preview">Play preview</string>
+    <string name="content_desc_rewind">Rewind</string>
+    <string name="content_desc_fast_forward">Fast forward</string>
+    <string name="error_no_audio_selected">No audio selected</string>
+    <string name="error_download_failed">Download failed</string>
     <string name="setup_new_device">Setup new device</string>
     <string name="pairing_subtitle">Follow these steps to pair your device</string>
     <string name="pairing_step1_title">Enter pairing mode</string>
@@ -217,15 +188,11 @@
     <string name="unpair_confirm_title">Forget device?</string>
     <string name="unpair_confirm_message">You will need to re-pair the clock before connecting again.</string>
     <string name="unpair_confirm">Forget</string>
-
-    <!-- Local Settings -->
     <string name="local_settings_header">Local settings</string>
     <string name="local_settings_description">These settings are saved on this phone, not the remote device.</string>
-
-    <!-- Device Sharing -->
     <string name="share_device_title">Share Device</string>
     <string name="import_device_title">Import Device</string>
-    <string name="share_qr_instruction">Scan this QR code on another device to import settings</string>
+    <string name="share_qr_instruction">Scan this QR code on another device to import settings.</string>
     <string name="import_qr_instruction">Point camera at QR code</string>
     <string name="import_success">Device imported successfully!</string>
     <string name="import_error">Invalid QR code</string>

@@ -1,15 +1,11 @@
 <resources>
     <string name="app_name">bUwUdzik</string>
-    
-    <!-- Main Screen -->
     <string name="scanning_status">Skanowanie wspieranych urządzeń…</string>
     <string name="battery_label">Bateria: %1$d%%</string>
     <string name="rssi_label">Moc sygnału: %1$d dBm (%2$d%%)</string>
     <string name="last_update_label">Ostatnia aktualizacja: %1$s</string>
     <string name="permissions_required">Uprawnienia wymagane do skanowania</string>
     <string name="settings_desc">Ustawienia</string>
-
-    <!-- Settings Screen -->
     <string name="settings_title">Ustawienia</string>
     <string name="back_desc">Wstecz</string>
     <string name="refresh">Odśwież</string>
@@ -37,27 +33,18 @@
     <string name="hours_8">8 godzin</string>
     <string name="hours_12">12 godzin</string>
     <string name="hours_24">24 godziny</string>
-
-    <!-- Widget -->
     <string name="widget_select_app_label">Wybierz aplikację do uruchomienia po kliknięciu widżetu</string>
     <string name="default_app_label">domyślna (ta aplikacja)</string>
-    
-    <!-- Theme -->
     <string name="theme_label">Motyw</string>
     <string name="theme_system">systemowy</string>
     <string name="theme_light">jasny</string>
     <string name="theme_dark">ciemny</string>
-
-    <!-- Battery Type -->
     <string name="battery_type_label">Typ baterii</string>
     <string name="battery_alkaline">alkaliczne (domyślne)</string>
     <string name="battery_nimh">NiMH (akumulatorki, 1.2V)</string>
-
     <string name="about_app_label">O aplikacji</string>
     <string name="version_label">Wersja: %1$s</string>
     <string name="author_label">Autor: %1$s</string>
-
-    <!-- Updates -->
     <string name="check_updates_label">Sprawdź aktualizacje</string>
     <string name="checking_updates">Sprawdzanie aktualizacji…</string>
     <string name="no_updates_available">Brak dostępnych aktualizacji</string>
@@ -73,15 +60,11 @@
     <string name="update_download_complete_desc">Aktualizacja została pobrana. Kliknij aby zainstalować.</string>
     <string name="update_download_error">Błąd pobierania</string>
     <string name="update_download_error_desc">Nie udało się pobrać aktualizacji</string>
-
-    <!-- Bluetooth -->
     <string name="bluetooth_disabled">Bluetooth jest wyłączony</string>
     <string name="bluetooth_required_title">Wymagany włączony Bluetooth</string>
     <string name="bluetooth_required_desc">Ta aplikacja wymaga Bluetooth do połączenia z urządzeniami. Proszę włącz go, aby kontynuować.</string>
     <string name="turn_on_bluetooth">Włącz</string>
     <string name="device_disconnected">Urządzenie rozłączone</string>
-
-    <!-- Device Setup -->
     <string name="setup_title">Konfiguracja urządzenia</string>
     <string name="setup_subtitle">Wybierz swoje urządzenie</string>
     <string name="setup_scanning">Skanowanie urządzeń…</string>
@@ -90,31 +73,20 @@
     <string name="setup_rescan">Skanuj ponownie</string>
     <string name="setup_skip">Pomiń</string>
     <string name="setup_select_device">Wybierz urządzenie</string>
-
-    <!-- Time Setting -->
-
-    <!-- Alarm Management -->
     <string name="manage_alarms_label">Zarządzaj budzikami</string>
     <string name="add_alarm_desc">Dodaj budzik</string>
     <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików (16).</string>
-    <!-- General Actions -->
     <string name="cancel">Anuluj</string>
     <string name="save">Zapisz</string>
     <string name="error_prefix">Błąd: %1$s</string>
     <string name="updating_label">Aktualizowanie…</string>
-
-    <!-- Main Screen Hardcoded -->
     <string name="connect_to_device">Połącz się z urządzeniem</string>
     <string name="connecting_to_device">Łączenie z urządzeniem…</string>
     <string name="disconnect">Rozłącz</string>
     <string name="device_settings_button">Ustawienia urządzenia</string>
-
-    <!-- Settings Screen Hardcoded -->
     <string name="set_time_2137">Ustaw czas na 21:37</string>
     <string name="time_set_success">Ustawiono czas na 21:37!</string>
     <string name="time_set_failed">Nie udało się ustawić czasu</string>
-
-    <!-- Device Settings Screen -->
     <string name="device_settings_title">Ustawienia urządzenia</string>
     <string name="general_header">Ogólne</string>
     <string name="language_header">Język</string>
@@ -135,8 +107,6 @@
     <string name="firmware_version_fmt">Wersja oprogramowania: %1$s</string>
     <string name="device_timeout_message">Upłynął limit czasu urządzenia. Podejdź bliżej i spróbuj ponownie.</string>
     <string name="save_failed_message">Nie udało się zapisać: %1$s</string>
-
-    <!-- Alarm Management Screen -->
     <string name="alarm_management_title">Zarządzanie budzikami</string>
     <string name="updating_alarm_msg">Aktualizowanie budzika %1$d…</string>
     <string name="alarm_updated_msg">Zaktualizowano budzik %1$d</string>
@@ -155,7 +125,6 @@
     <string name="delete_alarm_desc">Usuń budzik</string>
     <string name="alarm_title_label">Tytuł (opcjonalny)</string>
     <string name="alarm_title_hint">np. pobudka, spotkanie, lekarstwo…</string>
-    <!-- Days -->
     <string name="day_mon">pon.</string>
     <string name="day_tue">wt.</string>
     <string name="day_wed">śr.</string>
@@ -164,8 +133,6 @@
     <string name="day_sat">sob.</string>
     <string name="day_sun">nd.</string>
     <string name="day_once">jednorazowo</string>
-
-    <!-- Ringtone Upload Screen -->
     <string name="ringtone_upload_title">Wgraj dzwonek</string>
     <string name="ringtone_upload_button">Wgraj dzwonek</string>
     <string name="current_ringtone_label">Aktualny dzwonek</string>
@@ -180,21 +147,18 @@
     <string name="eta_label">~%1$s pozostało</string>
     <string name="upload_complete">Przesyłanie zakończone!</string>
     <string name="upload_failed">Przesyłanie nie powiodło się</string>
-
-    <!-- Audio Trimmer -->
     <string name="trim_audio_title">Przytnij audio</string>
     <string name="loading_audio">Ładowanie audio…</string>
     <string name="duration_label">Czas trwania</string>
     <string name="estimated_size_label">Szacowany rozmiar</string>
     <string name="file_too_large_warning">Plik za duży! Maks. ~12 sekund (98 KB).</string>
     <string name="trim_and_upload">Przytnij i wgraj</string>
-    <string name="fine_adjustment">Precyzyjna edycja</string>
     <string name="start_label">Początek</string>
     <string name="drag_to_adjust_hint">Przeciągnij, by przesunąć zaznaczenie.</string>
     <string name="custom_ringtone_name">Własny</string>
     <string name="downloading_ringtone">Pobieranie dzwonka…</string>
-
-    <!-- Pairing UI -->
+    <string name="channel_mode_label">Kanał audio</string>
+    <string name="error_download_failed">Pobieranie się nie powiodło</string>
     <string name="setup_new_device">Konfiguracja nowego urządzenia</string>
     <string name="pairing_subtitle">Wykonaj te kroki, aby sparować urządzenie</string>
     <string name="pairing_step1_title">Włącz tryb parowania</string>
@@ -208,15 +172,11 @@
     <string name="unpair_confirm_title">Zapomnieć urządzenie?</string>
     <string name="unpair_confirm_message">Przed ponownym połączeniem będziesz musiał znowu sparować urządzenie.</string>
     <string name="unpair_confirm">Zapomnij</string>
-
-    <!-- Local Settings -->
     <string name="local_settings_header">Ustawienia lokalne</string>
     <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zewnętrznym urządzeniu.</string>
-
-    <!-- Device Sharing -->
     <string name="share_device_title">Udostępnij urządzenie</string>
     <string name="import_device_title">Importuj urządzenie</string>
-    <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia</string>
+    <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia.</string>
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
     <string name="import_error">Nieprawidłowy kod QR</string>
@@ -224,4 +184,12 @@
     <string name="share_device_button">Udostępnij urządzenie</string>
     <string name="import_device_button">Importuj urządzenie</string>
     <string name="camera_permission_required">Wymagane jest uprawnienie do aparatu, aby skanować kody QR</string>
+    <string name="channel_left">lewy</string>
+    <string name="channel_mix">oba</string>
+    <string name="channel_right">prawy</string>
+    <string name="content_desc_stop">Stop</string>
+    <string name="content_desc_play_preview">Odtwórz podgląd</string>
+    <string name="content_desc_rewind">Przewiń</string>
+    <string name="content_desc_fast_forward">Przeskocz wprzód</string>
+    <string name="error_no_audio_selected">Nie wybrano audio</string>
 </resources>

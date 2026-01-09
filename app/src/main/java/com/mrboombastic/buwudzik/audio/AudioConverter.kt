@@ -8,9 +8,13 @@ import android.media.MediaFormat
 import android.net.Uri
 import com.mrboombastic.buwudzik.utils.AppLogger
 import java.io.ByteArrayOutputStream
+import java.io.File
+
+enum class ChannelMode {
+    LEFT, RIGHT, MIX
+}
 
 /**
- * Audio converter for QP CGD1
  * Converts audio files to PCM Unsigned 8-bit, 8kHz, Mono
  */
 class AudioConverter(private val context: Context) {
@@ -21,6 +25,63 @@ class AudioConverter(private val context: Context) {
         const val PADDING_BOUNDARY = 512
         const val END_VALUE = 0x00.toByte()
         const val PADDING_VALUE = 0xFF.toByte()
+
+        fun saveAsWav(pcmData: ByteArray, file: File) {
+            val header = ByteArray(44)
+            val totalDataLen = pcmData.size.toLong()
+            val byteRate = SAMPLE_RATE * 1 // 8 bit mono
+            val totalAudioLen = totalDataLen + 36
+
+            header[0] = 'R'.code.toByte()
+            header[1] = 'I'.code.toByte()
+            header[2] = 'F'.code.toByte()
+            header[3] = 'F'.code.toByte()
+            header[4] = (totalAudioLen and 0xff).toByte()
+            header[5] = ((totalAudioLen shr 8) and 0xff).toByte()
+            header[6] = ((totalAudioLen shr 16) and 0xff).toByte()
+            header[7] = ((totalAudioLen shr 24) and 0xff).toByte()
+            header[8] = 'W'.code.toByte()
+            header[9] = 'A'.code.toByte()
+            header[10] = 'V'.code.toByte()
+            header[11] = 'E'.code.toByte()
+            header[12] = 'f'.code.toByte()
+            header[13] = 'm'.code.toByte()
+            header[14] = 't'.code.toByte()
+            header[15] = ' '.code.toByte()
+            header[16] = 16
+            header[17] = 0
+            header[18] = 0
+            header[19] = 0
+            header[20] = 1 // Format = PCM
+            header[21] = 0
+            header[22] = 1 // Channels = 1
+            header[23] = 0
+            header[24] = (SAMPLE_RATE and 0xff).toByte()
+            header[25] = ((SAMPLE_RATE shr 8) and 0xff).toByte()
+            header[26] = ((SAMPLE_RATE shr 16) and 0xff).toByte()
+            header[27] = ((SAMPLE_RATE shr 24) and 0xff).toByte()
+            header[28] = (byteRate and 0xff).toByte()
+            header[29] = ((byteRate shr 8) and 0xff).toByte()
+            header[30] = (0).toByte()
+            header[31] = (0).toByte()
+            header[32] = 1 // Block align
+            header[33] = 0
+            header[34] = 8 // Bits per sample
+            header[35] = 0
+            header[36] = 'd'.code.toByte()
+            header[37] = 'a'.code.toByte()
+            header[38] = 't'.code.toByte()
+            header[39] = 'a'.code.toByte()
+            header[40] = (totalDataLen and 0xff).toByte()
+            header[41] = ((totalDataLen shr 8) and 0xff).toByte()
+            header[42] = ((totalDataLen shr 16) and 0xff).toByte()
+            header[43] = ((totalDataLen shr 24) and 0xff).toByte()
+
+            val fos = java.io.FileOutputStream(file)
+            fos.write(header)
+            fos.write(pcmData)
+            fos.close()
+        }
     }
 
     data class ConversionResult(
@@ -45,7 +106,10 @@ class AudioConverter(private val context: Context) {
      * Convert audio file to PCM U8 8kHz mono
      */
     fun convertToPcm(
-        uri: Uri, startMs: Long = 0, durationMs: Long = 3000
+        uri: Uri,
+        startMs: Long = 0,
+        durationMs: Long = 3000,
+        channelMode: ChannelMode = ChannelMode.MIX
     ): ConversionResult {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
@@ -89,6 +153,9 @@ class AudioConverter(private val context: Context) {
         var inputDone = false
         var outputDone = false
 
+        var decodingSampleRate = originalSampleRate
+        var decodingChannels = channels
+
         while (!outputDone) {
             if (!inputDone) {
                 val inputIdx = codec.dequeueInputBuffer(10000)
@@ -109,7 +176,15 @@ class AudioConverter(private val context: Context) {
             }
 
             val outputIdx = codec.dequeueOutputBuffer(info, 10000)
-            if (outputIdx >= 0) {
+            if (outputIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                val newFormat = codec.outputFormat
+                decodingSampleRate = newFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                decodingChannels = newFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                AppLogger.d(
+                    TAG,
+                    "Output format changed: $decodingSampleRate Hz, $decodingChannels ch"
+                )
+            } else if (outputIdx >= 0) {
                 if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                     outputDone = true
                 }
@@ -119,20 +194,26 @@ class AudioConverter(private val context: Context) {
                     val pcm16 = ShortArray(info.size / 2)
                     outputBuffer.asShortBuffer().get(pcm16)
 
-                    val monoSamples = if (channels > 1) {
-                        ShortArray(pcm16.size / channels) { i ->
-                            var sum = 0
-                            for (c in 0 until channels) {
-                                sum += pcm16[i * channels + c]
+                    val monoSamples = if (decodingChannels > 1) {
+                        ShortArray(pcm16.size / decodingChannels) { i ->
+                            when (channelMode) {
+                                ChannelMode.LEFT -> pcm16[i * decodingChannels]
+                                ChannelMode.RIGHT -> if (decodingChannels > 1) pcm16[i * decodingChannels + 1] else pcm16[i * decodingChannels]
+                                ChannelMode.MIX -> {
+                                    var sum = 0
+                                    for (c in 0 until decodingChannels) {
+                                        sum += pcm16[i * decodingChannels + c]
+                                    }
+                                    (sum / decodingChannels).toShort()
+                                }
                             }
-                            (sum / channels).toShort()
                         }
                     } else {
                         pcm16
                     }
 
-                    val resampled = if (originalSampleRate != SAMPLE_RATE) {
-                        resample(monoSamples, originalSampleRate)
+                    val resampled = if (decodingSampleRate != SAMPLE_RATE) {
+                        resample(monoSamples, decodingSampleRate)
                     } else {
                         monoSamples
                     }
@@ -188,7 +269,7 @@ class AudioConverter(private val context: Context) {
 
         val paddingNeeded = PADDING_BOUNDARY - remainder
         val padding = ByteArray(paddingNeeded) { i ->
-            if (i in 0..1) END_VALUE else PADDING_VALUE
+            if (i == 0) END_VALUE else PADDING_VALUE
         }
 
         return data + padding

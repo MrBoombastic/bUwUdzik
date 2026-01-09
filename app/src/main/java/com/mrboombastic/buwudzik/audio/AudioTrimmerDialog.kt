@@ -8,6 +8,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,12 +32,14 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,7 +84,12 @@ private const val MAX_OUTPUT_SIZE = 98_000 // 98KB limit for device
  * Extract waveform amplitudes from audio file for visualization.
  * Uses fewer samples for longer files to keep performance good.
  */
-suspend fun extractWaveform(context: Context, uri: Uri, targetSamples: Int = 150): FloatArray =
+suspend fun extractWaveform(
+    context: Context,
+    uri: Uri,
+    targetSamples: Int = 150,
+    channelMode: ChannelMode = ChannelMode.MIX
+): FloatArray =
     withContext(Dispatchers.IO) {
         val amplitudes = FloatArray(targetSamples)
 
@@ -107,6 +117,7 @@ suspend fun extractWaveform(context: Context, uri: Uri, targetSamples: Int = 150
             extractor.selectTrack(audioTrackIdx)
 
             val mime = audioFormat.getString(MediaFormat.KEY_MIME)!!
+            val channels = audioFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
 
             val codec = MediaCodec.createDecoderByType(mime)
             codec.configure(audioFormat, null, null, 0)
@@ -145,14 +156,33 @@ suspend fun extractWaveform(context: Context, uri: Uri, targetSamples: Int = 150
 
                     if (info.size > 0) {
                         val outputBuffer = codec.getOutputBuffer(outputIdx)!!
-                        val samples = ShortArray(info.size / 2)
-                        outputBuffer.asShortBuffer().get(samples)
+                        val rawSamples = ShortArray(info.size / 2)
+                        outputBuffer.asShortBuffer().get(rawSamples)
+
+                        // Process channels
+                        val monoSamples = if (channels > 1) {
+                            ShortArray(rawSamples.size / channels) { i ->
+                                when (channelMode) {
+                                    ChannelMode.LEFT -> rawSamples[i * channels]
+                                    ChannelMode.RIGHT -> rawSamples[i * channels + 1]
+                                    ChannelMode.MIX -> {
+                                        var sum = 0
+                                        for (c in 0 until channels) {
+                                            sum += rawSamples[i * channels + c]
+                                        }
+                                        (sum / channels).toShort()
+                                    }
+                                }
+                            }
+                        } else {
+                            rawSamples
+                        }
 
                         // Aggressive downsampling
-                        val step = max(1, samples.size / 500)
-                        for (i in samples.indices step step) {
+                        val step = max(1, monoSamples.size / 500)
+                        for (i in monoSamples.indices step step) {
                             if (allSamples.size < maxSamplesToCollect) {
-                                allSamples.add(samples[i])
+                                allSamples.add(monoSamples[i])
                             }
                         }
                     }
@@ -190,7 +220,9 @@ suspend fun extractWaveform(context: Context, uri: Uri, targetSamples: Int = 150
 /**
  * Get audio duration in milliseconds
  */
-suspend fun getAudioDuration(context: Context, uri: Uri): Long = withContext(Dispatchers.IO) {
+data class AudioInfo(val durationMs: Long, val channelCount: Int)
+
+suspend fun getAudioInfo(context: Context, uri: Uri): AudioInfo = withContext(Dispatchers.IO) {
     try {
         val extractor = MediaExtractor()
         extractor.setDataSource(context, uri, null)
@@ -200,33 +232,43 @@ suspend fun getAudioDuration(context: Context, uri: Uri): Long = withContext(Dis
             val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
             if (mime.startsWith("audio/")) {
                 val durationUs = format.getLong(MediaFormat.KEY_DURATION)
+                val channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                 extractor.release()
-                return@withContext durationUs / 1000
+                return@withContext AudioInfo(durationUs / 1000, channels)
             }
         }
         extractor.release()
     } catch (e: Exception) {
-        android.util.Log.e("AudioTrimmer", "Error getting duration", e)
+        android.util.Log.e("AudioTrimmer", "Error getting info", e)
     }
-    0L
+    AudioInfo(0L, 1)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AudioTrimmerDialog(
-    uri: Uri, onConfirm: (startMs: Long, durationMs: Long) -> Unit, onDismiss: () -> Unit
+    uri: Uri,
+    onConfirm: (startMs: Long, durationMs: Long, channelMode: ChannelMode) -> Unit,
+    onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val audioConverter = remember { AudioConverter(context) }
 
     var waveform by remember { mutableStateOf<FloatArray?>(null) }
     var totalDurationMs by remember { mutableLongStateOf(0L) }
+    var channelCount by remember { mutableIntStateOf(1) }
     var isLoading by remember { mutableStateOf(true) }
+    var isWaveformLoading by remember { mutableStateOf(false) }
+
+    var selectedChannelMode by remember { mutableStateOf(ChannelMode.MIX) }
 
     // Selection start position in milliseconds
     var selectionStartMs by remember { mutableLongStateOf(0L) }
 
     // Playback state
     var isPlaying by remember { mutableStateOf(false) }
+    var isPreviewLoading by remember { mutableStateOf(false) }
     var playbackPosition by remember { mutableFloatStateOf(0f) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
@@ -262,12 +304,25 @@ fun AudioTrimmerDialog(
         }
     }
 
-    // Load waveform and duration
+    // Load audio info and initial waveform
     LaunchedEffect(uri) {
         isLoading = true
-        totalDurationMs = getAudioDuration(context, uri)
-        waveform = extractWaveform(context, uri, 150)
+        val info = getAudioInfo(context, uri)
+        totalDurationMs = info.durationMs
+        channelCount = info.channelCount
+        isWaveformLoading = true
+        waveform = extractWaveform(context, uri, 150, selectedChannelMode)
+        isWaveformLoading = false
         isLoading = false
+    }
+
+    // Reload waveform when channel mode changes
+    LaunchedEffect(selectedChannelMode) {
+        if (!isLoading) {
+            isWaveformLoading = true
+            waveform = extractWaveform(context, uri, 150, selectedChannelMode)
+            isWaveformLoading = false
+        }
     }
 
     // Sync text input with selection
@@ -305,11 +360,29 @@ fun AudioTrimmerDialog(
         coroutineScope.launch {
             try {
                 mediaPlayer?.release()
+                isPreviewLoading = true
+
+                // Convert selection to PCM
+                val result = withContext(Dispatchers.IO) {
+                    audioConverter.convertToPcm(
+                        uri,
+                        startMs = selectionStartMs,
+                        durationMs = selectionDurationMs,
+                        channelMode = selectedChannelMode
+                    )
+                }
+
+                // Save as WAV
+                val previewFile = java.io.File(context.cacheDir, "preview.wav")
+                withContext(Dispatchers.IO) {
+                    AudioConverter.saveAsWav(result.pcmData, previewFile)
+                }
 
                 val mp = MediaPlayer().apply {
-                    setDataSource(context, uri)
+                    setDataSource(previewFile.absolutePath)
                     prepare()
-                    seekTo(selectionStartMs.toInt())
+                    // Seeking to 0 because the file IS the selection
+                    seekTo(0)
                     setOnCompletionListener {
                         isPlaying = false
                         playbackPosition = 0f
@@ -319,9 +392,11 @@ fun AudioTrimmerDialog(
                 mediaPlayer = mp
                 isPlaying = true
                 playbackPosition = 0f
+                isPreviewLoading = false
             } catch (e: Exception) {
                 android.util.Log.e("AudioTrimmer", "Error playing preview", e)
                 isPlaying = false
+                isPreviewLoading = false
             }
         }
     }
@@ -389,13 +464,13 @@ fun AudioTrimmerDialog(
                         IconButton(onClick = { seekBy(-200) }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                contentDescription = "-"
+                                contentDescription = stringResource(R.string.content_desc_rewind)
                             )
                         }
                         IconButton(onClick = { seekBy(200) }) {
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = "+"
+                                contentDescription = stringResource(R.string.content_desc_fast_forward)
                             )
                         }
                     }
@@ -417,14 +492,25 @@ fun AudioTrimmerDialog(
                 ) {
                     FilledIconButton(
                         onClick = { if (isPlaying) stopPreview() else playPreview() },
+                        enabled = !isPreviewLoading,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Icon(
-                            imageVector = if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Stop" else "Play preview"
-                        )
+                        if (isPreviewLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                                contentDescription = if (isPlaying) stringResource(R.string.content_desc_stop) else stringResource(
+                                    R.string.content_desc_play_preview
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -484,11 +570,6 @@ fun AudioTrimmerDialog(
                 Spacer(Modifier.height(8.dp))
 
                 // Duration slider
-                Text(
-                    text = stringResource(R.string.fine_adjustment),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Slider(
                     value = userDurationMs.toFloat(),
                     onValueChange = { newDuration ->
@@ -505,6 +586,48 @@ fun AudioTrimmerDialog(
                 )
 
                 Spacer(Modifier.height(12.dp))
+
+                // Channel Selector (only for Stereo)
+                if (channelCount > 1) {
+                    Text(
+                        text = stringResource(R.string.channel_mode_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        val modes = listOf(
+                            ChannelMode.LEFT to stringResource(R.string.channel_left),
+                            ChannelMode.MIX to stringResource(R.string.channel_mix),
+                            ChannelMode.RIGHT to stringResource(R.string.channel_right)
+                        )
+                        modes.forEach { (mode, label) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .padding(horizontal = 8.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { selectedChannelMode = mode }
+                                    .padding(4.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedChannelMode == mode,
+                                    onClick = null // Handled by Row click
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 // Size info
                 Column(
@@ -548,8 +671,8 @@ fun AudioTrimmerDialog(
         Button(
             onClick = {
                 stopPreview()
-                onConfirm(selectionStartMs, selectionDurationMs)
-            }, enabled = !isLoading && isValidSize
+                onConfirm(selectionStartMs, selectionDurationMs, selectedChannelMode)
+            }, enabled = !isLoading && isValidSize && !isWaveformLoading
         ) {
             Text(stringResource(R.string.trim_and_upload))
         }
