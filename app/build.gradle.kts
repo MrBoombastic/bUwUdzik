@@ -1,20 +1,22 @@
+import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
 }
 
-android {
+
+
+configure<ApplicationExtension> {
     namespace = "com.mrboombastic.buwudzik"
     compileSdk {
         version = release(36)
     }
 
-    defaultConfig {
+    defaultConfig.apply {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
@@ -38,15 +40,15 @@ android {
         buildConfig = true
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_25
-        targetCompatibility = JavaVersion.VERSION_25
+        sourceCompatibility = JavaVersion.VERSION_24
+        targetCompatibility = JavaVersion.VERSION_24
     }
 
 }
 
 kotlin {
     compilerOptions {
-        jvmTarget = JvmTarget.JVM_25
+        jvmTarget = JvmTarget.JVM_24
     }
 }
 

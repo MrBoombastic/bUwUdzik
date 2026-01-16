@@ -133,7 +133,7 @@ class MainViewModel(
     private val sensorRepository = SensorRepository(applicationContext)
     private val alarmTitleRepository = AlarmTitleRepository(applicationContext)
 
-    private val _sensorData = MutableStateFlow<SensorData?>(sensorRepository.getSensorData())
+    private val _sensorData = MutableStateFlow(sensorRepository.getSensorData())
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
 
     private val _deviceConnected = MutableStateFlow(false)
