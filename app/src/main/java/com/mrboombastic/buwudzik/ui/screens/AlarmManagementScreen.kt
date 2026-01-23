@@ -60,6 +60,7 @@ import com.mrboombastic.buwudzik.MainViewModel
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
+import com.mrboombastic.buwudzik.ui.components.SimpleTimePickerDialog
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -469,25 +470,17 @@ fun AlarmEditDialog(
             initialHour = selectedHour, initialMinute = selectedMinute, is24Hour = true
         )
 
-        @Suppress("AssignedValueIsNeverRead") AlertDialog(onDismissRequest = {
-            showTimePicker = false
-        }, title = { Text(stringResource(R.string.select_time_title)) }, text = {
-            TimePicker(state = timePickerState)
-        }, confirmButton = {
-            Button(onClick = {
+        @Suppress("AssignedValueIsNeverRead")
+        SimpleTimePickerDialog(
+            onDismiss = { showTimePicker = false },
+            title= stringResource(R.string.select_time_title),
+            onConfirm = {
                 selectedHour = timePickerState.hour
                 selectedMinute = timePickerState.minute
                 showTimePicker = false
-            }) {
-                Text(stringResource(R.string.ok))
-            }
-        }, dismissButton = {
-            TextButton(onClick = {
-                showTimePicker = false
-            }) {
-                Text(stringResource(R.string.cancel))
-            }
-        })
+            },
+            timePickerState = timePickerState
+        )
     }
 
     AlertDialog(

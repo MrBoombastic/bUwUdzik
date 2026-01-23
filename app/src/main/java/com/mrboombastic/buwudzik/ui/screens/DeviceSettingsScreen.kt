@@ -24,7 +24,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -52,7 +51,7 @@ import com.mrboombastic.buwudzik.device.TimeFormat
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.BinaryToggleChips
 import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
-import com.mrboombastic.buwudzik.ui.components.TimePickerDialog
+import com.mrboombastic.buwudzik.ui.components.SimpleTimePickerDialog
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -237,8 +236,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 BinaryToggleChips(
                     label = stringResource(R.string.language_header),
                     value = language,
-                    option1 = Language.English to stringResource(R.string.lang_english),
-                    option2 = Language.Chinese to stringResource(R.string.lang_chinese),
+                    options = listOf(Language.English to stringResource(R.string.lang_english), Language.Chinese to stringResource(R.string.lang_chinese)),
                     onValueChange = { language = it; saveSettings() },
                     enabled = isUiEnabled
                 )
@@ -248,8 +246,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 BinaryToggleChips(
                     label = stringResource(R.string.temp_unit_header),
                     value = tempUnit,
-                    option1 = TempUnit.Celsius to stringResource(R.string.unit_c),
-                    option2 = TempUnit.Fahrenheit to stringResource(R.string.unit_f),
+                    options = listOf(TempUnit.Celsius to stringResource(R.string.unit_c), TempUnit.Fahrenheit to stringResource(R.string.unit_f)),
                     onValueChange = { tempUnit = it; saveSettings() },
                     enabled = isUiEnabled
                 )
@@ -259,8 +256,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 BinaryToggleChips(
                     label = stringResource(R.string.time_format_header),
                     value = timeFormat,
-                    option1 = TimeFormat.H24 to stringResource(R.string.format_24h),
-                    option2 = TimeFormat.H12 to stringResource(R.string.format_12h),
+                    options = listOf(TimeFormat.H24 to stringResource(R.string.format_24h), TimeFormat.H12 to stringResource(R.string.format_12h)),
                     onValueChange = { timeFormat = it; saveSettings() },
                     enabled = isUiEnabled
                 )
@@ -463,24 +459,24 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         initialMinute = nightStartMinute,
                         is24Hour = true
                     )
-                    TimePickerDialog(onDismiss = { showStartTimePicker = false }, onConfirm = {
+                    SimpleTimePickerDialog(onDismiss = { showStartTimePicker = false }, onConfirm = {
                         nightStartHour = pickerState.hour
                         nightStartMinute = pickerState.minute
                         showStartTimePicker = false
                         saveSettings()
-                    }, content = { TimePicker(state = pickerState) })
+                    }, timePickerState = pickerState, title = stringResource(R.string.start_time_label))
                 }
 
                 if (showEndTimePicker) {
                     val pickerState = rememberTimePickerState(
                         initialHour = nightEndHour, initialMinute = nightEndMinute, is24Hour = true
                     )
-                    TimePickerDialog(onDismiss = { showEndTimePicker = false }, onConfirm = {
+                    SimpleTimePickerDialog(onDismiss = { showEndTimePicker = false }, onConfirm = {
                         nightEndHour = pickerState.hour
                         nightEndMinute = pickerState.minute
                         showEndTimePicker = false
                         saveSettings()
-                    }, content = { TimePicker(state = pickerState) })
+                    }, timePickerState = pickerState, title = stringResource(R.string.end_time_label))
                 }
 
                 // Firmware Version
