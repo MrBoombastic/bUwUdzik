@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.icu.util.TimeZone
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.mrboombastic.buwudzik.data.TokenStorage
@@ -34,6 +35,8 @@ import java.util.UUID
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Reason for BLE disconnection
@@ -61,8 +64,7 @@ data class DeviceSettings(
     val timeFormat: TimeFormat = TimeFormat.H24,
     val language: Language = Language.English,
     val volume: Int = 3,
-    val timezoneOffset: Int = 10, // Unit = 6 min
-    val timezoneSign: Boolean = true, // 1 = Pos, 0 = Neg
+    val timeZone: TimeZone = TimeZone.GMT_ZONE,
     val nightModeBrightness: Int = 10,
     val backlightDuration: Int = 60,
     val screenBrightness: Int = 100,
@@ -81,7 +83,7 @@ data class DeviceSettings(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
         other as DeviceSettings
-        return tempUnit == other.tempUnit && timeFormat == other.timeFormat && language == other.language && volume == other.volume && timezoneOffset == other.timezoneOffset && timezoneSign == other.timezoneSign && nightModeBrightness == other.nightModeBrightness && backlightDuration == other.backlightDuration && screenBrightness == other.screenBrightness && nightStartHour == other.nightStartHour && nightStartMinute == other.nightStartMinute && nightEndHour == other.nightEndHour && nightEndMinute == other.nightEndMinute && nightModeEnabled == other.nightModeEnabled && masterAlarmDisabled == other.masterAlarmDisabled && firmwareVersion == other.firmwareVersion && ringtoneSignature.contentEquals(
+        return tempUnit == other.tempUnit && timeFormat == other.timeFormat && language == other.language && volume == other.volume && timeZone == other.timeZone && nightModeBrightness == other.nightModeBrightness && backlightDuration == other.backlightDuration && screenBrightness == other.screenBrightness && nightStartHour == other.nightStartHour && nightStartMinute == other.nightStartMinute && nightEndHour == other.nightEndHour && nightEndMinute == other.nightEndMinute && nightModeEnabled == other.nightModeEnabled && masterAlarmDisabled == other.masterAlarmDisabled && firmwareVersion == other.firmwareVersion && ringtoneSignature.contentEquals(
             other.ringtoneSignature
         )
     }
@@ -91,8 +93,7 @@ data class DeviceSettings(
         result = 31 * result + timeFormat.hashCode()
         result = 31 * result + language.hashCode()
         result = 31 * result + volume
-        result = 31 * result + timezoneOffset
-        result = 31 * result + timezoneSign.hashCode()
+        result = 31 * result + timeZone.hashCode()
         result = 31 * result + nightModeBrightness
         result = 31 * result + backlightDuration
         result = 31 * result + screenBrightness
@@ -123,6 +124,22 @@ data class DeviceSettings(
 enum class TempUnit { Celsius, Fahrenheit }
 enum class TimeFormat { H24, H12 }
 enum class Language { Chinese, English }
+
+fun TimeZone.encodeOffset(): Byte{
+    return abs(this.rawOffset.milliseconds.inWholeMinutes.div(6)).toByte()
+}
+
+fun TimeZone.encodeOffsetSign(): Byte{
+    return if (this.rawOffset >= 0) 1 else 0
+}
+
+
+fun createTimeZone(offset:Int,isPositive: Boolean): TimeZone {
+    val rawOffset = offset * 6 * 1000
+    val timeZone = TimeZone.getDefault()
+    timeZone.rawOffset = if(isPositive) rawOffset else -rawOffset
+    return timeZone
+}
 
 /**
  * Controller for QP CGD1 device via BLE GATT
@@ -548,8 +565,7 @@ class QPController(private val context: Context) {
                                 timeFormat = if (flags and 0x02 != 0) TimeFormat.H12 else TimeFormat.H24,
                                 language = if (flags and 0x01 != 0) Language.English else Language.Chinese,
                                 volume = volume,
-                                timezoneOffset = tzOffset,
-                                timezoneSign = tzSign,
+                                timeZone = createTimeZone(tzOffset,tzSign),
                                 nightModeBrightness = nightBri,
                                 backlightDuration = duration,
                                 screenBrightness = screenBri,
@@ -1016,7 +1032,7 @@ class QPController(private val context: Context) {
                     payload[5] = flags.toByte()
 
                     // Update Timezone, Duration and Packed Brightness
-                    payload[6] = settings.timezoneOffset.toByte()
+                    payload[6] = settings.timeZone.encodeOffset()
                     payload[7] = settings.backlightDuration.toByte()
                     payload[8] = (((settings.screenBrightness / 10).coerceIn(
                         0, 15
@@ -1038,7 +1054,7 @@ class QPController(private val context: Context) {
                     }
 
                     // Metadata bits
-                    payload[13] = (if (settings.timezoneSign) 1 else 0).toByte()
+                    payload[13] = settings.timeZone.encodeOffsetSign()
                     payload[14] = (if (settings.nightModeEnabled) 1 else 0).toByte()
 
                     // Update Ringtone Signature

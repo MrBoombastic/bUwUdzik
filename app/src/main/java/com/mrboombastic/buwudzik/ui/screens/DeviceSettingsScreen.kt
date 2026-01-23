@@ -1,5 +1,6 @@
 package com.mrboombastic.buwudzik.ui.screens
 
+import android.icu.util.TimeZone
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -139,10 +140,6 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 var nightEndHour by remember { mutableIntStateOf(currentSettings.nightEndHour) }
                 var nightEndMinute by remember { mutableIntStateOf(currentSettings.nightEndMinute) }
 
-                // Metadata preserved from device
-                val timezoneOffset = currentSettings.timezoneOffset
-                val timezoneSign = currentSettings.timezoneSign
-
                 // Define save function using current state
                 @Suppress("AssignedValueIsNeverRead")
                 val saveSettings = {
@@ -151,8 +148,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         timeFormat = timeFormat,
                         language = language,
                         volume = volume.toInt(),
-                        timezoneOffset = timezoneOffset,
-                        timezoneSign = timezoneSign,
+                        timeZone = TimeZone.getDefault(),
                         nightModeBrightness = nightModeBrightness.toInt(),
                         backlightDuration = backlightDuration.toInt(),
                         screenBrightness = screenBrightness.toInt(),
