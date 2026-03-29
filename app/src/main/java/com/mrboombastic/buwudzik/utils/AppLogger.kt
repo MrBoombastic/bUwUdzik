@@ -1,5 +1,3 @@
-@file:Suppress("unused")
-
 package com.mrboombastic.buwudzik.utils
 
 import android.util.Log

@@ -46,7 +46,7 @@ object BluetoothUtils {
     }
 
     /**
-     * Correct battery percentage based on battery type.
+     * Correct battery percentage based on a battery type.
      * Alkaline (default): Use raw percentage (0-100)
      * NiMH: Scale 80% to 100% roughly (as 1.2V nominal reads lower on 1.5V curve)
      */

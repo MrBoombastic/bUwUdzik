@@ -9,8 +9,6 @@
     <string name="settings_desc">Settings</string>
     <string name="settings_title">Settings</string>
     <string name="back_desc">Back</string>
-    <string name="target_mac_label">Target MAC address</string>
-    <string name="scan_devices_button">Scan devices</string>
     <string name="scan_mode_label">Scan mode</string>
     <string name="mode_low_power">low power</string>
     <string name="mode_balanced">balanced</string>
@@ -199,13 +197,11 @@
     <string name="import_qr_instruction">Point camera at QR code</string>
     <string name="import_success">Device imported successfully!</string>
     <string name="import_error">Invalid QR code</string>
-    <string name="no_device_to_share">No device paired to share</string>
     <string name="share_device_button">Share</string>
     <string name="import_device_button">Import device</string>
     <string name="camera_permission_required">Camera permission is required to scan QR codes.</string>
     <string name="widget_refresh_description">Refresh sensor data</string>
     <string name="auth_hint">You may need to unpair the device in settings, then pair it again.</string>
-    <string name="invalid_mac_format">Invalid MAC address format (XX:XX:XX:XX:XX:XX)!</string>
     <string name="disconnect_reason_device_terminated">Device terminated connection.</string>
     <string name="disconnect_reason_timeout">Connection timeout.</string>
     <string name="disconnect_reason_link_lost">Link lost.</string>

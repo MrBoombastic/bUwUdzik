@@ -66,7 +66,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
             return
         }
 
-        // Default result is CANCELED in case user presses back
+        // The default result is CANCELED in case the user presses back
         setResult(RESULT_CANCELED)
 
         setContent {

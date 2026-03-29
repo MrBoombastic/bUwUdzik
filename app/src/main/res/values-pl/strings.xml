@@ -8,8 +8,6 @@
     <string name="settings_desc">Ustawienia</string>
     <string name="settings_title">Ustawienia</string>
     <string name="back_desc">Wstecz</string>
-    <string name="target_mac_label">Docelowy adres MAC</string>
-    <string name="scan_devices_button">Skanuj urządzenia</string>
     <string name="scan_mode_label">Tryb skanowania</string>
     <string name="mode_low_power">oszczędzanie energii</string>
     <string name="mode_balanced">zrównoważony</string>
@@ -181,7 +179,6 @@
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
     <string name="import_error">Nieprawidłowy kod QR</string>
-    <string name="no_device_to_share">Brak sparowanego urządzenia do udostępnienia</string>
     <string name="share_device_button">Udostępnij</string>
     <string name="import_device_button">Importuj urządzenie</string>
     <string name="camera_permission_required">Wymagane jest uprawnienie do aparatu, aby skanować kody QR.</string>
@@ -194,7 +191,6 @@
     <string name="content_desc_fast_forward">Przeskocz wprzód</string>
     <string name="widget_refresh_description">Odśwież dane z czujników</string>
     <string name="auth_hint">Może być konieczne zapomnienie urządzenia w ustawieniach, a następnie ponowne sparowanie.</string>
-    <string name="invalid_mac_format">Nieprawidłowy format adresu MAC (XX:XX:XX:XX:XX:XX)!</string>
     <string name="disconnect_reason_device_terminated">Urządzenie zakończyło połączenie.</string>
     <string name="disconnect_reason_timeout">Limit czasu połączenia.</string>
     <string name="disconnect_reason_link_lost">Utracono połączenie.</string>

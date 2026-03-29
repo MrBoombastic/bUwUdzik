@@ -39,7 +39,7 @@ so it's only semi-slop, but you have been warned, etc., etc.
 
 - Initial setup screen to guide the user through finding and selecting their device
 - Scans for a specific Bluetooth LE device by its MAC address
-- Share saved device with others using QR code
+- Share a saved device with others using QR code
 - Parses and displays sensor data
 - Management of up to 16 device alarms
 - **Custom ringtones uploading**
@@ -59,7 +59,7 @@ versions.
   Android 14 (API level 34)
 - **UI:** Jetpack Compose for a declarative and modern UI
 - **Background Processing:** `WorkManager` and `AlarmManager` for scheduling periodic data fetches,
-  ensuring the widget is always up-to-date
+  ensuring the widget is always up to date
 
 ## Screenshots
 
@@ -116,7 +116,7 @@ action and check if the device will close connection with you.
 **Token Management:**
 
 - For new devices: Generate a random 16-byte token
-- For paired devices: Use the stored token from previous pairing
+- For paired devices: Use the stored token from the previous pairing
 - Token must match what the device expects (first successful pairing establishes the token)
 
 **ACK Response Format:** `04 ff [CmdID] [Len] [Status]`
@@ -213,7 +213,7 @@ This byte acts as a **bitfield** where individual bits control specific boolean 
 | 5-7 | -           | *(Unused ?)*             | -               | -             |
 
 **Workaround:** Disabling night mode is being done via setting 1-minute night mode (i.e.
-`00:00 - 00:01`). Yup, it's that stupid, even official app does this.
+`00:00 - 00:01`). Yup, it's that stupid; even official app does this.
 
 #### 4.1. Set Immediate Brightness (Preview)
 

@@ -523,6 +523,8 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                         homeOverscrollAccum.floatValue = 0f
                         openDeviceSheetLatest.value.invoke()
                     }
+                    // Report consumed overscroll so nested scroll stops after this parent.
+                    return Offset(0f, available.y)
                 }
                 return Offset.Zero
             }

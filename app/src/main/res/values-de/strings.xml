@@ -8,8 +8,6 @@
     <string name="settings_desc">Einstellungen</string>
     <string name="settings_title">Einstellungen</string>
     <string name="back_desc">Zurück</string>
-    <string name="target_mac_label">Ziel-MAC-Adresse</string>
-    <string name="scan_devices_button">Geräte scannen</string>
     <string name="scan_mode_label">Scan-Modus</string>
     <string name="mode_low_power">niedriger Stromverbrauch</string>
     <string name="mode_balanced">ausgewogen</string>
@@ -188,13 +186,11 @@
     <string name="import_qr_instruction">Richten Sie die Kamera auf den QR-Code</string>
     <string name="import_success">Gerät erfolgreich importiert!</string>
     <string name="import_error">Ungültiger QR-Code</string>
-    <string name="no_device_to_share">Kein gekoppeltes Gerät zum Teilen vorhanden</string>
     <string name="share_device_button">Teilen</string>
     <string name="import_device_button">Gerät importieren</string>
     <string name="camera_permission_required">Kameraberechtigung ist zum Scannen von QR-Codes erforderlich.</string>
     <string name="widget_refresh_description">Sensordaten aktualisieren</string>
     <string name="auth_hint">Möglicherweise müssen Sie das Gerät in den Einstellungen entkoppeln und dann erneut koppeln.</string>
-    <string name="invalid_mac_format">Ungültiges MAC-Adressformat (XX:XX:XX:XX:XX:XX)!</string>
     <string name="disconnect_reason_device_terminated">Gerät hat Verbindung beendet.</string>
     <string name="disconnect_reason_timeout">Verbindungs-Timeout.</string>
     <string name="disconnect_reason_link_lost">Verbindung verloren.</string>

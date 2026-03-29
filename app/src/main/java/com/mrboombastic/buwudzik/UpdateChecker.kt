@@ -297,7 +297,7 @@ class UpdateChecker(private val context: Context) {
     }
 
     /**
-     * Creates a base notification builder with common configuration.
+     * Creates a base notification builder with a common configuration.
      * This consolidates the channel ID and provides a single point
      * to add common notification properties in the future.
      */

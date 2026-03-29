@@ -8,8 +8,6 @@
     <string name="settings_desc">Impostazioni</string>
     <string name="settings_title">Impostazioni</string>
     <string name="back_desc">Indietro</string>
-    <string name="target_mac_label">Indirizzo MAC di destinazione</string>
-    <string name="scan_devices_button">Scansiona dispositivi</string>
     <string name="scan_mode_label">Modalità di scansione</string>
     <string name="mode_low_power">basso consumo</string>
     <string name="mode_balanced">bilanciato</string>
@@ -188,13 +186,11 @@
     <string name="import_qr_instruction">Punta la fotocamera verso il codice QR</string>
     <string name="import_success">Dispositivo importato con successo!</string>
     <string name="import_error">Codice QR non valido</string>
-    <string name="no_device_to_share">Nessun dispositivo accoppiato da condividere</string>
     <string name="share_device_button">Condividi</string>
     <string name="import_device_button">Importa dispositivo</string>
     <string name="camera_permission_required">L\'autorizzazione della fotocamera è necessaria per scansionare i codici QR.</string>
     <string name="widget_refresh_description">Aggiorna dati sensori</string>
     <string name="auth_hint">Potrebbe essere necessario dimenticare il dispositivo nelle impostazioni e poi accoppiarlo nuovamente.</string>
-    <string name="invalid_mac_format">Formato indirizzo MAC non valido (XX:XX:XX:XX:XX:XX)!</string>
     <string name="disconnect_reason_device_terminated">Il dispositivo ha terminato la connessione.</string>
     <string name="disconnect_reason_timeout">Timeout di connessione.</string>
     <string name="disconnect_reason_link_lost">Collegamento perso.</string>

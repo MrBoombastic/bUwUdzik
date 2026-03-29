@@ -183,14 +183,14 @@ fun DeviceImportScreen(
                                     isScanning = false
                                     val shareData = DeviceShareData.fromQrContent(content)
                                     if (shareData != null) {
-                                        // Add imported device as a new profile
+                                        // Add an imported device as a new profile
                                         val tokenStorage = TokenStorage(context)
                                         val alarmTitleRepository =
                                             AlarmTitleRepository(context, shareData.mac)
 
                                         val profile = DeviceProfile(
                                             mac = shareData.mac.uppercase(),
-                                            alias = shareData.mac, // user can rename later
+                                            alias = shareData.mac, // user can rename it later
                                             batteryType = shareData.batteryType
                                         )
                                         viewModel.addDevice(profile)

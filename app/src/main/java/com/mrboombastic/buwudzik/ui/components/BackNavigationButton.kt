@@ -22,7 +22,7 @@ fun BackNavigationButton(
                 if (navController.previousBackStackEntry != null) {
                     navController.popBackStack()
                 } else {
-                    // Navigate to home if there's nothing to pop
+                    // Navigate home if there's nothing to pop
                     navController.navigate("home") {
                         popUpTo(0) { inclusive = true }
                     }

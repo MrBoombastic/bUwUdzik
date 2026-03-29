@@ -15,8 +15,8 @@ private const val TAG = "DeviceProfileRepository"
  * Manages the list of saved CGD1 device profiles and the currently active device.
  *
  * Storage:
- *  - "device_profiles_v1"  – JSON array of [DeviceProfile] in settings_prefs
- *  - "active_device_mac"   – MAC string of the selected device
+ *  - "device_profiles_v1" – JSON array of [DeviceProfile] in settings_prefs
+ *  - "active_device_mac" – MAC string of the selected device
  *
  * Migration: if the old single-device flat keys are present and no profiles exist yet,
  * they are automatically converted into a single DeviceProfile entry.
@@ -52,7 +52,7 @@ class DeviceProfileRepository(private val context: Context) {
 
         val legacyMac = prefs.getString(LEGACY_KEY_MAC, "")?.trim() ?: ""
         if (legacyMac.isEmpty()) {
-            // Nothing to migrate – write empty list so we don't run again
+            // Nothing to migrate – write an empty list so we don't run again
             prefs.edit { putString(KEY_PROFILES, "[]") }
             return
         }
