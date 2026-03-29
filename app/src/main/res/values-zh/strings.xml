@@ -69,8 +69,9 @@
     <string name="setup_scanning">正在搜索设备…</string>
     <string name="setup_no_devices">未找到设备</string>
     <string name="setup_enable_bluetooth">请启用蓝牙</string>
-    <string name="setup_scan">重新扫描</string>
+    <string name="setup_scan">扫描</string>
     <string name="setup_skip">暂时跳过</string>
+    <string name="setup_import_hint">已有其他手机上的二维码？在此使用。</string>
     <string name="setup_select_device">选择设备</string>
     <string name="manage_alarms_label">闹钟</string>
     <string name="add_alarm_desc">添加闹钟</string>
@@ -177,7 +178,7 @@
     <string name="pair_and_connect">配对并连接</string>
     <string name="unpair_device">忘记</string>
     <string name="unpair_confirm_title">忘记设备？</string>
-    <string name="unpair_confirm_message">再次连接前需要重新配对时钟。</string>
+    <string name="unpair_confirm_message">再次连接前需要重新配对设备。</string>
     <string name="unpair_confirm">忘记</string>
     <string name="local_settings_header">本地设置</string>
     <string name="local_settings_description">这些设置保存在此手机上，而不是远程设备上。</string>

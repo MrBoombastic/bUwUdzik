@@ -178,7 +178,7 @@
     <string name="pair_and_connect">Accoppia e connetti</string>
     <string name="unpair_device">Dimentica</string>
     <string name="unpair_confirm_title">Dimenticare il dispositivo?</string>
-    <string name="unpair_confirm_message">Dovrai accoppiare nuovamente l\'orologio prima di riconnetterti.</string>
+    <string name="unpair_confirm_message">Dovrai accoppiare nuovamente il dispositivo prima di riconnetterti.</string>
     <string name="unpair_confirm">Dimentica</string>
     <string name="local_settings_header">Impostazioni locali</string>
     <string name="local_settings_description">Queste impostazioni sono salvate su questo telefono, non sul dispositivo remoto.</string>

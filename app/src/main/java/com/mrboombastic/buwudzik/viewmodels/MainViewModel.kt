@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 private const val TAG = "MainViewModel"
 
@@ -87,8 +88,21 @@ class MainViewModel(
     }
 
     fun updateDeviceBatteryType(mac: String, batteryType: String) {
-        val profile = deviceProfileRepository.getByMac(mac) ?: return
-        deviceProfileRepository.addOrUpdate(profile.copy(batteryType = batteryType))
+        val normalizedMac = mac.uppercase(Locale.ROOT)
+        deviceProfileRepository.getByMac(normalizedMac)?.let { profile ->
+            deviceProfileRepository.addOrUpdate(profile.copy(batteryType = batteryType))
+        }
+        val updated = SensorRepository(applicationContext, normalizedMac).reapplyBatteryCorrection()
+        if (normalizedMac == activeMac.uppercase(Locale.ROOT)) {
+            updated?.let { _sensorData.value = it }
+        }
+        viewModelScope.launch {
+            try {
+                SensorGlanceWidget().updateAll(applicationContext)
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Widget update after battery type: ${e.message}")
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

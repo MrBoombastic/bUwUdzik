@@ -189,7 +189,7 @@
     <string name="pair_and_connect">Pair and connect</string>
     <string name="unpair_device">Forget</string>
     <string name="unpair_confirm_title">Forget device?</string>
-    <string name="unpair_confirm_message">You will need to re-pair the clock before connecting again.</string>
+    <string name="unpair_confirm_message">You will need to re-pair the device before connecting again.</string>
     <string name="unpair_confirm">Forget</string>
     <string name="local_settings_header">Local settings</string>
     <string name="local_settings_description">These settings are saved on this phone, not the remote device.</string>

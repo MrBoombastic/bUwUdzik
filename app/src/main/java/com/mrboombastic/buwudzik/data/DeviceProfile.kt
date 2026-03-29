@@ -13,9 +13,10 @@ import kotlinx.serialization.Serializable
 data class DeviceProfile(
     val mac: String,
     val alias: String,
-    val batteryType: String = "alkaline",
+    val batteryType: String = DEFAULT_BATTERY_TYPE,
     val addedAt: Long = System.currentTimeMillis()
 ) {
-    /** Returns a SharedPreferences-safe key derived from the MAC address. */
-    fun macSafeKey(): String = mac.lowercase().replace(":", "_")
+    companion object {
+        const val DEFAULT_BATTERY_TYPE = "alkaline"
+    }
 }

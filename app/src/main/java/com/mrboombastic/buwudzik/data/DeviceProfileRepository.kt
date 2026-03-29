@@ -28,7 +28,7 @@ class DeviceProfileRepository(private val context: Context) {
         private const val KEY_PROFILES = "device_profiles_v1"
         private const val KEY_ACTIVE_MAC = "active_device_mac"
 
-        // Legacy single-device keys (read-only during migration)
+        // Legacy single-device keys (read-only during first migration)
         private const val LEGACY_KEY_MAC = "target_mac"
         private const val LEGACY_KEY_BATTERY = "battery_type"
         private const val LEGACY_KEY_SETUP = "setup_completed"
@@ -59,11 +59,11 @@ class DeviceProfileRepository(private val context: Context) {
 
         AppLogger.i(TAG, "Migrating legacy single-device settings for $legacyMac")
 
-        val legacyBattery = prefs.getString(LEGACY_KEY_BATTERY, "alkaline") ?: "alkaline"
+        // Do not import legacy flat `battery_type`
         val profile = DeviceProfile(
             mac = legacyMac.uppercase(),
             alias = "Device 1",
-            batteryType = legacyBattery,
+            batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE,
             addedAt = System.currentTimeMillis()
         )
 
@@ -99,7 +99,6 @@ class DeviceProfileRepository(private val context: Context) {
     }
 
     fun addOrUpdate(profile: DeviceProfile) {
-        migrateIfNeeded()
         val current = getProfiles().toMutableList()
         val idx = current.indexOfFirst { it.mac == profile.mac }
         if (idx >= 0) {

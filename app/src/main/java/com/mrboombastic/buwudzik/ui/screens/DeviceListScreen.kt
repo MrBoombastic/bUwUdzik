@@ -50,6 +50,7 @@ import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
+@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceListScreen(navController: NavController, viewModel: MainViewModel) {

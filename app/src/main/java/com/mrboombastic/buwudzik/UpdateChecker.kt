@@ -195,9 +195,7 @@ class UpdateChecker(private val context: Context) {
 
     private fun applyProgressVisibility(builder: Notification.Builder): Notification.Builder {
         builder.setCategory(Notification.CATEGORY_PROGRESS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            builder.setVisibility(Notification.VISIBILITY_PUBLIC)
-        }
+        builder.setVisibility(Notification.VISIBILITY_PUBLIC)
         return builder
     }
 
@@ -237,13 +235,19 @@ class UpdateChecker(private val context: Context) {
         contentLength: Long
     ) {
         if (contentLength <= 0) return
-        val progress = downloadedBytes.coerceIn(0L, contentLength).toInt()
-            .coerceAtMost(Int.MAX_VALUE - 1)
+        val safeDownloaded = downloadedBytes.coerceIn(0L, contentLength)
         val totalBytes = contentLength.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
-        val progressForBar = progress.coerceAtMost(totalBytes)
-        val progressPercent = ((downloadedBytes * 100L) / contentLength).toInt().coerceIn(0, 100)
-        val downloadedMB = (downloadedBytes / 1024 / 1024).toInt().coerceAtLeast(0)
-        val totalMB = (contentLength / 1024 / 1024).toInt().coerceAtLeast(0)
+        // Notification APIs need Int progress; Long.toInt() truncates past Int.MAX_VALUE (wrong / negative).
+        val progressForBar = if (contentLength <= Int.MAX_VALUE.toLong()) {
+            safeDownloaded.toInt().coerceIn(0, totalBytes)
+        } else {
+            ((safeDownloaded * totalBytes.toLong()) / contentLength)
+                .toInt()
+                .coerceIn(0, totalBytes)
+        }
+        val progressPercent = ((safeDownloaded * 100L) / contentLength).toInt().coerceIn(0, 100)
+        val downloadedMB = (safeDownloaded / (1024L * 1024L)).toInt().coerceAtLeast(0)
+        val totalMB = (contentLength / (1024L * 1024L)).toInt().coerceAtLeast(0)
 
         val builder = applyProgressVisibility(createBaseNotificationBuilder())
             .setContentTitle(context.getString(R.string.update_downloading_title))

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">bUwUdzik</string>
-    <string name="widget_description">Wyświetla temperaturę, wilgotność i stan baterii z Twojego urządzenia.</string>
+    <string name="widget_description">Wyświetla temperaturę, wilgotność, nazwę i stan baterii z Twojego urządzenia.</string>
     <string name="scanning_status">Szukam wybranego urządzenia…</string>
     <string name="battery_label">Bateria: %1$d%%</string>
     <string name="last_update_label">Ostatnia aktualizacja: %1$s</string>
@@ -69,8 +69,9 @@
     <string name="setup_scanning">Skanowanie urządzeń…</string>
     <string name="setup_no_devices">Nie znaleziono urządzeń</string>
     <string name="setup_enable_bluetooth">Włącz Bluetooth</string>
-    <string name="setup_scan">Skanuj ponownie</string>
+    <string name="setup_scan">Skanuj</string>
     <string name="setup_skip">Pomiń</string>
+    <string name="setup_import_hint">Masz już kod QR z innego telefonu? Użyj go tutaj.</string>
     <string name="setup_select_device">Wybierz urządzenie</string>
     <string name="manage_alarms_label">Alarmy</string>
     <string name="add_alarm_desc">Dodaj budzik</string>

@@ -178,7 +178,7 @@
     <string name="pair_and_connect">Jumeler et connecter</string>
     <string name="unpair_device">Oublier</string>
     <string name="unpair_confirm_title">Oublier l\'appareil ?</string>
-    <string name="unpair_confirm_message">Vous devrez jumeler à nouveau l\'horloge avant de vous reconnecter.</string>
+    <string name="unpair_confirm_message">Vous devrez jumeler à nouveau l\'appareil avant de vous reconnecter.</string>
     <string name="unpair_confirm">Oublier</string>
     <string name="local_settings_header">Paramètres locaux</string>
     <string name="local_settings_description">Ces paramètres sont enregistrés sur ce téléphone, pas sur l\'appareil distant.</string>

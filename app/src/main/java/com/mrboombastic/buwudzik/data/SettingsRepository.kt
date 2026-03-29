@@ -8,8 +8,6 @@ import com.mrboombastic.buwudzik.widget.SensorGlanceWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val TAG = "SettingsRepository"
-
 /**
  * Stores app-level (non-device-specific) settings.
  */
@@ -37,10 +35,6 @@ class SettingsRepository(private val context: Context) {
 
         private const val KEY_LAST_VERSION_CODE = "last_version_code"
 
-        // Kept for SensorRepository fallback only – not used in UI
-        internal const val KEY_BATTERY_TYPE = "battery_type"
-        internal const val DEFAULT_BATTERY_TYPE = "alkaline"
-
         private const val KEY_RINGTONE_BASE_URL = "ringtone_base_url"
         const val DEFAULT_RINGTONE_BASE_URL = "https://qingplus.cleargrass.com/raw/rings"
 
@@ -61,16 +55,6 @@ class SettingsRepository(private val context: Context) {
         get() = prefs.getInt(KEY_LAST_VERSION_CODE, -1)
         set(value) {
             prefs.edit { putInt(KEY_LAST_VERSION_CODE, value) }
-        }
-
-    /**
-     * Kept as a fallback battery type for SensorRepository when the active profile's
-     * battery type cannot be resolved. Not exposed in the main UI (device profiles own this).
-     */
-    internal var batteryType: String
-        get() = prefs.getString(KEY_BATTERY_TYPE, DEFAULT_BATTERY_TYPE) ?: DEFAULT_BATTERY_TYPE
-        set(value) {
-            prefs.edit { putString(KEY_BATTERY_TYPE, value) }
         }
 
     var ringtoneBaseUrl: String

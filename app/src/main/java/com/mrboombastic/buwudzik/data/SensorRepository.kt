@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
+import java.util.Locale
 
 /**
  * Repository for caching the latest sensor reading.
@@ -31,6 +32,8 @@ class SensorRepository(private val context: Context, private val mac: String = "
         private const val LEGACY_KEY_HAS_ERROR = "has_error"
         private const val LEGACY_KEY_IS_LOADING = "is_loading"
 
+        internal const val KEY_BATTERY_RAW = "battery_raw"
+
         private fun prefix(mac: String): String =
             if (mac.isEmpty()) "" else "${mac.lowercase().replace(":", "_")}_"
 
@@ -50,8 +53,11 @@ class SensorRepository(private val context: Context, private val mac: String = "
                     putFloat("${p}temp", prefs.getFloat(LEGACY_KEY_TEMP, 0f))
                 if (prefs.contains(LEGACY_KEY_HUMIDITY))
                     putFloat("${p}humidity", prefs.getFloat(LEGACY_KEY_HUMIDITY, 0f))
-                if (prefs.contains(LEGACY_KEY_BATTERY))
-                    putInt("${p}battery", prefs.getInt(LEGACY_KEY_BATTERY, 0))
+                if (prefs.contains(LEGACY_KEY_BATTERY)) {
+                    val b = prefs.getInt(LEGACY_KEY_BATTERY, 0)
+                    putInt("${p}battery", b)
+                    putInt("${p}$KEY_BATTERY_RAW", b)
+                }
                 if (prefs.contains(LEGACY_KEY_RSSI))
                     putInt("${p}rssi", prefs.getInt(LEGACY_KEY_RSSI, 0))
                 if (prefs.contains(LEGACY_KEY_NAME))
@@ -79,27 +85,48 @@ class SensorRepository(private val context: Context, private val mac: String = "
 
     private val p: String get() = prefix(mac)
 
+    private fun profileMacKey(): String = mac.uppercase(Locale.ROOT)
+
+    private fun resolveBatteryType(): String {
+        val profileRepo = DeviceProfileRepository(context)
+        return if (mac.isNotEmpty()) {
+            profileRepo.getByMac(profileMacKey())?.batteryType
+                ?: DeviceProfile.DEFAULT_BATTERY_TYPE
+        } else {
+            profileRepo.getActiveProfile()?.batteryType ?: DeviceProfile.DEFAULT_BATTERY_TYPE
+        }
+    }
+
     /**
      * Saves sensor data with battery level correction applied.
      * This is the single point where battery correction happens (DRY).
+     * Raw device percentage is stored separately so changing battery type can re-run correction.
      * @return The corrected SensorData for UI display consistency.
      */
     fun saveSensorData(data: SensorData): SensorData {
-        val settingsRepo = SettingsRepository(context)
-        // batteryType comes from the active DeviceProfile; fall back to the app-level default
-        val batteryType = if (mac.isNotEmpty()) {
-            DeviceProfileRepository(context).getByMac(mac)?.batteryType
-                ?: settingsRepo.batteryType
-        } else {
-            settingsRepo.batteryType
-        }
+        // If for some reason battery percent was absent; coerceIn(0,100) would turn that into 100%.
+        val rawBattery = when (val inc = data.battery) {
+            in 0..100 -> inc
+            else -> {
+                AppLogger.d(TAG, "Ignoring invalid battery $inc, keeping stored value")
+                when {
+                    prefs.contains("${p}$KEY_BATTERY_RAW") ->
+                        prefs.getInt("${p}$KEY_BATTERY_RAW", 0).coerceIn(0, 100)
 
-        val correctedBattery = BluetoothUtils.correctBatteryLevel(data.battery, batteryType)
+                    prefs.contains("${p}battery") ->
+                        prefs.getInt("${p}battery", 0).coerceIn(0, 100)
+
+                    else -> 0
+                }
+            }
+        }
+        val correctedBattery = BluetoothUtils.correctBatteryLevel(rawBattery, resolveBatteryType())
         val correctedData = data.copy(battery = correctedBattery)
 
         prefs.edit().apply {
             putFloat("${p}temp", correctedData.temperature.toFloat())
             putFloat("${p}humidity", correctedData.humidity.toFloat())
+            putInt("${p}$KEY_BATTERY_RAW", rawBattery)
             putInt("${p}battery", correctedData.battery)
             putInt("${p}rssi", correctedData.rssi)
             putString("${p}name", correctedData.name)
@@ -110,6 +137,22 @@ class SensorRepository(private val context: Context, private val mac: String = "
         }
 
         return correctedData
+    }
+
+    /**
+     * Re-applies [BluetoothUtils.correctBatteryLevel] using stored raw % and current battery type.
+     * Call after the user changes alkaline/NiMH so the UI matches without waiting for a new scan.
+     */
+    fun reapplyBatteryCorrection(): SensorData? {
+        if (!prefs.contains("${p}temp")) return null
+        val raw = if (prefs.contains("${p}$KEY_BATTERY_RAW")) {
+            prefs.getInt("${p}$KEY_BATTERY_RAW", 0).coerceIn(0, 100)
+        } else {
+            prefs.getInt("${p}battery", 0).coerceIn(0, 100)
+        }
+        val corrected = BluetoothUtils.correctBatteryLevel(raw, resolveBatteryType())
+        prefs.edit(commit = true) { putInt("${p}battery", corrected) }
+        return getSensorData()
     }
 
     fun getSensorData(): SensorData? {

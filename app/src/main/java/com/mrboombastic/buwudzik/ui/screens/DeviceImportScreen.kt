@@ -37,7 +37,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.google.zxing.BarcodeFormat
@@ -65,7 +65,6 @@ import com.mrboombastic.buwudzik.ui.components.InstructionCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
-import kotlinx.coroutines.launch
 
 private val qrReader = MultiFormatReader().apply {
     setHints(
@@ -236,7 +235,6 @@ private fun QrScannerView(
 ) {
     LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val scope = rememberCoroutineScope()
 
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var scanned by remember { mutableStateOf(false) }
@@ -248,53 +246,62 @@ private fun QrScannerView(
     }
 
     AndroidView(
-        modifier = Modifier.fillMaxSize(), factory = { ctx ->
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
             val previewView = PreviewView(ctx)
+            val mainExecutor = ContextCompat.getMainExecutor(ctx)
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            cameraProviderFuture.addListener(
+                {
+                    try {
+                        val provider = cameraProviderFuture.get()
+                        // Defer bind until PreviewView is attached; post is queued until then if needed.
+                        previewView.post {
+                            if (!previewView.isAttachedToWindow) return@post
+                            try {
+                                cameraProvider = provider
 
-            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val provider = ProcessCameraProvider.getInstance(ctx).get()
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        cameraProvider = provider
-
-                        val preview = Preview.Builder().build().apply {
-                            surfaceProvider = previewView.surfaceProvider
-                        }
-
-                        val imageAnalysis = ImageAnalysis.Builder()
-                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
-                            .build()
-                            .also { analysis ->
-                                analysis.setAnalyzer(
-                                    ctx.mainExecutor
-                                ) { imageProxy ->
-                                    if (!scanned) {
-                                        processImageProxy(imageProxy) {
-                                            scanned = true
-                                            onQrCodeScanned(it)
-                                        }
-                                    } else {
-                                        imageProxy.close()
-                                    }
+                                val preview = Preview.Builder().build().apply {
+                                    surfaceProvider = previewView.surfaceProvider
                                 }
+
+                                val imageAnalysis = ImageAnalysis.Builder()
+                                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                                    .build()
+                                    .also { analysis ->
+                                        analysis.setAnalyzer(ctx.mainExecutor) { imageProxy ->
+                                            if (!scanned) {
+                                                processImageProxy(imageProxy) {
+                                                    scanned = true
+                                                    onQrCodeScanned(it)
+                                                }
+                                            } else {
+                                                imageProxy.close()
+                                            }
+                                        }
+                                    }
+
+                                provider.unbindAll()
+                                provider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    CameraSelector.DEFAULT_BACK_CAMERA,
+                                    preview,
+                                    imageAnalysis
+                                )
+                            } catch (e: Exception) {
+                                AppLogger.e("DeviceImportScreen", "Camera setup failed", e)
                             }
-
-                        provider.unbindAll()
-                        provider.bindToLifecycle(
-                            lifecycleOwner,
-                            CameraSelector.DEFAULT_BACK_CAMERA,
-                            preview,
-                            imageAnalysis
-                        )
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e("DeviceImportScreen", "Camera provider failed", e)
                     }
-                } catch (e: Exception) {
-                    AppLogger.e("DeviceImportScreen", "Camera setup failed", e)
-                }
-            }
-
+                },
+                mainExecutor
+            )
             previewView
-        })
+        }
+    )
 }
 
 

@@ -178,7 +178,7 @@
     <string name="pair_and_connect">Koppeln und verbinden</string>
     <string name="unpair_device">Vergessen</string>
     <string name="unpair_confirm_title">Gerät vergessen?</string>
-    <string name="unpair_confirm_message">Sie müssen die Uhr erneut koppeln, bevor Sie sich wieder verbinden.</string>
+    <string name="unpair_confirm_message">Sie müssen das Gerät erneut koppeln, bevor Sie sich wieder verbinden.</string>
     <string name="unpair_confirm">Vergessen</string>
     <string name="local_settings_header">Lokale Einstellungen</string>
     <string name="local_settings_description">Diese Einstellungen werden auf diesem Telefon gespeichert, nicht auf dem Gerät.</string>

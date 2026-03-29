@@ -164,7 +164,7 @@ fun DeviceSetupScreen(
             val profile = DeviceProfile(
                 mac = device.address.uppercase(),
                 alias = device.name ?: device.address,
-                batteryType = "alkaline"
+                batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE
             )
             viewModel.addDevice(profile)
             viewModel.setActiveDevice(profile.mac)
@@ -182,7 +182,7 @@ fun DeviceSetupScreen(
                 val profile = DeviceProfile(
                     mac = device.address.uppercase(),
                     alias = device.name ?: device.address,
-                    batteryType = "alkaline"
+                    batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE
                 )
                 viewModel.addDevice(profile)
                 viewModel.setActiveDevice(profile.mac)
