@@ -69,6 +69,15 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 } else ""
                 val hasData = state.sensorData != null
 
+                // Optional footer label: profile alias only (never replaces last-updated line)
+                val deviceProfileRepo =
+                    com.mrboombastic.buwudzik.data.DeviceProfileRepository(context)
+                val deviceAlias = if (state.mac.isEmpty()) {
+                    ""
+                } else {
+                    deviceProfileRepo.getByMac(state.mac)?.alias?.trim().orEmpty()
+                }
+
                 val size = LocalSize.current
                 WidgetContent(
                     tempText = tempText,
@@ -78,6 +87,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
                     hasError = state.hasError && state.showWidgetError,
                     isLoading = state.isLoading,
                     hasData = hasData,
+                    deviceName = deviceAlias,
                     size = size
                 )
             }
@@ -93,13 +103,19 @@ class SensorGlanceWidget : GlanceAppWidget() {
         hasError: Boolean,
         isLoading: Boolean,
         hasData: Boolean,
+        deviceName: String,
         size: DpSize
     ) {
         val width = size.width
         val height = size.height
 
         val minDimension = minOf(width.value, height.value)
+        // Single-row / near-min-height widgets: tighter layout (spacers, gaps).
         val isCompact = height.value < 100f
+        // Footer device alias only when clearly multi-row; many launchers report ~100dp+ for 1 row,
+        // which wrongly satisfied the old "!isCompact" check and showed the alias at minimum height.
+        val showFooterDeviceAlias =
+            deviceName.isNotEmpty() && height.value >= 132f
 
         // Dynamic font sizing
         val tempSizeVal = (minDimension * 0.25f).coerceIn(14f, 96f)
@@ -192,17 +208,26 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 Spacer(modifier = GlanceModifier.defaultWeight())
             }
 
-            // Footer — pinned at bottom
+            // Footer — optional device name (line 1) always coexists with last-updated / status (line 2)
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Time info
-                Box(
+                Column(
                     modifier = GlanceModifier.defaultWeight(),
-                    contentAlignment = Alignment.CenterStart
+                    horizontalAlignment = Alignment.Start
                 ) {
+                    if (showFooterDeviceAlias) {
+                        Text(
+                            text = deviceName,
+                            style = TextStyle(
+                                color = dimText,
+                                fontSize = (footerSizeVal * 0.85f).sp
+                            )
+                        )
+                        Spacer(modifier = GlanceModifier.height(2.dp))
+                    }
                     when {
                         isLoading -> Text(
                             text = LocalContext.current.getString(R.string.updating_label),

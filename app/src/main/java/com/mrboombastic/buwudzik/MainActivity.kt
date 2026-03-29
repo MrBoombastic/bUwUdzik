@@ -14,49 +14,83 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DevicesOther
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -67,6 +101,7 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.SensorData
@@ -77,6 +112,7 @@ import com.mrboombastic.buwudzik.ui.components.NumberedStep
 import com.mrboombastic.buwudzik.ui.components.SmallButton
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
@@ -89,6 +125,7 @@ import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import com.mrboombastic.buwudzik.widget.WidgetUpdateScheduler
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -107,9 +144,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Resume scanning when app comes back to foreground - ONLY if we have permissions
-        if (BluetoothUtils.hasBluetoothPermissions(this)) {
-            mainViewModel?.startScanning()
+        // Resume BLE scan only when a device is configured and permissions are granted
+        val vm = mainViewModel ?: return
+        if (BluetoothUtils.hasBluetoothPermissions(this) &&
+            vm.deviceProfileRepository.getActiveDeviceId() != null
+        ) {
+            vm.startScanning()
         }
     }
 
@@ -189,11 +229,13 @@ class MainActivity : AppCompatActivity() {
             scheduleUpdates(applicationContext, settingsRepository.updateInterval)
         }
 
+        val deviceProfileRepository = DeviceProfileRepository(applicationContext)
+
         val viewModel: MainViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST") return MainViewModel(
-                        scanner, settingsRepository, applicationContext
+                        scanner, settingsRepository, deviceProfileRepository, applicationContext
                     ) as T
                 }
             }
@@ -208,8 +250,9 @@ class MainActivity : AppCompatActivity() {
                     val navController = rememberNavController()
                     LocalContext.current
                     val resources = LocalResources.current
+                    val deviceProfileRepo = DeviceProfileRepository(applicationContext)
                     val startDestination =
-                        if (settingsRepository.isSetupCompleted) "home" else "setup"
+                        if (deviceProfileRepo.getActiveDeviceId() != null) "home" else "setup"
 
                     // Handle disconnection events
                     val disconnectionEvent by viewModel.disconnectionEvent.collectAsState()
@@ -316,10 +359,15 @@ class MainActivity : AppCompatActivity() {
                             popEnterTransition = NavigationAnimations.popEnterTransition(),
                             popExitTransition = NavigationAnimations.popExitTransition()
                         ) {
-                            composable("setup") { DeviceSetupScreen(navController) }
+                            composable("setup") {
+                                DeviceSetupScreen(
+                                    navController,
+                                    mode = "setup",
+                                    viewModel = viewModel
+                                )
+                            }
                             composable("home") { HomeScreen(viewModel, navController) }
                             composable("settings") {
-                                // Handle system back to properly navigate back or to home
                                 BackHandler {
                                     if (!navController.popBackStack()) {
                                         navController.navigate("home") {
@@ -347,9 +395,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                DeviceSettingsScreen(
-                                    navController, viewModel
-                                )
+                                DeviceSettingsScreen(navController, viewModel)
                             }
                             composable("ringtone-upload") {
                                 BackHandler {
@@ -359,9 +405,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                RingtoneUploadScreen(
-                                    navController, viewModel
-                                )
+                                RingtoneUploadScreen(navController, viewModel)
                             }
                             composable("device-sharing") {
                                 BackHandler {
@@ -371,7 +415,26 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                DeviceSharingScreen(navController)
+                                DeviceSharingScreen(
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    preselectedMac = null
+                                )
+                            }
+                            composable("device-sharing/{mac}") { backStackEntry ->
+                                val mac = backStackEntry.arguments?.getString("mac")
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceSharingScreen(
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    preselectedMac = mac
+                                )
                             }
                             composable("device-import") {
                                 BackHandler {
@@ -383,6 +446,23 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 DeviceImportScreen(navController, viewModel)
                             }
+                            composable("devices") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceListScreen(navController, viewModel)
+                            }
+                            composable("device-add") {
+                                DeviceSetupScreen(
+                                    navController = navController,
+                                    mode = "add",
+                                    viewModel = viewModel
+                                )
+                            }
                         }
                     }
                 }
@@ -391,11 +471,63 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
     val context = LocalContext.current
     val sensorData by viewModel.sensorData.collectAsState()
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
+    val activeDevice by viewModel.activeDevice.collectAsState()
+    val devices by viewModel.devices.collectAsState()
+    var showDeviceSheetSwipeHint by remember {
+        mutableStateOf(!viewModel.deviceSheetSwipeHintAlreadyShown())
+    }
+    var deviceSwitcherOpen by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val scope = rememberCoroutineScope()
+    val dashboardScroll = rememberScrollState()
+    val homeOverscrollAccum = remember { mutableFloatStateOf(0f) }
+    val densitySheetOverscroll = LocalDensity.current
+    val sheetOverscrollThresholdPx = remember(densitySheetOverscroll) {
+        with(densitySheetOverscroll) { 56.dp.toPx() }
+    }
+    val openDeviceSheetLatest = rememberUpdatedState(
+        newValue = { deviceSwitcherOpen = true }
+    )
+    val dashboardOpenSheetNested = remember(
+        activeDevice,
+        sheetOverscrollThresholdPx,
+        dashboardScroll
+    ) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (activeDevice == null) {
+                    homeOverscrollAccum.floatValue = 0f
+                    return Offset.Zero
+                }
+                if (dashboardScroll.maxValue <= 0) {
+                    homeOverscrollAccum.floatValue = 0f
+                    return Offset.Zero
+                }
+                if (dashboardScroll.canScrollForward) {
+                    homeOverscrollAccum.floatValue = 0f
+                    return Offset.Zero
+                }
+                if (available.y < 0f) {
+                    homeOverscrollAccum.floatValue += -available.y
+                    if (homeOverscrollAccum.floatValue >= sheetOverscrollThresholdPx) {
+                        homeOverscrollAccum.floatValue = 0f
+                        openDeviceSheetLatest.value.invoke()
+                    }
+                }
+                return Offset.Zero
+            }
+        }
+    }
 
     // Permissions handling
     val permissionsToRequest = BluetoothUtils.BLUETOOTH_PERMISSIONS
@@ -408,7 +540,9 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                 "MainActivity", "Permissions result: $perms, All Granted: $allGranted"
             )
             if (allGranted) {
-                viewModel.startScanning()
+                if (viewModel.deviceProfileRepository.getActiveDeviceId() != null) {
+                    viewModel.startScanning()
+                }
             } else {
                 val deniedPerms = perms.filter { !it.value }.keys.joinToString(", ")
                 val message = "$permissionsRequiredMessage\nMissing: $deniedPerms"
@@ -421,36 +555,363 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
         }
         AppLogger.d("MainActivity", "Initial permission check. All granted: $allGranted")
-        if (allGranted) {
-            viewModel.startScanning()
-        } else {
+        if (!allGranted) {
             permissionLauncher.launch(permissionsToRequest)
         }
     }
 
+    LaunchedEffect(activeDevice) {
+        val allGranted = permissionsToRequest.all {
+            context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (allGranted && activeDevice != null) {
+            viewModel.startScanning()
+        }
+    }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("settings") }) {
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.settings_desc)
+
+    LaunchedEffect(deviceSwitcherOpen) {
+        if (deviceSwitcherOpen) {
+            sheetState.partialExpand()
+            if (showDeviceSheetSwipeHint) {
+                viewModel.markDeviceSheetSwipeHintSeen()
+                showDeviceSheetSwipeHint = false
+            }
+        }
+    }
+
+    BackHandler(enabled = deviceSwitcherOpen) {
+        scope.launch {
+            sheetState.hide()
+            deviceSwitcherOpen = false
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(onClick = { navController.navigate("settings") }) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.settings_desc)
+                    )
+                }
+            }) { padding ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (activeDevice != null) {
+                    AssistChip(
+                        onClick = { deviceSwitcherOpen = true },
+                        label = {
+                            Text(
+                                text = stringResource(
+                                    R.string.active_device_label,
+                                    activeDevice!!.alias
+                                ),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.DevicesOther,
+                                contentDescription = null,
+                                modifier = Modifier.padding(start = 4.dp)
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier.padding(
+                            top = padding.calculateTopPadding(),
+                            bottom = 4.dp
+                        )
+                    )
+                }
+
+                if (activeDevice != null && showDeviceSheetSwipeHint) {
+                    val dismissSwipeHint = {
+                        viewModel.markDeviceSheetSwipeHintSeen()
+                        showDeviceSheetSwipeHint = false
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        tonalElevation = 2.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.device_sheet_swipe_hint_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = stringResource(R.string.device_sheet_swipe_hint_body),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                            TextButton(onClick = dismissSwipeHint) {
+                                Text(stringResource(R.string.device_sheet_swipe_hint_got_it))
+                            }
+                        }
+                    }
+                }
+
+                Dashboard(
+                    sensorData = sensorData,
+                    isBluetoothEnabled = isBluetoothEnabled,
+                    hasActiveDevice = activeDevice != null,
+                    navController = navController,
+                    viewModel = viewModel,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .let { if (activeDevice != null) it else it.padding(padding) },
+                    scrollState = dashboardScroll,
+                    openSheetNestedScroll = dashboardOpenSheetNested
                 )
             }
-        }) { padding ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()
-        ) {
-            Dashboard(
-                sensorData = sensorData,
-                isBluetoothEnabled = isBluetoothEnabled,
-                navController = navController,
-                viewModel = viewModel,
+        }
+
+        if (activeDevice != null) {
+            val densityForSwipe = LocalDensity.current
+            val homeSwipeOpenPx = remember(densityForSwipe) {
+                with(densityForSwipe) { 56.dp.toPx() }
+            }
+            var homeSwipeAccum by remember { mutableFloatStateOf(0f) }
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(padding)
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(0.55f)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(bottom = 8.dp)
+                    .height(88.dp)
+                    .pointerInput(homeSwipeOpenPx) {
+                        detectVerticalDragGestures(
+                            onDragStart = { homeSwipeAccum = 0f },
+                            onVerticalDrag = { _, dragAmount ->
+                                homeSwipeAccum += dragAmount
+                                if (homeSwipeAccum <= -homeSwipeOpenPx) {
+                                    homeSwipeAccum = 0f
+                                    deviceSwitcherOpen = true
+                                }
+                            }
+                        )
+                    }
             )
+        }
+
+        if (deviceSwitcherOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { deviceSwitcherOpen = false },
+                sheetState = sheetState,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 2.dp,
+                scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f),
+                dragHandle = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        BottomSheetDefaults.DragHandle(
+                            modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+            ) {
+                val density = LocalDensity.current
+                val swipeUpExpandPx = remember(density) { with(density) { 56.dp.toPx() } }
+                var sheetDragAccum by remember { mutableFloatStateOf(0f) }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .pointerInput(sheetState.currentValue) {
+                                detectVerticalDragGestures(
+                                    onDragStart = { sheetDragAccum = 0f },
+                                    onVerticalDrag = { _, dragAmount ->
+                                        sheetDragAccum += dragAmount
+                                        if (sheetState.currentValue == SheetValue.PartiallyExpanded &&
+                                            sheetDragAccum <= -swipeUpExpandPx
+                                        ) {
+                                            sheetDragAccum = 0f
+                                            scope.launch { sheetState.expand() }
+                                        }
+                                    }
+                                )
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Default.DevicesOther,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(26.dp)
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.switch_device_sheet_title),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clickable {
+                                    scope.launch {
+                                        sheetState.hide()
+                                        deviceSwitcherOpen = false
+                                        navController.navigate("devices")
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.manage_devices_label),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(devices.sortedBy { it.addedAt }, key = { it.mac }) { profile ->
+                            val isActive = profile.mac == activeDevice?.mac
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isActive) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerHighest
+                                },
+                                tonalElevation = if (isActive) 2.dp else 0.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (!isActive) {
+                                            viewModel.setActiveDevice(profile.mac)
+                                        }
+                                        scope.launch {
+                                            sheetState.hide()
+                                            deviceSwitcherOpen = false
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    if (isActive) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.size(24.dp))
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = profile.alias,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isActive) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            }
+                                        )
+                                        Text(
+                                            text = profile.mac,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isActive) {
+                                                MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                                    alpha = 0.75f
+                                                )
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -486,10 +947,14 @@ fun ShareAndUnpairButtons(
 fun Dashboard(
     sensorData: SensorData?,
     isBluetoothEnabled: Boolean,
+    hasActiveDevice: Boolean,
     navController: NavController,
     viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scrollState: ScrollState? = null,
+    openSheetNestedScroll: NestedScrollConnection? = null
 ) {
+    val scroll = scrollState ?: rememberScrollState()
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
@@ -524,7 +989,11 @@ fun Dashboard(
     Column(
         modifier = modifier
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .let { m ->
+                if (openSheetNestedScroll != null) m.nestedScroll(openSheetNestedScroll)
+                else m
+            }
+            .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -537,7 +1006,74 @@ fun Dashboard(
             )
         }
 
-        if (sensorData == null) {
+        if (sensorData == null && !hasActiveDevice) {
+            Text(
+                text = stringResource(R.string.no_devices_message),
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.tap_plus_to_add),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            MenuTile(
+                title = stringResource(R.string.manage_devices_label),
+                icon = Icons.Default.DevicesOther,
+                onClick = { navController.navigate("devices") },
+                modifier = Modifier.fillMaxWidth(0.9f),
+                arrangementH = Arrangement.Center
+            )
+        } else if (sensorData == null && !isPaired) {
+            // Forgot device or no token: show re-pair flow instead of passive-scan spinner only
+            if (deviceConnecting) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.connecting_to_device),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                InstructionCard(
+                    icon = Icons.Default.PhonelinkSetup,
+                    title = stringResource(R.string.setup_new_device),
+                    subtitle = stringResource(R.string.pairing_subtitle),
+                    modifier = Modifier.padding(bottom = 24.dp)
+                ) {
+                    NumberedStep(
+                        number = "1",
+                        title = stringResource(R.string.pairing_step1_title),
+                        description = stringResource(R.string.pairing_step1_desc)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    NumberedStep(
+                        number = "2",
+                        title = stringResource(R.string.pairing_step2_title),
+                        description = stringResource(R.string.pairing_step2_desc)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    NumberedStep(
+                        number = "3",
+                        title = stringResource(R.string.pairing_step3_title),
+                        description = stringResource(R.string.pairing_step3_desc)
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                MenuTile(
+                    title = stringResource(R.string.pair_and_connect),
+                    icon = Icons.Default.PhonelinkSetup,
+                    onClick = { viewModel.connectToDevice() },
+                    modifier = Modifier.fillMaxWidth(0.9f),
+                    arrangementH = Arrangement.Center
+                )
+            }
+        } else if (sensorData == null) {
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text(stringResource(R.string.scanning_status))

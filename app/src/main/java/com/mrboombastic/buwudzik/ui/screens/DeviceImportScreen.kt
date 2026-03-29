@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,14 +57,15 @@ import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.AlarmTitleRepository
+import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceShareData
-import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.ui.components.ContentCard
 import com.mrboombastic.buwudzik.ui.components.InstructionCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
+import kotlinx.coroutines.launch
 
 private val qrReader = MultiFormatReader().apply {
     setHints(
@@ -182,45 +184,36 @@ fun DeviceImportScreen(
                                     isScanning = false
                                     val shareData = DeviceShareData.fromQrContent(content)
                                     if (shareData != null) {
-                                        // Import the device
-                                        val settingsRepo = SettingsRepository(context)
+                                        // Add imported device as a new profile
                                         val tokenStorage = TokenStorage(context)
-                                        val alarmTitleRepository = AlarmTitleRepository(context)
+                                        val alarmTitleRepository =
+                                            AlarmTitleRepository(context, shareData.mac)
 
-                                        // Update only if different
-                                        if (settingsRepo.targetMacAddress != shareData.mac) {
-                                            settingsRepo.targetMacAddress = shareData.mac
-                                        }
-
-                                        if (settingsRepo.batteryType != shareData.batteryType) {
-                                            settingsRepo.batteryType = shareData.batteryType
-                                        }
-
-                                        if (!settingsRepo.isSetupCompleted) {
-                                            settingsRepo.isSetupCompleted = true
-                                        }
+                                        val profile = DeviceProfile(
+                                            mac = shareData.mac.uppercase(),
+                                            alias = shareData.mac, // user can rename later
+                                            batteryType = shareData.batteryType
+                                        )
+                                        viewModel.addDevice(profile)
 
                                         // Store token for the imported device
                                         tokenStorage.storeToken(
                                             shareData.mac, tokenStorage.hexToBytes(shareData.token)
                                         )
 
-                                        // Import alarm titles
+                                        // Import alarm titles (per-device)
                                         shareData.alarmTitles.forEach { (id, title) ->
-                                            val currentTitle = alarmTitleRepository.getTitle(id)
-                                            if (currentTitle != title) {
-                                                alarmTitleRepository.setTitle(id, title)
-                                            }
+                                            alarmTitleRepository.setTitle(id, title)
                                         }
 
-                                        viewModel.restartScanning()
+                                        viewModel.setActiveDevice(profile.mac)
                                         viewModel.checkPairingStatus()
 
                                         Toast.makeText(
                                             context, importSuccessMsg, Toast.LENGTH_SHORT
                                         ).show()
                                         navController.navigate("home") {
-                                            popUpTo("home") { inclusive = true }
+                                            popUpTo(navController.graph.id) { inclusive = true }
                                         }
                                     } else {
                                         Toast.makeText(context, importErrorMsg, Toast.LENGTH_SHORT)
@@ -237,14 +230,13 @@ fun DeviceImportScreen(
     }
 }
 
-
 @Composable
 private fun QrScannerView(
     onQrCodeScanned: (String) -> Unit
 ) {
-    val context = LocalContext.current
+    LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val scope = rememberCoroutineScope()
 
     var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var scanned by remember { mutableStateOf(false) }
@@ -252,12 +244,6 @@ private fun QrScannerView(
     DisposableEffect(Unit) {
         onDispose {
             cameraProvider?.unbindAll()
-            try {
-                if (cameraProviderFuture.isDone) {
-                    cameraProviderFuture.get().unbindAll()
-                }
-            } catch (_: Exception) {
-            }
         }
     }
 
@@ -265,37 +251,47 @@ private fun QrScannerView(
         modifier = Modifier.fillMaxSize(), factory = { ctx ->
             val previewView = PreviewView(ctx)
 
-            cameraProviderFuture.addListener({
-                val provider = cameraProviderFuture.get()
-                cameraProvider = provider
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val provider = ProcessCameraProvider.getInstance(ctx).get()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        cameraProvider = provider
 
-                val preview = Preview.Builder().build().apply {
-                    surfaceProvider = previewView.surfaceProvider
-                }
-
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888).build()
-                    .also { analysis ->
-                        analysis.setAnalyzer(
-                            ctx.mainExecutor
-                        ) { imageProxy ->
-                            if (!scanned) {
-                                processImageProxy(imageProxy) {
-                                    scanned = true
-                                    onQrCodeScanned(it)
-                                }
-                            } else {
-                                imageProxy.close()
-                            }
+                        val preview = Preview.Builder().build().apply {
+                            surfaceProvider = previewView.surfaceProvider
                         }
-                    }
 
-                provider.unbindAll()
-                provider.bindToLifecycle(
-                    lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageAnalysis
-                )
-            }, ctx.mainExecutor)
+                        val imageAnalysis = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                            .build()
+                            .also { analysis ->
+                                analysis.setAnalyzer(
+                                    ctx.mainExecutor
+                                ) { imageProxy ->
+                                    if (!scanned) {
+                                        processImageProxy(imageProxy) {
+                                            scanned = true
+                                            onQrCodeScanned(it)
+                                        }
+                                    } else {
+                                        imageProxy.close()
+                                    }
+                                }
+                            }
+
+                        provider.unbindAll()
+                        provider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            imageAnalysis
+                        )
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e("DeviceImportScreen", "Camera setup failed", e)
+                }
+            }
 
             previewView
         })

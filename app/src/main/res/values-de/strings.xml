@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">clOwOck</string>
-    <string name="widget_description">Zeigt Temperatur, Luftfeuchtigkeit und Batteriestand Ihres Geräts an.</string>
+    <string name="widget_description">Zeigt Temperatur, Luftfeuchtigkeit, Namen und Batteriestand Ihres Geräts an.</string>
     <string name="scanning_status">Suche nach dem ausgewählten Gerät…</string>
     <string name="battery_label">Batterie: %1$d%%</string>
     <string name="last_update_label">Letzte Aktualisierung: %1$s</string>
@@ -53,6 +53,9 @@
     <string name="update_download_channel_name">Update-Download</string>
     <string name="update_download_channel_desc">Benachrichtigungen für Update-Download-Fortschritt</string>
     <string name="update_downloading_title">Update wird heruntergeladen</string>
+    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_starting">Download wird gestartet…</string>
+    <string name="update_downloading_unknown_size">%1$d MB heruntergeladen…</string>
     <string name="update_download_complete">Download abgeschlossen</string>
     <string name="update_download_complete_desc">Update heruntergeladen. Tippen Sie zum Installieren.</string>
     <string name="update_download_error">Download-Fehler</string>
@@ -66,19 +69,20 @@
     <string name="setup_scanning">Suche nach Geräten…</string>
     <string name="setup_no_devices">Keine Geräte gefunden</string>
     <string name="setup_enable_bluetooth">Bitte Bluetooth aktivieren</string>
-    <string name="setup_rescan">Erneut scannen</string>
+    <string name="setup_scan">Scannen</string>
     <string name="setup_skip">Jetzt überspringen</string>
+    <string name="setup_import_hint">Haben Sie schon einen QR-Code von einem anderen Telefon? Hier verwenden.</string>
     <string name="setup_select_device">Gerät auswählen</string>
     <string name="manage_alarms_label">Alarme</string>
     <string name="add_alarm_desc">Alarm hinzufügen</string>
-    <string name="max_alarms_message">Maximale Anzahl von Alarmen (16) erreicht.</string>
+    <string name="max_alarms_message">Maximale Anzahl von Alarmen erreicht.</string>
     <string name="cancel">Abbrechen</string>
     <string name="save">Speichern</string>
     <string name="error_prefix">Fehler: %1$s</string>
     <string name="updating_label">Wird aktualisiert…</string>
     <string name="widget_tap_to_open">Zum Öffnen tippen</string>
-    <string name="connect_to_device">Mit Gerät verbinden</string>
-    <string name="connecting_to_device">Verbindung zum Gerät wird hergestellt…</string>
+    <string name="connect_to_device">Verbinden</string>
+    <string name="connecting_to_device">Verbindung wird hergestellt…</string>
     <string name="disconnect">Trennen</string>
     <string name="device_settings_button">Geräteeinstellungen</string>
     <string name="set_time_2137">Zeit auf 21:37 setzen</string>
@@ -206,5 +210,29 @@
     <string name="ringtone_base_url_json_note">Für benutzerdefinierte JSON-Manifeste siehe die Einrichtungsanweisungen im GitHub-Repository.</string>
     <string name="no_ringtones_available">Keine Klingeltöne verfügbar</string>
     <string name="check_repository_url">Überprüfen Sie die Repository-URL in den Einstellungen oder versuchen Sie es erneut.</string>
+    <string name="my_devices_title">Meine Geräte</string>
+    <string name="add_device_label">Gerät hinzufügen</string>
+    <string name="no_devices_message">Keine Geräte gespeichert</string>
+    <string name="tap_plus_to_add">Tippen Sie auf +, um Ihr erstes Gerät hinzuzufügen</string>
+    <string name="rename_device_title">Gerät umbenennen</string>
+    <string name="device_alias_label">Gerätename</string>
+    <string name="delete_device_title">Gerät löschen?</string>
+    <string name="delete_device_message">„%1$s“ aus dieser App entfernen? Das physische Gerät bleibt unverändert.</string>
+    <string name="delete_confirm">Löschen</string>
+    <string name="select_devices_to_share">Geräte zum Teilen auswählen:</string>
+    <string name="no_devices_selected">Wählen Sie mindestens ein Gerät oben aus</string>
+    <string name="auth_token_label">Authentifizierungs-Token</string>
+    <string name="auth_token_hint">Sie können dieses Token in Drittanbieter-Integrationen wie Home Assistant verwenden.</string>
+    <string name="copy_token_label">Token kopieren</string>
+    <string name="token_copied">Token in die Zwischenablage kopiert</string>
+    <string name="no_token_for_device">Kein Token für dieses Gerät gespeichert.\nZuerst koppeln, um es zu exportieren.</string>
+    <string name="manage_devices_label">Geräte verwalten</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">Ihre Geräte</string>
+    <string name="device_sheet_swipe_hint_title">Tipp</string>
+    <string name="device_sheet_swipe_hint_body">Wischen Sie von unten nach oben, um das Gerät zu wechseln, oder tippen Sie auf den Chip oben.</string>
+    <string name="device_sheet_swipe_hint_got_it">Verstanden</string>
+    <string name="widget_configure_title">Gerät für Widget wählen</string>
+    <string name="widget_configure_subtitle">Wählen Sie das Gerät, das dieses Widget anzeigt:</string>
 </resources>
 

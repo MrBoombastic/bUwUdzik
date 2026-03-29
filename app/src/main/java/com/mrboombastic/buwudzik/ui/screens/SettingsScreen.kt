@@ -1,8 +1,8 @@
 package com.mrboombastic.buwudzik.ui.screens
 
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.le.ScanSettings
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Column
@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,9 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -37,7 +33,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,9 +50,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
@@ -85,12 +77,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     val appContext = context.applicationContext
     val repository = remember { SettingsRepository(context) }
 
-    // Save initial values to detect changes
-    val initialMacAddress = remember { repository.targetMacAddress }
+    // Save initial scan mode to detect changes
     val initialScanMode = remember { repository.scanMode }
 
-    var macAddress by remember { mutableStateOf(repository.targetMacAddress) }
-    var isMacAddressValid by remember { mutableStateOf(true) }
     var scanMode by remember { mutableIntStateOf(repository.scanMode) }
     var language by remember { mutableStateOf(repository.language) }
     var updateInterval by remember { mutableLongStateOf(repository.updateInterval) }
@@ -129,7 +118,10 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     LaunchedEffect(Unit) {
         val fetchedVersionName = withContext(Dispatchers.IO) {
             try {
-                val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                val packageInfo = context.packageManager.getPackageInfo(
+                    context.packageName,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
                 packageInfo.versionName
             } catch (_: Exception) {
                 null
@@ -138,38 +130,15 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
         versionName = fetchedVersionName
     }
 
-    // Watch for MAC changes when returning from device setup screen
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                // Check if MAC was changed while we were away (e.g., from setup screen)
-                val currentMac = repository.targetMacAddress
-                if (currentMac != macAddress) {
-                    macAddress = currentMac
-                    // If MAC changed from initial value, restart scanning
-                    if (currentMac != initialMacAddress) {
-                        AppLogger.d(
-                            "SettingsScreen",
-                            "MAC changed from $initialMacAddress to $currentMac, restarting scan"
-                        )
-                        viewModel.restartScanning()
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
     LaunchedEffect(expandedWidgetAction) {
         if (expandedWidgetAction && installedApps.isEmpty()) {
             val sortedApps = withContext(Dispatchers.IO) {
                 val pm = context.packageManager
                 val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
-                val apps = pm.queryIntentActivities(intent, 0)
+                val apps = pm.queryIntentActivities(
+                    intent,
+                    PackageManager.ResolveInfoFlags.of(0)
+                )
                 AppLogger.d("SettingsScreen", "Found ${apps.size} launcher apps")
                 apps.sortedBy { it.loadLabel(pm).toString().lowercase() }
             }
@@ -235,16 +204,8 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     Scaffold(snackbarHost = { CustomSnackbarHost(snackbarHostState) }, topBar = {
         TopAppBar(title = { Text(stringResource(R.string.settings_title)) }, navigationIcon = {
             BackNavigationButton(navController) {
-                val finalMac = macAddress.trim()
-                val isValid =
-                    finalMac.isNotEmpty() && BluetoothAdapter.checkBluetoothAddress(finalMac)
-
-                if (isValid && finalMac != repository.targetMacAddress) {
-                    repository.targetMacAddress = finalMac
-                }
-
-                // Restart scanning if MAC or scan mode changed
-                if (isValid && (finalMac != initialMacAddress || scanMode != initialScanMode)) {
+                // Restart scanning if scan mode changed
+                if (scanMode != initialScanMode) {
                     viewModel.restartScanning()
                 }
                 navController.popBackStack()
@@ -258,52 +219,6 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // MAC Address with Scan Button
-            OutlinedTextField(
-                value = macAddress,
-                onValueChange = {
-                    val uppercased = it.uppercase()
-                    macAddress = uppercased
-                    val trimmed = uppercased.trim()
-
-                    // Validate MAC address format (case-insensitive)
-                    isMacAddressValid =
-                        trimmed.isEmpty() || BluetoothAdapter.checkBluetoothAddress(trimmed)
-
-                    // Save to repository only if it's a valid and complete MAC address (17 chars)
-                    // or if it's cleared (will revert to default in BackNavigationButton)
-                    if (trimmed.length == 17 && isMacAddressValid) {
-                        repository.targetMacAddress = trimmed
-                        AppLogger.d("SettingsScreen", "MAC Address updated to: $trimmed")
-                    }
-                },
-                label = { Text(stringResource(R.string.target_mac_label)) },
-                modifier = Modifier.fillMaxWidth(),
-                isError = !isMacAddressValid,
-                supportingText = if (!isMacAddressValid) {
-                    {
-                        Text(
-                            text = stringResource(R.string.invalid_mac_format),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                } else null,
-                trailingIcon = {
-                    FilledTonalIconButton(
-                        onClick = {
-                            // Mark setup as incomplete to show device selection
-                            repository.isSetupCompleted = false
-                            navController.navigate("setup")
-                        }, modifier = Modifier.padding(end = 4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = stringResource(R.string.scan_devices_button),
-                        )
-                    }
-                })
-
-
             // Scan Mode
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -476,14 +391,6 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Import Device Button
-            Button(
-                onClick = { navController.navigate("device-import") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(stringResource(R.string.import_device_button))
-            }
 
             // Update Available Dialog
             if (showUpdateDialog && updateResult != null) {

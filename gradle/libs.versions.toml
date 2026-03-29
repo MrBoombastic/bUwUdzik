@@ -1,16 +1,17 @@
 [versions]
 agp = "9.1.0"
-kotlin = "2.3.10"
+kotlin = "2.3.20"
 appcompat = "1.7.1"
 activityCompose = "1.13.0"
-composeBom = "2026.03.00"
+composeBom = "2026.03.01"
 lifecycleRuntimeKtx = "2.10.0"
-workRuntimeKtx = "2.11.1"
+workRuntimeKtx = "2.11.2"
 navigationCompose = "2.9.7"
-ktor = "3.4.1"
+ktor = "3.4.2"
 zxing = "4.3.0"
-cameraX = "1.5.3"
+cameraX = "1.6.0"
 glance = "1.1.1"
+guavaAndroid = "33.5.0-android"
 
 
 [libraries]
@@ -35,6 +36,7 @@ zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", ve
 camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraX" }
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraX" }
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "cameraX" }
+guava-android = { group = "com.google.guava", name = "guava", version.ref = "guavaAndroid" }
 
 
 [plugins]

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">clOwOck</string>
-    <string name="widget_description">Mostra temperatura, umidità e stato della batteria del dispositivo.</string>
+    <string name="widget_description">Mostra temperatura, umidità, nome e stato della batteria del dispositivo.</string>
     <string name="scanning_status">Ricerca del dispositivo selezionato…</string>
     <string name="battery_label">Batteria: %1$d%%</string>
     <string name="last_update_label">Ultimo aggiornamento: %1$s</string>
@@ -53,6 +53,9 @@
     <string name="update_download_channel_name">Download aggiornamento</string>
     <string name="update_download_channel_desc">Notifiche di avanzamento download aggiornamento</string>
     <string name="update_downloading_title">Download aggiornamento in corso</string>
+    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_starting">Avvio download…</string>
+    <string name="update_downloading_unknown_size">Scaricati %1$d MB…</string>
     <string name="update_download_complete">Download completato</string>
     <string name="update_download_complete_desc">Aggiornamento scaricato. Tocca per installare.</string>
     <string name="update_download_error">Errore di download</string>
@@ -66,19 +69,20 @@
     <string name="setup_scanning">Ricerca dispositivi…</string>
     <string name="setup_no_devices">Nessun dispositivo trovato</string>
     <string name="setup_enable_bluetooth">Attiva il Bluetooth</string>
-    <string name="setup_rescan">Scansiona di nuovo</string>
+    <string name="setup_scan">Scansiona</string>
     <string name="setup_skip">Salta per ora</string>
+    <string name="setup_import_hint">Hai già un codice QR da un altro telefono? Usalo qui.</string>
     <string name="setup_select_device">Seleziona dispositivo</string>
     <string name="manage_alarms_label">Sveglie</string>
     <string name="add_alarm_desc">Aggiungi sveglia</string>
-    <string name="max_alarms_message">Numero massimo di sveglie (16) raggiunto.</string>
+    <string name="max_alarms_message">Numero massimo di sveglie raggiunto.</string>
     <string name="cancel">Annulla</string>
     <string name="save">Salva</string>
     <string name="error_prefix">Errore: %1$s</string>
     <string name="updating_label">Aggiornamento…</string>
     <string name="widget_tap_to_open">Tocca per aprire</string>
-    <string name="connect_to_device">Connetti al dispositivo</string>
-    <string name="connecting_to_device">Connessione al dispositivo…</string>
+    <string name="connect_to_device">Connetti</string>
+    <string name="connecting_to_device">Connessione…</string>
     <string name="disconnect">Disconnetti</string>
     <string name="device_settings_button">Impostazioni dispositivo</string>
     <string name="set_time_2137">Imposta ora su 21:37</string>
@@ -206,5 +210,29 @@
     <string name="ringtone_base_url_json_note">Per manifesti JSON personalizzati, consulta le istruzioni di configurazione nel repository GitHub.</string>
     <string name="no_ringtones_available">Nessuna suoneria disponibile</string>
     <string name="check_repository_url">Controlla l\'URL del repository nelle impostazioni o riprova.</string>
+    <string name="my_devices_title">I miei dispositivi</string>
+    <string name="add_device_label">Aggiungi dispositivo</string>
+    <string name="no_devices_message">Nessun dispositivo salvato</string>
+    <string name="tap_plus_to_add">Tocca + per aggiungere il primo dispositivo</string>
+    <string name="rename_device_title">Rinomina dispositivo</string>
+    <string name="device_alias_label">Nome dispositivo</string>
+    <string name="delete_device_title">Eliminare il dispositivo?</string>
+    <string name="delete_device_message">Rimuovere « %1$s » da questa app? Il dispositivo fisico non sarà interessato.</string>
+    <string name="delete_confirm">Elimina</string>
+    <string name="select_devices_to_share">Seleziona i dispositivi da condividere:</string>
+    <string name="no_devices_selected">Seleziona almeno un dispositivo sopra</string>
+    <string name="auth_token_label">Token di autenticazione</string>
+    <string name="auth_token_hint">Puoi usare questo token in integrazioni di terze parti come Home Assistant.</string>
+    <string name="copy_token_label">Copia token</string>
+    <string name="token_copied">Token copiato negli appunti</string>
+    <string name="no_token_for_device">Nessun token salvato per questo dispositivo.\nAbbinalo prima per esportarlo.</string>
+    <string name="manage_devices_label">Gestisci dispositivi</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">I tuoi dispositivi</string>
+    <string name="device_sheet_swipe_hint_title">Suggerimento</string>
+    <string name="device_sheet_swipe_hint_body">Scorri verso l\'alto dal basso dello schermo per cambiare dispositivo, oppure tocca il chip sopra.</string>
+    <string name="device_sheet_swipe_hint_got_it">Ho capito</string>
+    <string name="widget_configure_title">Scegli il dispositivo per il widget</string>
+    <string name="widget_configure_subtitle">Seleziona il dispositivo mostrato da questo widget:</string>
 </resources>
 

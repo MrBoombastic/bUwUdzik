@@ -18,8 +18,8 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.7.2"
+        versionCode = 21
+        versionName = "1.8.0"
     }
 
     buildTypes {
@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
+    implementation(libs.guava.android)
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.ui.tooling)
 }

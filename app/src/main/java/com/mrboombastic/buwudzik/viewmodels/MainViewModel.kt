@@ -7,6 +7,8 @@ import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrboombastic.buwudzik.data.AlarmTitleRepository
+import com.mrboombastic.buwudzik.data.DeviceProfile
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.Alarm
@@ -21,8 +23,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -31,13 +36,76 @@ private const val TAG = "MainViewModel"
 class MainViewModel(
     private val scanner: BluetoothScanner,
     private val settingsRepository: SettingsRepository,
+    val deviceProfileRepository: DeviceProfileRepository,
     private val applicationContext: Context
 ) : ViewModel() {
 
-    private val sensorRepository = SensorRepository(applicationContext)
-    private val alarmTitleRepository = AlarmTitleRepository(applicationContext)
+    // -------------------------------------------------------------------------
+    // Device list & active device
+    // -------------------------------------------------------------------------
 
-    private val _sensorData = MutableStateFlow(sensorRepository.getSensorData())
+    val devices: StateFlow<List<DeviceProfile>> = deviceProfileRepository.profilesFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, deviceProfileRepository.getProfiles())
+
+    val activeDevice: StateFlow<DeviceProfile?> = combine(
+        deviceProfileRepository.profilesFlow,
+        deviceProfileRepository.activeDeviceIdFlow
+    ) { profiles, activeMac ->
+        profiles.find { it.mac == activeMac }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, deviceProfileRepository.getActiveProfile())
+
+    fun addDevice(profile: DeviceProfile) {
+        deviceProfileRepository.addOrUpdate(profile)
+    }
+
+    fun removeDevice(mac: String) {
+        deviceProfileRepository.remove(mac)
+    }
+
+    fun deviceSheetSwipeHintAlreadyShown(): Boolean =
+        settingsRepository.deviceSheetSwipeHintShown
+
+    fun markDeviceSheetSwipeHintSeen() {
+        settingsRepository.deviceSheetSwipeHintShown = true
+    }
+
+    fun setActiveDevice(mac: String) {
+        val profile = deviceProfileRepository.getByMac(mac) ?: return
+        deviceProfileRepository.setActiveDeviceId(profile.mac)
+        stopAll()
+        _deviceConnected.value = false
+        _deviceConnecting.value = false
+        _sensorData.value = SensorRepository(applicationContext, profile.mac).getSensorData()
+        _alarms.value = emptyList()
+        _deviceSettings.value = null
+        startScanning()
+    }
+
+    fun updateDeviceAlias(mac: String, newAlias: String) {
+        val profile = deviceProfileRepository.getByMac(mac) ?: return
+        deviceProfileRepository.addOrUpdate(profile.copy(alias = newAlias.trim()))
+    }
+
+    fun updateDeviceBatteryType(mac: String, batteryType: String) {
+        val profile = deviceProfileRepository.getByMac(mac) ?: return
+        deviceProfileRepository.addOrUpdate(profile.copy(batteryType = batteryType))
+    }
+
+    // -------------------------------------------------------------------------
+    // Sensor / connection state
+    // -------------------------------------------------------------------------
+
+    private val activeMac: String
+        get() = deviceProfileRepository.getActiveDeviceId() ?: ""
+
+    /** Per-active-device sensor repository. */
+    private fun sensorRepo(): SensorRepository = SensorRepository(applicationContext, activeMac)
+
+    /** Per-active-device alarm title repository. */
+    private fun alarmTitleRepo(): AlarmTitleRepository =
+        AlarmTitleRepository(applicationContext, activeMac)
+
+    private val _sensorData = MutableStateFlow(sensorRepo().getSensorData())
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
 
     private val _deviceConnected = MutableStateFlow(false)
@@ -60,12 +128,9 @@ class MainViewModel(
 
     val qpController = QPController(applicationContext)
 
-    // Expose disconnection event from controller
     val disconnectionEvent = qpController.disconnectionEvent
 
-    fun clearDisconnectionEvent() {
-        qpController.clearDisconnectionEvent()
-    }
+    fun clearDisconnectionEvent() = qpController.clearDisconnectionEvent()
 
     private val _connectionError = MutableStateFlow<String?>(null)
     val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
@@ -74,28 +139,24 @@ class MainViewModel(
         _connectionError.value = null
     }
 
-    /**
-     * Check pairing status and update state
-     */
     fun checkPairingStatus() {
-        val mac = settingsRepository.targetMacAddress
+        val mac = activeMac
         _isPaired.value = if (mac.isNotEmpty()) qpController.isDevicePaired(mac) else false
     }
 
-    /**
-     * Remove pairing (stored token) for the current target device
-     */
     fun unpairDevice() {
-        val mac = settingsRepository.targetMacAddress
+        val mac = activeMac
         if (mac.isNotEmpty()) {
             qpController.unpairDevice(mac)
             checkPairingStatus()
+            // Drop stale BLE/UI cache so the home screen shows pair flow, not last readings
+            _sensorData.value = null
+            _alarms.value = emptyList()
+            _deviceSettings.value = null
+            _connectionError.value = null
         }
     }
 
-    /**
-     * Handle unexpected device disconnection - reset state but don't manually disconnect
-     */
     fun handleUnexpectedDisconnect() {
         rssiPollJob?.cancel()
         rssiPollJob = null
@@ -112,6 +173,30 @@ class MainViewModel(
     init {
         _isBluetoothEnabled.value = BluetoothUtils.isBluetoothEnabled(applicationContext)
         checkPairingStatus()
+        viewModelScope.launch {
+            combine(
+                deviceProfileRepository.profilesFlow,
+                deviceProfileRepository.activeDeviceIdFlow
+            ) { profiles, activeMac ->
+                profiles.find { it.mac == activeMac }
+            }.collect { profile ->
+                if (profile == null) {
+                    stopAll()
+                    clearPerDeviceUiState()
+                }
+            }
+        }
+    }
+
+    /** Reset cached device UI when there is no selected profile (e.g. all devices removed). */
+    private fun clearPerDeviceUiState() {
+        _sensorData.value = null
+        _alarms.value = emptyList()
+        _deviceSettings.value = null
+        _deviceConnected.value = false
+        _deviceConnecting.value = false
+        _connectionError.value = null
+        checkPairingStatus()
     }
 
     fun updateBluetoothState(enabled: Boolean) {
@@ -119,12 +204,20 @@ class MainViewModel(
         if (enabled) {
             startScanning()
         } else {
-            // scanJob automatically cancels or fails, but good to be explicit
             scanJob?.cancel()
             rssiPollJob?.cancel()
             connectionJob?.cancel()
             _deviceConnected.value = false
             _deviceConnecting.value = false
+        }
+    }
+
+    private fun stopAll() {
+        scanJob?.cancel(); scanJob = null
+        rssiPollJob?.cancel(); rssiPollJob = null
+        connectionJob?.cancel(); connectionJob = null
+        if (_deviceConnected.value) {
+            qpController.disconnect()
         }
     }
 
@@ -134,15 +227,19 @@ class MainViewModel(
             return
         }
 
-        val targetMac = settingsRepository.targetMacAddress
+        val mac = activeMac
+        if (mac.isEmpty()) {
+            AppLogger.d(TAG, "No active device – skipping scan")
+            return
+        }
+
         val scanMode = settingsRepository.scanMode
-        AppLogger.d(TAG, "Starting scanning flow for $targetMac with mode $scanMode...")
+        AppLogger.d(TAG, "Starting scanning flow for $mac with mode $scanMode...")
         scanJob = viewModelScope.launch(Dispatchers.IO) {
-            scanner.scan(targetMac, scanMode).collect { data ->
+            scanner.scan(mac, scanMode).collect { data ->
                 AppLogger.d(TAG, "Received data: $data")
-                val correctedData = sensorRepository.saveSensorData(data)
+                val correctedData = sensorRepo().saveSensorData(data)
                 _sensorData.value = correctedData
-                // Update Glance widget with fresh data
                 try {
                     SensorGlanceWidget().updateAll(applicationContext)
                 } catch (e: Exception) {
@@ -170,22 +267,18 @@ class MainViewModel(
     fun connectToDevice(reloadAlarms: Boolean = true) {
         if (_deviceConnecting.value || _deviceConnected.value) return
 
-        val targetMac = settingsRepository.targetMacAddress
+        val targetMac = activeMac
         if (targetMac.isEmpty()) {
-            AppLogger.e(TAG, "No target MAC address configured")
+            AppLogger.e(TAG, "No active device MAC configured")
             return
         }
 
         _deviceConnecting.value = true
-        // Stop scanning before connecting
         scanJob?.cancel()
-
-        // Cancel any previous connection attempt
         connectionJob?.cancel()
 
         connectionJob = viewModelScope.launch {
             try {
-                // Get BluetoothDevice
                 val bluetoothManager =
                     applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
                 val adapter = bluetoothManager.adapter
@@ -197,18 +290,17 @@ class MainViewModel(
                     _connectionError.value = null
                     checkPairingStatus()
 
-                    // Setup real-time updates
                     qpController.onSensorData = { temperature, humidity ->
                         val currentData = _sensorData.value
-                        val targetMac = settingsRepository.targetMacAddress
+                        val mac = activeMac
 
                         _sensorData.value = currentData?.copy(
                             temperature = temperature.toDouble(),
                             humidity = humidity.toDouble(),
                             timestamp = System.currentTimeMillis()
                         ) ?: SensorData(
-                            name = "bUwUdzik",
-                            macAddress = targetMac,
+                            name = "clOwOck",
+                            macAddress = mac,
                             temperature = temperature.toDouble(),
                             humidity = humidity.toDouble(),
                             battery = 0,
@@ -221,7 +313,6 @@ class MainViewModel(
                         _sensorData.value = _sensorData.value?.copy(rssi = rssi)
                     }
 
-                    // Poll for RSSI
                     rssiPollJob?.cancel()
                     rssiPollJob = viewModelScope.launch {
                         while (isActive && _deviceConnected.value) {
@@ -230,29 +321,26 @@ class MainViewModel(
                             } catch (e: Exception) {
                                 AppLogger.w(TAG, "RSSI poll failed: ${e.message}", e)
                             }
-                            delay(QPController.DELAY_RSSI_POLL) // Poll every 5 seconds
+                            delay(QPController.DELAY_RSSI_POLL)
                         }
                     }
 
                     if (reloadAlarms) {
-                        AppLogger.d(
-                            TAG, "Clock connected, reading alarms and settings..."
-                        )
+                        AppLogger.d(TAG, "Clock connected, reading alarms and settings...")
                         launch {
                             try {
                                 val deviceAlarms = qpController.readAlarms()
+                                val titleRepo = alarmTitleRepo()
                                 val alarmsWithTitles = deviceAlarms.map { alarm ->
-                                    alarm.copy(title = alarmTitleRepository.getTitle(alarm.id))
+                                    alarm.copy(title = titleRepo.getTitle(alarm.id))
                                 }
                                 _alarms.value = alarmsWithTitles
-                                AppLogger.d(
-                                    TAG, "Loaded ${alarmsWithTitles.size} alarms"
-                                )
+                                AppLogger.d(TAG, "Loaded ${alarmsWithTitles.size} alarms")
                             } catch (e: Exception) {
                                 AppLogger.e(TAG, "Error loading alarms", e)
                             }
 
-                            delay(QPController.DELAY_BLE_OPERATION) // Small gap to avoid BLE race conditions
+                            delay(QPController.DELAY_BLE_OPERATION)
 
                             try {
                                 val settings = qpController.readDeviceSettings()
@@ -276,18 +364,13 @@ class MainViewModel(
                     }
                 } else {
                     AppLogger.e(TAG, "Failed to connect to clock")
-                    startScanning() // Restart scanning if connection fails
+                    startScanning()
                 }
             } catch (e: Exception) {
-                AppLogger.e(
-                    TAG,
-                    "Error connecting to clock ($targetMac): ${e.message}",
-                    e
-                )
+                AppLogger.e(TAG, "Error connecting to clock ($targetMac): ${e.message}", e)
                 _deviceConnected.value = false
                 _connectionError.value = e.message ?: "Connection failed"
-                // Do NOT clear disconnection event here, let the UI handle it via LaunchedEffect
-                startScanning() // Restart scanning on error
+                startScanning()
             } finally {
                 if (reloadAlarms) {
                     _deviceConnecting.value = false
@@ -299,12 +382,12 @@ class MainViewModel(
     fun reloadAlarms() {
         viewModelScope.launch {
             try {
-                // Delay to ensure previous write (like setAlarm) is fully processed by the device
                 delay(QPController.DELAY_ALARM_RELOAD)
                 AppLogger.d(TAG, "Reloading alarms...")
                 val deviceAlarms = qpController.readAlarms()
+                val titleRepo = alarmTitleRepo()
                 val alarmsWithTitles = deviceAlarms.map { alarm ->
-                    alarm.copy(title = alarmTitleRepository.getTitle(alarm.id))
+                    alarm.copy(title = titleRepo.getTitle(alarm.id))
                 }
                 _alarms.value = alarmsWithTitles
                 AppLogger.d(TAG, "Reloaded ${alarmsWithTitles.size} alarms")
@@ -325,8 +408,7 @@ class MainViewModel(
                     days = alarm.days,
                     snooze = alarm.snooze
                 )
-                // Save title locally
-                alarmTitleRepository.setTitle(alarm.id, alarm.title)
+                alarmTitleRepo().setTitle(alarm.id, alarm.title)
                 reloadAlarms()
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -340,8 +422,7 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 qpController.deleteAlarm(alarmId)
-                // Delete title locally
-                alarmTitleRepository.deleteTitle(alarmId)
+                alarmTitleRepo().deleteTitle(alarmId)
                 reloadAlarms()
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -380,10 +461,8 @@ class MainViewModel(
     }
 
     fun disconnectFromDevice() {
-        rssiPollJob?.cancel()
-        rssiPollJob = null
-        connectionJob?.cancel()
-        connectionJob = null
+        rssiPollJob?.cancel(); rssiPollJob = null
+        connectionJob?.cancel(); connectionJob = null
         qpController.disconnect()
         _deviceConnected.value = false
         AppLogger.d(TAG, "Disconnected from clock, restarting scan.")

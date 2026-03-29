@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">clOwOck</string>
-    <string name="widget_description">Displays temperature, humidity, and battery status from your device.</string>
+    <string name="widget_description">Displays temperature, humidity, name and battery status from your device.</string>
     <string name="scanning_status" tools:ignore="Typos">Scanning for the selected device…</string>
     <string name="battery_label">Battery: %1$d%%</string>
     <string name="rssi_label" translatable="false">RSSI: %1$d dBm (%2$d%%)</string>
@@ -53,7 +53,7 @@
     <string name="check_updates_label">Check for updates</string>
     <string name="checking_updates">Checking for updates…</string>
     <string name="no_updates_available">No updates available</string>
-    <string name="update_available_title">Update Available</string>
+    <string name="update_available_title">Update available</string>
     <string name="update_available_message">A new version is available. Current: %1$s, latest: %2$s. Would you like to download it now?</string>
     <string name="download_update">Download</string>
     <string name="later">Later</string>
@@ -61,7 +61,9 @@
     <string name="update_download_channel_name">Update download</string>
     <string name="update_download_channel_desc">Notifications for update download progress</string>
     <string name="update_downloading_title">Downloading update</string>
-    <string name="update_downloading_progress" translatable="false">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_starting">Starting download…</string>
+    <string name="update_downloading_unknown_size">Downloaded %1$d MB…</string>
     <string name="update_download_complete">Download complete</string>
     <string name="update_download_complete_desc">Update downloaded. Tap to install.</string>
     <string name="update_download_error">Download error</string>
@@ -75,20 +77,21 @@
     <string name="setup_scanning">Scanning for devices…</string>
     <string name="setup_no_devices">No devices found</string>
     <string name="setup_enable_bluetooth">Please enable Bluetooth</string>
-    <string name="setup_rescan">Scan again</string>
+    <string name="setup_scan">Scan</string>
     <string name="setup_skip">Skip for now</string>
+    <string name="setup_import_hint">Already have a QR code from another phone? Use it here.</string>
     <string name="setup_select_device">Select device</string>
     <string name="manage_alarms_label">Alarms</string>
     <string name="add_alarm_desc">Add alarm</string>
-    <string name="max_alarms_message">Maximum number of alarms (16) reached.</string>
+    <string name="max_alarms_message">Maximum number of alarms reached.</string>
     <string name="ok" translatable="false">OK</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     <string name="error_prefix">Error: %1$s</string>
     <string name="updating_label">Updating…</string>
     <string name="widget_tap_to_open">Tap to open</string>
-    <string name="connect_to_device">Connect to device</string>
-    <string name="connecting_to_device">Connecting to device…</string>
+    <string name="connect_to_device">Connect</string>
+    <string name="connecting_to_device">Connecting…</string>
     <string name="disconnect">Disconnect</string>
     <string name="device_settings_button">Device settings</string>
     <string name="set_time_2137">Set time to 21:37</string>
@@ -220,4 +223,28 @@
     <string name="ringtone_base_url_json_note">For custom JSON manifests, see the GitHub repo for setup instructions.</string>
     <string name="no_ringtones_available">No ringtones available</string>
     <string name="check_repository_url">Check the repository URL in settings or try again.</string>
+    <string name="my_devices_title">My Devices</string>
+    <string name="add_device_label">Add device</string>
+    <string name="no_devices_message">No devices saved yet</string>
+    <string name="tap_plus_to_add">Tap + to add your first device</string>
+    <string name="rename_device_title">Rename device</string>
+    <string name="device_alias_label">Device name</string>
+    <string name="delete_device_title">Delete device?</string>
+    <string name="delete_device_message">Remove \"%1$s\" from this app? The device itself will not be affected.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="select_devices_to_share">Select devices to share:</string>
+    <string name="no_devices_selected">Select at least one device above</string>
+    <string name="auth_token_label">Authentication token</string>
+    <string name="auth_token_hint">You can use this token in third-party integrations like Home Assistant.</string>
+    <string name="copy_token_label">Copy token</string>
+    <string name="token_copied">Token copied to clipboard</string>
+    <string name="no_token_for_device">No token saved for this device.\nPair it first to export.</string>
+    <string name="manage_devices_label">Manage devices</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">Your devices</string>
+    <string name="device_sheet_swipe_hint_title">Quick tip</string>
+    <string name="device_sheet_swipe_hint_body">Swipe up from the bottom edge of the screen to switch devices - or tap the chip above.</string>
+    <string name="device_sheet_swipe_hint_got_it">Got it</string>
+    <string name="widget_configure_title">Choose device for widget</string>
+    <string name="widget_configure_subtitle">Select which device this widget will display:</string>
 </resources>

@@ -3,58 +3,81 @@ package com.mrboombastic.buwudzik.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.mrboombastic.buwudzik.utils.AppLogger
 
 /**
  * Repository for storing alarm titles locally.
- * Titles are stored by alarm ID since the device doesn't support titles natively.
+ * Titles are stored per-device by alarm ID since the device doesn't support titles natively.
+ *
+ * @param mac Device MAC address (used to namespace keys). When empty, falls back to the
+ *            legacy global namespace (migration only).
  */
-class AlarmTitleRepository(context: Context) {
+class AlarmTitleRepository(context: Context, private val mac: String = "") {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("alarm_titles_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        private const val KEY_PREFIX = "alarm_title_"
-    }
+        private const val TAG = "AlarmTitleRepository"
+        private const val LEGACY_PREFIX = "alarm_title_"
 
-    /**
-     * Get the title for an alarm by its ID.
-     */
-    fun getTitle(alarmId: Int): String {
-        return prefs.getString("$KEY_PREFIX$alarmId", "") ?: ""
-    }
+        /** Key prefix for a specific device: "alarm_title_58_2d_34_50_a0_81_<id>" */
+        private fun devicePrefix(mac: String) =
+            "alarm_title_${mac.lowercase().replace(":", "_")}_"
 
-    /**
-     * Set the title for an alarm by its ID.
-     */
-    fun setTitle(alarmId: Int, title: String) {
-        prefs.edit { putString("$KEY_PREFIX$alarmId", title) }
-    }
-
-    /**
-     * Delete the title for an alarm.
-     */
-    fun deleteTitle(alarmId: Int) {
-        prefs.edit { remove("$KEY_PREFIX$alarmId") }
-    }
-
-    /**
-     * Get all alarm titles.
-     * Returns a map of Alarm ID to Title.
-     */
-    fun getAllTitles(): Map<Int, String> {
-        val allEntries = prefs.all
-        val titles = mutableMapOf<Int, String>()
-        for ((key, value) in allEntries) {
-            if (key.startsWith(KEY_PREFIX) && value is String) {
-                try {
-                    val id = key.substring(KEY_PREFIX.length).toInt()
-                    titles[id] = value
-                } catch (_: NumberFormatException) {
-                    // Ignore invalid keys
+        /**
+         * One-time migration: copies legacy un-namespaced keys to the per-device namespace.
+         * Safe to call multiple times (idempotent).
+         */
+        fun migrateFromGlobal(context: Context, mac: String) {
+            val prefs = context.getSharedPreferences("alarm_titles_prefs", Context.MODE_PRIVATE)
+            val devPrefix = devicePrefix(mac)
+            val legacyEntries = prefs.all
+                .filter { (k, v) ->
+                    // Legacy keys are "alarm_title_<int>" — numeric suffix only
+                    if (!k.startsWith(LEGACY_PREFIX) || v !is String) return@filter false
+                    val suffix = k.removePrefix(LEGACY_PREFIX)
+                    suffix.toIntOrNull() != null
+                }
+            if (legacyEntries.isEmpty()) return
+            AppLogger.i(TAG, "Migrating ${legacyEntries.size} alarm titles for $mac")
+            prefs.edit {
+                for ((k, v) in legacyEntries) {
+                    val idPart = k.removePrefix(LEGACY_PREFIX)
+                    // Only migrate purely numeric IDs (legacy keys were "alarm_title_<int>")
+                    if (idPart.toIntOrNull() != null) {
+                        putString("$devPrefix$idPart", v as String)
+                        remove(k)
+                    }
                 }
             }
         }
-        return titles
+    }
+
+    private val prefix: String
+        get() = if (mac.isEmpty()) LEGACY_PREFIX else devicePrefix(mac)
+
+    fun getTitle(alarmId: Int): String =
+        prefs.getString("${prefix}$alarmId", "") ?: ""
+
+    fun setTitle(alarmId: Int, title: String) {
+        prefs.edit { putString("${prefix}$alarmId", title) }
+    }
+
+    fun deleteTitle(alarmId: Int) {
+        prefs.edit { remove("${prefix}$alarmId") }
+    }
+
+    /** Returns a map of alarm ID → title for this device. */
+    fun getAllTitles(): Map<Int, String> {
+        val result = mutableMapOf<Int, String>()
+        for ((key, value) in prefs.all) {
+            if (key.startsWith(prefix) && value is String) {
+                val idStr = key.removePrefix(prefix)
+                val id = idStr.toIntOrNull() ?: continue
+                result[id] = value
+            }
+        }
+        return result
     }
 }

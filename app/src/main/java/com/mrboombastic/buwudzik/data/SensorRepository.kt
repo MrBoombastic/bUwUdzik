@@ -5,23 +5,79 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
+import com.mrboombastic.buwudzik.utils.AppLogger
 
-class SensorRepository(private val context: Context) {
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences("sensor_prefs", Context.MODE_PRIVATE)
+/**
+ * Repository for caching the latest sensor reading.
+ * Keys are namespaced per-device using the MAC address so each device
+ * has its own independent cached reading.
+ *
+ * @param mac Device MAC address (used to namespace keys).
+ */
+class SensorRepository(private val context: Context, private val mac: String = "") {
 
     companion object {
-        private const val KEY_TEMP = "temp"
-        private const val KEY_HUMIDITY = "humidity"
-        private const val KEY_BATTERY = "battery"
-        private const val KEY_RSSI = "rssi"
-        private const val KEY_NAME = "name"
-        private const val KEY_MAC_ADDRESS = "mac_address"
-        private const val KEY_TIMESTAMP = "timestamp"
-        private const val KEY_HAS_ERROR = "has_error"
-        private const val KEY_IS_LOADING = "is_loading"
+        private const val TAG = "SensorRepository"
+        private const val PREFS_NAME = "sensor_prefs"
+
+        // Legacy (non-namespaced) key names
+        private const val LEGACY_KEY_TEMP = "temp"
+        private const val LEGACY_KEY_HUMIDITY = "humidity"
+        private const val LEGACY_KEY_BATTERY = "battery"
+        private const val LEGACY_KEY_RSSI = "rssi"
+        private const val LEGACY_KEY_NAME = "name"
+        private const val LEGACY_KEY_MAC = "mac_address"
+        private const val LEGACY_KEY_TIMESTAMP = "timestamp"
+        private const val LEGACY_KEY_HAS_ERROR = "has_error"
+        private const val LEGACY_KEY_IS_LOADING = "is_loading"
+
+        private fun prefix(mac: String): String =
+            if (mac.isEmpty()) "" else "${mac.lowercase().replace(":", "_")}_"
+
+        /**
+         * One-time migration: copies legacy un-namespaced sensor keys to the per-device
+         * namespace. Safe to call multiple times (idempotent).
+         */
+        fun migrateFromGlobal(context: Context, mac: String) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val p = prefix(mac)
+            // Only migrate if legacy keys exist and target keys are absent
+            if (!prefs.contains(LEGACY_KEY_TEMP)) return
+            if (prefs.contains("${p}temp")) return  // already migrated
+            AppLogger.i(TAG, "Migrating sensor data for $mac")
+            prefs.edit {
+                if (prefs.contains(LEGACY_KEY_TEMP))
+                    putFloat("${p}temp", prefs.getFloat(LEGACY_KEY_TEMP, 0f))
+                if (prefs.contains(LEGACY_KEY_HUMIDITY))
+                    putFloat("${p}humidity", prefs.getFloat(LEGACY_KEY_HUMIDITY, 0f))
+                if (prefs.contains(LEGACY_KEY_BATTERY))
+                    putInt("${p}battery", prefs.getInt(LEGACY_KEY_BATTERY, 0))
+                if (prefs.contains(LEGACY_KEY_RSSI))
+                    putInt("${p}rssi", prefs.getInt(LEGACY_KEY_RSSI, 0))
+                if (prefs.contains(LEGACY_KEY_NAME))
+                    putString("${p}name", prefs.getString(LEGACY_KEY_NAME, null))
+                if (prefs.contains(LEGACY_KEY_MAC))
+                    putString("${p}mac_address", prefs.getString(LEGACY_KEY_MAC, null))
+                if (prefs.contains(LEGACY_KEY_TIMESTAMP))
+                    putLong("${p}timestamp", prefs.getLong(LEGACY_KEY_TIMESTAMP, 0L))
+                if (prefs.contains(LEGACY_KEY_HAS_ERROR))
+                    putBoolean("${p}has_error", prefs.getBoolean(LEGACY_KEY_HAS_ERROR, false))
+                if (prefs.contains(LEGACY_KEY_IS_LOADING))
+                    putBoolean("${p}is_loading", prefs.getBoolean(LEGACY_KEY_IS_LOADING, false))
+                // Remove legacy flat keys
+                remove(LEGACY_KEY_TEMP); remove(LEGACY_KEY_HUMIDITY); remove(LEGACY_KEY_BATTERY)
+                remove(LEGACY_KEY_RSSI); remove(LEGACY_KEY_NAME); remove(LEGACY_KEY_MAC)
+                remove(LEGACY_KEY_TIMESTAMP); remove(LEGACY_KEY_HAS_ERROR); remove(
+                LEGACY_KEY_IS_LOADING
+            )
+            }
+        }
     }
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val p: String get() = prefix(mac)
 
     /**
      * Saves sensor data with battery level correction applied.
@@ -30,20 +86,26 @@ class SensorRepository(private val context: Context) {
      */
     fun saveSensorData(data: SensorData): SensorData {
         val settingsRepo = SettingsRepository(context)
-        val correctedBattery = BluetoothUtils.correctBatteryLevel(
-            data.battery, settingsRepo.batteryType
-        )
+        // batteryType comes from the active DeviceProfile; fall back to the app-level default
+        val batteryType = if (mac.isNotEmpty()) {
+            DeviceProfileRepository(context).getByMac(mac)?.batteryType
+                ?: settingsRepo.batteryType
+        } else {
+            settingsRepo.batteryType
+        }
+
+        val correctedBattery = BluetoothUtils.correctBatteryLevel(data.battery, batteryType)
         val correctedData = data.copy(battery = correctedBattery)
-        
+
         prefs.edit().apply {
-            putFloat(KEY_TEMP, correctedData.temperature.toFloat())
-            putFloat(KEY_HUMIDITY, correctedData.humidity.toFloat())
-            putInt(KEY_BATTERY, correctedData.battery)
-            putInt(KEY_RSSI, correctedData.rssi)
-            putString(KEY_NAME, correctedData.name)
-            putString(KEY_MAC_ADDRESS, correctedData.macAddress)
-            putLong(KEY_TIMESTAMP, System.currentTimeMillis())
-            putBoolean(KEY_HAS_ERROR, false)  // Clear error on successful data
+            putFloat("${p}temp", correctedData.temperature.toFloat())
+            putFloat("${p}humidity", correctedData.humidity.toFloat())
+            putInt("${p}battery", correctedData.battery)
+            putInt("${p}rssi", correctedData.rssi)
+            putString("${p}name", correctedData.name)
+            putString("${p}mac_address", correctedData.macAddress)
+            putLong("${p}timestamp", System.currentTimeMillis())
+            putBoolean("${p}has_error", false)
             commit()
         }
 
@@ -51,34 +113,28 @@ class SensorRepository(private val context: Context) {
     }
 
     fun getSensorData(): SensorData? {
-        if (!prefs.contains(KEY_TEMP)) return null
-        val temp = prefs.getFloat(KEY_TEMP, 0f).toDouble()
-        val humidity = prefs.getFloat(KEY_HUMIDITY, 0f).toDouble()
-        val battery = prefs.getInt(KEY_BATTERY, 0)
-        val rssi = prefs.getInt(KEY_RSSI, 0)
-        val name = prefs.getString(KEY_NAME, null)
-        val macAddress = prefs.getString(KEY_MAC_ADDRESS, "Unknown") ?: "Unknown"
-        val timestamp = prefs.getLong(KEY_TIMESTAMP, System.currentTimeMillis())
+        if (!prefs.contains("${p}temp")) return null
+        val temp = prefs.getFloat("${p}temp", 0f).toDouble()
+        val humidity = prefs.getFloat("${p}humidity", 0f).toDouble()
+        val battery = prefs.getInt("${p}battery", 0)
+        val rssi = prefs.getInt("${p}rssi", 0)
+        val name = prefs.getString("${p}name", null)
+        val macAddress = prefs.getString("${p}mac_address", "Unknown") ?: "Unknown"
+        val timestamp = prefs.getLong("${p}timestamp", System.currentTimeMillis())
         return SensorData(temp, humidity, battery, rssi, name, macAddress, timestamp)
     }
 
-    fun getLastUpdateTimestamp(): Long {
-        return prefs.getLong(KEY_TIMESTAMP, 0)
-    }
+    fun getLastUpdateTimestamp(): Long = prefs.getLong("${p}timestamp", 0)
 
-    fun hasUpdateError(): Boolean {
-        return prefs.getBoolean(KEY_HAS_ERROR, false)
-    }
+    fun hasUpdateError(): Boolean = prefs.getBoolean("${p}has_error", false)
 
     fun setUpdateError(hasError: Boolean) {
-        prefs.edit(commit = true) { putBoolean(KEY_HAS_ERROR, hasError) }
+        prefs.edit(commit = true) { putBoolean("${p}has_error", hasError) }
     }
 
-    fun isLoading(): Boolean {
-        return prefs.getBoolean(KEY_IS_LOADING, false)
-    }
+    fun isLoading(): Boolean = prefs.getBoolean("${p}is_loading", false)
 
     fun setLoading(loading: Boolean) {
-        prefs.edit(commit = true) { putBoolean(KEY_IS_LOADING, loading) }
+        prefs.edit(commit = true) { putBoolean("${p}is_loading", loading) }
     }
 }

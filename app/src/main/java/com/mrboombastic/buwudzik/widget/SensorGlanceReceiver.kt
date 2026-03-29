@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.utils.AppLogger
 
 class SensorGlanceReceiver : GlanceAppWidgetReceiver() {
@@ -13,33 +14,30 @@ class SensorGlanceReceiver : GlanceAppWidgetReceiver() {
         private const val TAG = "SensorGlanceReceiver"
     }
 
-    /**
-     * Called when the first widget is added.
-     * Schedule periodic updates using AlarmManager to ensure reliable widget updates.
-     * Note: This is only called once when the first widget is added, so creating a
-     * SettingsRepository instance here is acceptable.
-     */
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         AppLogger.d(TAG, "Widget enabled - scheduling periodic updates with AlarmManager")
-
         val settingsRepository = SettingsRepository(context)
         val intervalMinutes = settingsRepository.updateInterval
-
-        // Schedule periodic updates using AlarmManager for reliable widget updates
         WidgetUpdateScheduler.scheduleUpdates(context, intervalMinutes)
     }
 
-    /**
-     * Called when the last widget is removed.
-     * Cancel periodic updates to save battery since no widgets need updating.
-     * Note: This is only called once when the last widget is removed.
-     */
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         AppLogger.d(TAG, "Widget disabled - canceling periodic updates")
-
-        // Cancel AlarmManager updates
         WidgetUpdateScheduler.cancelUpdates(context)
+    }
+
+    /**
+     * Called when one or more widget instances are deleted.
+     * Cleans up the appWidgetId → MAC mapping.
+     */
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+        val widgetPrefs = WidgetPreferencesRepository(context)
+        for (id in appWidgetIds) {
+            AppLogger.d(TAG, "Widget $id deleted - removing MAC mapping")
+            widgetPrefs.removeWidget(id)
+        }
     }
 }

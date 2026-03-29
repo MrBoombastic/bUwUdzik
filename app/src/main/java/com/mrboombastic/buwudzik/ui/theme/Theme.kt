@@ -24,7 +24,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun BuwudzikTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
+    // minSdk 34 — Material 3 dynamic color always available on supported devices.
     dynamicColor: Boolean = true, content: @Composable () -> Unit
 ) {
     val colorScheme = when {
