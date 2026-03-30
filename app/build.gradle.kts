@@ -19,7 +19,7 @@ configure<ApplicationExtension> {
         minSdk = 34
         targetSdk = 36
         versionCode = 20
-        versionName = "1.7.2"
+        versionName = "1.7.3"
     }
 
     buildTypes {
