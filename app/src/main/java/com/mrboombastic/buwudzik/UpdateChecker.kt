@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.FileProvider
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -50,8 +51,12 @@ class UpdateChecker(private val context: Context) {
         private const val TAG = "UpdateChecker"
         private const val GITHUB_API_URL =
             "https://api.github.com/repos/MrBoombastic/bUwUdzik/releases/latest"
-        private const val NOTIFICATION_CHANNEL_ID = "update_download_channel_v2"
+
+        /** v3: DEFAULT importance so progress appears in the status bar / shade. */
+        private const val NOTIFICATION_CHANNEL_ID = "update_download_channel_v3"
         private const val NOTIFICATION_ID = 1001
+        private const val INDETERMINATE_NOTIFY_INTERVAL_MS = 750L
+        private const val INDETERMINATE_NOTIFY_MIN_BYTES = 256 * 1024L
     }
 
     private val client = HttpClient(CIO) {
@@ -74,7 +79,9 @@ class UpdateChecker(private val context: Context) {
 
             val latestVersion = release.tagName.removePrefix("v")
             val currentVersion =
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
+                context.packageManager
+                    .getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                    .versionName ?: "0.0.0"
 
             val updateAvailable = isNewerVersion(latestVersion, currentVersion)
             val downloadUrl =
@@ -112,12 +119,23 @@ class UpdateChecker(private val context: Context) {
 
             AppLogger.d(TAG, "Starting download from: $url")
 
+            showDownloadStartingNotification(notificationManager)
+
             client.prepareGet(url).execute { httpResponse ->
                 val contentLength = httpResponse.contentLength() ?: -1L
                 val channel = httpResponse.body<io.ktor.utils.io.ByteReadChannel>()
 
                 var downloadedBytes = 0L
                 val buffer = ByteArray(8192)
+                var lastIndeterminateNotifyBytes = 0L
+                var lastIndeterminateNotifyTime = 0L
+
+                if (contentLength > 0) {
+                    updateDownloadNotification(notificationManager, 0L, contentLength)
+                } else {
+                    updateIndeterminateDownloadNotification(notificationManager, 0L)
+                    lastIndeterminateNotifyTime = System.currentTimeMillis()
+                }
 
                 file.outputStream().use { outputStream ->
                     while (!channel.isClosedForRead) {
@@ -132,6 +150,18 @@ class UpdateChecker(private val context: Context) {
                                     downloadedBytes,
                                     contentLength
                                 )
+                            } else {
+                                val now = System.currentTimeMillis()
+                                if (downloadedBytes - lastIndeterminateNotifyBytes >= INDETERMINATE_NOTIFY_MIN_BYTES ||
+                                    now - lastIndeterminateNotifyTime >= INDETERMINATE_NOTIFY_INTERVAL_MS
+                                ) {
+                                    lastIndeterminateNotifyBytes = downloadedBytes
+                                    lastIndeterminateNotifyTime = now
+                                    updateIndeterminateDownloadNotification(
+                                        notificationManager,
+                                        downloadedBytes
+                                    )
+                                }
                             }
                         }
                     }
@@ -153,13 +183,50 @@ class UpdateChecker(private val context: Context) {
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             context.getString(R.string.update_download_channel_name),
-            NotificationManager.IMPORTANCE_LOW // LOW to avoid sound spam during progress updates
+            NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
             description = context.getString(R.string.update_download_channel_desc)
+            setShowBadge(true)
         }
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.createNotificationChannel(channel)
+    }
+
+    private fun applyProgressVisibility(builder: Notification.Builder): Notification.Builder {
+        builder.setCategory(Notification.CATEGORY_PROGRESS)
+        builder.setVisibility(Notification.VISIBILITY_PUBLIC)
+        return builder
+    }
+
+    private fun showDownloadStartingNotification(notificationManager: NotificationManager) {
+        val notification = applyProgressVisibility(createBaseNotificationBuilder())
+            .setContentTitle(context.getString(R.string.update_downloading_title))
+            .setContentText(context.getString(R.string.update_downloading_starting))
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .setProgress(0, 0, true)
+            .setOnlyAlertOnce(false)
+            .build()
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    private fun updateIndeterminateDownloadNotification(
+        notificationManager: NotificationManager,
+        downloadedBytes: Long
+    ) {
+        val downloadedMB = (downloadedBytes / 1024 / 1024).toInt().coerceAtLeast(0)
+        val notification = applyProgressVisibility(createBaseNotificationBuilder())
+            .setContentTitle(context.getString(R.string.update_downloading_title))
+            .setContentText(
+                context.getString(R.string.update_downloading_unknown_size, downloadedMB)
+            )
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .setProgress(0, 0, true)
+            .setOnlyAlertOnce(true)
+            .build()
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
     private fun updateDownloadNotification(
@@ -167,36 +234,46 @@ class UpdateChecker(private val context: Context) {
         downloadedBytes: Long,
         contentLength: Long
     ) {
-        val progress = downloadedBytes.toInt()
-        val totalBytes = contentLength.toInt()
-        val progressPercent = (downloadedBytes * 100 / contentLength).toInt()
-        val downloadedMB = downloadedBytes / 1024 / 1024
-        val totalMB = contentLength / 1024 / 1024
+        if (contentLength <= 0) return
+        val safeDownloaded = downloadedBytes.coerceIn(0L, contentLength)
+        val totalBytes = contentLength.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
+        // Notification APIs need Int progress; Long.toInt() truncates past Int.MAX_VALUE (wrong / negative).
+        val progressForBar = if (contentLength <= Int.MAX_VALUE.toLong()) {
+            safeDownloaded.toInt().coerceIn(0, totalBytes)
+        } else {
+            ((safeDownloaded * totalBytes.toLong()) / contentLength)
+                .toInt()
+                .coerceIn(0, totalBytes)
+        }
+        val progressPercent = ((safeDownloaded * 100L) / contentLength).toInt().coerceIn(0, 100)
+        val downloadedMB = (safeDownloaded / (1024L * 1024L)).toInt().coerceAtLeast(0)
+        val totalMB = (contentLength / (1024L * 1024L)).toInt().coerceAtLeast(0)
 
-        val notification = createBaseNotificationBuilder()
+        val builder = applyProgressVisibility(createBaseNotificationBuilder())
             .setContentTitle(context.getString(R.string.update_downloading_title))
             .setContentText(
                 context.getString(
                     R.string.update_downloading_progress,
                     progressPercent,
-                    downloadedMB.toInt(),
-                    totalMB.toInt()
+                    downloadedMB,
+                    totalMB
                 )
             )
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
 
+        // ProgressStyle is API 36 (BAKLAVA). minSdk 34 still includes 34–35 → classic progress.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            notification.style = Notification.ProgressStyle()
+            builder.style = Notification.ProgressStyle()
                 .setStyledByProgress(true)
-                .setProgress(progress)
+                .setProgress(progressForBar)
                 .setProgressSegments(listOf(Notification.ProgressStyle.Segment(totalBytes)))
         } else {
-            notification.setProgress(totalBytes, progress, false)
+            builder.setProgress(totalBytes, progressForBar, false)
         }
 
-        notificationManager.notify(NOTIFICATION_ID, notification.build())
+        notificationManager.notify(NOTIFICATION_ID, builder.build())
     }
 
     private fun showCompletionNotification(notificationManager: NotificationManager) {
@@ -220,7 +297,7 @@ class UpdateChecker(private val context: Context) {
     }
 
     /**
-     * Creates a base notification builder with common configuration.
+     * Creates a base notification builder with a common configuration.
      * This consolidates the channel ID and provides a single point
      * to add common notification properties in the future.
      */

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">clOwOck</string>
-    <string name="widget_description">显示设备的温度、湿度和电池状态。</string>
+    <string name="widget_description">显示设备的温度、湿度、名称和电池状态。</string>
     <string name="scanning_status">正在搜索所选设备…</string>
     <string name="battery_label">电池：%1$d%%</string>
     <string name="last_update_label">上次更新：%1$s</string>
@@ -8,8 +8,6 @@
     <string name="settings_desc">设置</string>
     <string name="settings_title">设置</string>
     <string name="back_desc">返回</string>
-    <string name="target_mac_label">目标MAC地址</string>
-    <string name="scan_devices_button">扫描设备</string>
     <string name="scan_mode_label">扫描模式</string>
     <string name="mode_low_power">低功耗</string>
     <string name="mode_balanced">平衡</string>
@@ -53,6 +51,9 @@
     <string name="update_download_channel_name">更新下载</string>
     <string name="update_download_channel_desc">更新下载进度通知</string>
     <string name="update_downloading_title">正在下载更新</string>
+    <string name="update_downloading_progress">%1$d%%（%2$d MB / %3$d MB）</string>
+    <string name="update_downloading_starting">正在开始下载…</string>
+    <string name="update_downloading_unknown_size">已下载 %1$d MB…</string>
     <string name="update_download_complete">下载完成</string>
     <string name="update_download_complete_desc">更新已下载。点击安装。</string>
     <string name="update_download_error">下载错误</string>
@@ -66,19 +67,20 @@
     <string name="setup_scanning">正在搜索设备…</string>
     <string name="setup_no_devices">未找到设备</string>
     <string name="setup_enable_bluetooth">请启用蓝牙</string>
-    <string name="setup_rescan">重新扫描</string>
+    <string name="setup_scan">扫描</string>
     <string name="setup_skip">暂时跳过</string>
+    <string name="setup_import_hint">已有其他手机上的二维码？在此使用。</string>
     <string name="setup_select_device">选择设备</string>
     <string name="manage_alarms_label">闹钟</string>
     <string name="add_alarm_desc">添加闹钟</string>
-    <string name="max_alarms_message">已达到最大闹钟数量（16个）。</string>
+    <string name="max_alarms_message">已达到最大闹钟数量。</string>
     <string name="cancel">取消</string>
     <string name="save">保存</string>
     <string name="error_prefix">错误：%1$s</string>
     <string name="updating_label">正在更新…</string>
     <string name="widget_tap_to_open">点击打开</string>
-    <string name="connect_to_device">连接到设备</string>
-    <string name="connecting_to_device">正在连接到设备…</string>
+    <string name="connect_to_device">连接</string>
+    <string name="connecting_to_device">正在连接…</string>
     <string name="disconnect">断开连接</string>
     <string name="device_settings_button">设备设置</string>
     <string name="set_time_2137">将时间设置为21:37</string>
@@ -174,7 +176,7 @@
     <string name="pair_and_connect">配对并连接</string>
     <string name="unpair_device">忘记</string>
     <string name="unpair_confirm_title">忘记设备？</string>
-    <string name="unpair_confirm_message">再次连接前需要重新配对时钟。</string>
+    <string name="unpair_confirm_message">再次连接前需要重新配对设备。</string>
     <string name="unpair_confirm">忘记</string>
     <string name="local_settings_header">本地设置</string>
     <string name="local_settings_description">这些设置保存在此手机上，而不是远程设备上。</string>
@@ -184,13 +186,11 @@
     <string name="import_qr_instruction">将相机对准二维码。</string>
     <string name="import_success">设备导入成功！</string>
     <string name="import_error">二维码无效</string>
-    <string name="no_device_to_share">没有已配对的设备可分享</string>
     <string name="share_device_button">分享</string>
     <string name="import_device_button">导入设备</string>
     <string name="camera_permission_required">需要相机权限才能扫描二维码。</string>
     <string name="widget_refresh_description">刷新传感器数据</string>
     <string name="auth_hint">您可能需要在设置中忘记设备，然后重新配对。</string>
-    <string name="invalid_mac_format">MAC地址格式无效（XX:XX:XX:XX:XX:XX）！</string>
     <string name="disconnect_reason_device_terminated">设备已终止连接。</string>
     <string name="disconnect_reason_timeout">连接超时。</string>
     <string name="disconnect_reason_link_lost">连接断开。</string>
@@ -206,5 +206,29 @@
     <string name="ringtone_base_url_json_note">有关自定义JSON清单，请参阅GitHub仓库中的设置说明。</string>
     <string name="no_ringtones_available">无可用铃声</string>
     <string name="check_repository_url">在设置中检查仓库URL或重试。</string>
+    <string name="my_devices_title">我的设备</string>
+    <string name="add_device_label">添加设备</string>
+    <string name="no_devices_message">未保存任何设备</string>
+    <string name="tap_plus_to_add">点按 + 添加第一台设备</string>
+    <string name="rename_device_title">重命名设备</string>
+    <string name="device_alias_label">设备名称</string>
+    <string name="delete_device_title">删除设备？</string>
+    <string name="delete_device_message">从本应用移除「%1$s」？实体设备不受影响。</string>
+    <string name="delete_confirm">删除</string>
+    <string name="select_devices_to_share">选择要分享的设备：</string>
+    <string name="no_devices_selected">请至少选择上方一台设备</string>
+    <string name="auth_token_label">身份验证令牌</string>
+    <string name="auth_token_hint">您可在 Home Assistant 等第三方集成中使用此令牌。</string>
+    <string name="copy_token_label">复制令牌</string>
+    <string name="token_copied">令牌已复制到剪贴板</string>
+    <string name="no_token_for_device">此设备未保存令牌。\n请先配对后再导出。</string>
+    <string name="manage_devices_label">管理设备</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">您的设备</string>
+    <string name="device_sheet_swipe_hint_title">提示</string>
+    <string name="device_sheet_swipe_hint_body">从屏幕底部向上滑动可切换设备，或点按上方芯片。</string>
+    <string name="device_sheet_swipe_hint_got_it">知道了</string>
+    <string name="widget_configure_title">选择小组件显示的设备</string>
+    <string name="widget_configure_subtitle">选择此小组件显示的设备：</string>
 </resources>
 

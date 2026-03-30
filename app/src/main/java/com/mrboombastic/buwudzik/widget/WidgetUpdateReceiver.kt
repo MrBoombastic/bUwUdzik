@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.mrboombastic.buwudzik.BuildConfig
 import com.mrboombastic.buwudzik.utils.AppLogger
 
 /**
@@ -16,13 +17,12 @@ class WidgetUpdateReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "WidgetUpdateReceiver"
-        const val ACTION_UPDATE_WIDGET = "com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET"
         // Use a unique work name to avoid conflicts with manual refresh (force_refresh=true)
         private const val PERIODIC_UPDATE_WORK_NAME = "SensorWidgetPeriodicUpdate"
     }
 
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action == ACTION_UPDATE_WIDGET) {
+        if (intent?.action == BuildConfig.WIDGET_UPDATE_ACTION) {
             AppLogger.d(TAG, "AlarmManager triggered widget update")
 
             // Enqueue a one-time work request to fetch sensor data

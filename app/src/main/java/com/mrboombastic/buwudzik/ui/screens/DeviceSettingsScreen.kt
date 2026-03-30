@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.Language
 import com.mrboombastic.buwudzik.device.TempUnit
@@ -63,8 +64,9 @@ import kotlinx.coroutines.launch
 fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel) {
     val context = LocalContext.current
     val appContext = context.applicationContext
-    val repository = remember { SettingsRepository(context) }
-    var batteryType by remember { mutableStateOf(repository.batteryType) }
+    remember { SettingsRepository(context) }
+    val activeProfile by viewModel.activeDevice.collectAsState()
+    var batteryType by remember { mutableStateOf(BatteryType.ALKALINE) }
 
     val settings by viewModel.deviceSettings.collectAsState()
     val isBusy by viewModel.qpController.isBusy.collectAsState()
@@ -90,6 +92,10 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
             )
             errorMessage = null
         }
+    }
+
+    LaunchedEffect(activeProfile?.mac) {
+        batteryType = activeProfile?.batteryType ?: BatteryType.ALKALINE
     }
 
     Scaffold(
@@ -198,8 +204,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 Spacer(Modifier.height(8.dp))
 
                 val batteryTypes = mapOf(
-                    "alkaline" to stringResource(R.string.battery_alkaline),
-                    "nimh" to stringResource(R.string.battery_nimh)
+                    BatteryType.ALKALINE to stringResource(R.string.battery_alkaline),
+                    BatteryType.NIMH to stringResource(R.string.battery_nimh)
                 )
 
                 SettingsDropdown(
@@ -208,8 +214,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                     label = stringResource(R.string.battery_type_label),
                     onValueChange = { type ->
                         batteryType = type
-                        repository.batteryType = type
-                        // Force refresh of sensor data correction if needed, but repository update is enough for next scan
+                        activeProfile?.mac?.let { viewModel.updateDeviceBatteryType(it, type) }
                     })
 
                 HorizontalDivider(Modifier.padding(vertical = 16.dp))

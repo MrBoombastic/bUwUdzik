@@ -9,5 +9,6 @@
         android:previewLayout="@layout/widget_preview"
     android:resizeMode="horizontal|vertical"
         android:widgetCategory="home_screen"
-        android:description="@string/widget_description">
+        android:description="@string/widget_description"
+        android:configure="com.mrboombastic.buwudzik.widget.WidgetConfigureActivity">
 </appwidget-provider>

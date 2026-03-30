@@ -64,7 +64,7 @@ class BluetoothScanner(private val context: Context) {
             return@callbackFlow
         }
 
-        // Validate MAC address before using it in filter.
+        // Validate MAC address before using it in a filter.
         if (targetAddress != null && !BluetoothAdapter.checkBluetoothAddress(targetAddress)) {
             AppLogger.e(
                 "BluetoothScanner",
@@ -113,7 +113,7 @@ class BluetoothScanner(private val context: Context) {
         val filters = listOf(
             ScanFilter.Builder()
                 .apply {
-                    // Set device address
+                    // Set the device address
                     if (targetAddress != null) {
                         setDeviceAddress(targetAddress)
                     }

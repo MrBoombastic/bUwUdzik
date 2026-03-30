@@ -84,7 +84,7 @@ private const val TAG = "AudioTrimmer"
 
 
 /**
- * Extract waveform amplitudes from audio file for visualization.
+ * Extract waveform amplitudes from an audio file for visualization.
  * Uses fewer samples for longer files to keep performance good.
  */
 suspend fun extractWaveform(
@@ -278,14 +278,14 @@ fun AudioTrimmerDialog(
     // Text input state
     var startTimeText by remember { mutableStateOf("0:00") }
 
-    // Max duration based on 98KB limit at 8kHz
+    // Max duration based on a 98 KB limit at 8kHz
     val maxDurationMs =
         ((MAX_OUTPUT_SIZE - AudioConverter.PADDING_BOUNDARY).toFloat() / AudioConverter.SAMPLE_RATE * 1000).toLong()
 
     // User-adjustable duration (1s to max)
     var userDurationMs by remember { mutableLongStateOf(maxDurationMs) }
 
-    // Calculate actual selection duration (capped by file length and user choice)
+    // Calculate the actual selection duration (capped by file length and user choice)
     val selectionDurationMs =
         min(userDurationMs, min(maxDurationMs, totalDurationMs - selectionStartMs)).coerceAtLeast(
             200L
@@ -299,7 +299,7 @@ fun AudioTrimmerDialog(
     val estimatedSize = rawSize + paddingNeeded
     val isValidSize = estimatedSize <= MAX_OUTPUT_SIZE && selectionDurationMs > 0
 
-    // Cleanup media player on dispose
+    // Cleanup media player on disposal
     DisposableEffect(Unit) {
         onDispose {
             mediaPlayer?.release()
@@ -347,7 +347,7 @@ fun AudioTrimmerDialog(
                         )
                 }
 
-                // Stop when reaching end of selection
+                // Stop when reaching the end of selection
                 if (currentPos >= selectionEndMs) {
                     isPlaying = false
                     mp.pause()
@@ -519,7 +519,7 @@ fun AudioTrimmerDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Waveform with fixed selection window
+                // Waveform with a fixed selection window
                 waveform?.let { wf ->
                     Text(
                         text = stringResource(R.string.drag_to_adjust_hint),
@@ -702,7 +702,7 @@ private fun ScrollableWaveformView(
 
     LocalDensity.current
 
-    // Use rememberUpdatedState to get current value in gesture callbacks
+    // Use rememberUpdatedState to get the current value in gesture callbacks
     val currentSelectionStartMs by androidx.compose.runtime.rememberUpdatedState(selectionStartMs)
 
     Box(

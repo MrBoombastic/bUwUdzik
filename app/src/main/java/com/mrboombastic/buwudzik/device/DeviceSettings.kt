@@ -60,7 +60,7 @@ data class DeviceSettings(
      * Get the ringtone name. Returns null for custom ringtones - caller should use localized string.
      */
     fun getRingtoneName(): String? {
-        // Check for custom slots first - return null so caller can use localized string
+        // Check for custom slots first - return null so the caller can use localized string
         if (BleConstants.isCustomSlot(ringtoneSignature)) return null
         // Then check standard ringtones
         return BleConstants.RINGTONE_SIGNATURES.entries.find {

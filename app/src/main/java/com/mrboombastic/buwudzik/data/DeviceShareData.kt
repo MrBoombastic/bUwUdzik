@@ -14,7 +14,7 @@ data class DeviceShareData(
     val version: Int = 1,           // For future compatibility
     val mac: String,
     val token: String,
-    val batteryType: String,
+    val batteryType: String = BatteryType.ALKALINE,
     val alarmTitles: Map<Int, String> = emptyMap()
 ) {
     companion object {

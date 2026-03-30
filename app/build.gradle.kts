@@ -18,8 +18,35 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.7.3"
+        versionCode = 22
+        versionName = "1.8.0"
+        buildConfigField(
+            "String",
+            "WIDGET_UPDATE_ACTION",
+            "\"com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET\""
+        )
+        manifestPlaceholders["widgetUpdateAction"] =
+            "com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("stable") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("beta") {
+            dimension = "distribution"
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+            buildConfigField(
+                "String",
+                "WIDGET_UPDATE_ACTION",
+                "\"com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET\""
+            )
+            manifestPlaceholders["widgetUpdateAction"] =
+                "com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET"
+        }
     }
 
     buildTypes {
@@ -68,6 +95,7 @@ dependencies {
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
+    implementation(libs.guava.android)
     implementation(libs.androidx.compose.material3)
     debugImplementation(libs.androidx.ui.tooling)
 }

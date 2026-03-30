@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.mrboombastic.buwudzik.BuildConfig
 import com.mrboombastic.buwudzik.utils.AppLogger
 
 /**
@@ -98,7 +99,7 @@ object WidgetUpdateScheduler {
      */
     private fun createUpdatePendingIntent(context: Context): PendingIntent {
         val intent = Intent(context, WidgetUpdateReceiver::class.java).apply {
-            action = WidgetUpdateReceiver.ACTION_UPDATE_WIDGET
+            action = BuildConfig.WIDGET_UPDATE_ACTION
         }
 
         return PendingIntent.getBroadcast(

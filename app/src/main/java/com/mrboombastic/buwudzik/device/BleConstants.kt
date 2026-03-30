@@ -58,7 +58,7 @@ object BleConstants {
     }
 
     /**
-     * Check if signature is a custom slot (for i18n - caller should use localized string)
+     * Check if the signature is a custom slot (for i18n - caller should use localized string)
      */
     fun isCustomSlot(signature: ByteArray): Boolean {
         return signature.contentEquals(CUSTOM_RINGTONE_SLOT_1) || signature.contentEquals(

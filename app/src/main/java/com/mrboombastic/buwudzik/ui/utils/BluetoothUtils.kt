@@ -4,6 +4,7 @@ import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
+import com.mrboombastic.buwudzik.data.BatteryType
 
 /**
  * Bluetooth-related utility functions to avoid code duplication
@@ -46,12 +47,12 @@ object BluetoothUtils {
     }
 
     /**
-     * Correct battery percentage based on battery type.
+     * Correct battery percentage based on a battery type.
      * Alkaline (default): Use raw percentage (0-100)
      * NiMH: Scale 80% to 100% roughly (as 1.2V nominal reads lower on 1.5V curve)
      */
     fun correctBatteryLevel(rawPercentage: Int, batteryType: String): Int {
-        return if (batteryType == "nimh") {
+        return if (batteryType == BatteryType.NIMH) {
             // Simple heuristic: NiMH fully charged (~1.4V) might read as ~80% on a device expecting 1.6V+
             // Scale up by 1.25x, capped at 100%
             minOf(100, (rawPercentage * 1.25).toInt())

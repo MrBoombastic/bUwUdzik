@@ -3,11 +3,12 @@ package com.mrboombastic.buwudzik.widget
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanSettings
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.flow.first
@@ -28,60 +29,89 @@ class SensorUpdateWorker(
     override suspend fun doWork(): Result {
         AppLogger.d(TAG, "Starting background scan (attempt ${runAttemptCount + 1})...")
 
-        val repository = SensorRepository(applicationContext)
         val settingsRepository = SettingsRepository(applicationContext)
         val intervalMinutes = settingsRepository.updateInterval
-
-        // Check if this is a forced refresh (user pressed button) - skip cache check on first attempt only
         val forceRefresh = inputData.getBoolean("force_refresh", false)
-        val isRetry = runAttemptCount > 0
 
-        // Check if we have fresh data already (from foreground app)
+        val widgetPrefs = WidgetPreferencesRepository(applicationContext)
+        val uniqueMacs = widgetPrefs.getAllWidgetMacs().values.toSet()
+        val profileRepo = DeviceProfileRepository(applicationContext)
+        val activeMac = profileRepo.getActiveDeviceId()
+
+        val macsToClearLoading = when {
+            uniqueMacs.isNotEmpty() -> uniqueMacs
+            activeMac != null -> setOf(activeMac)
+            else -> emptySet()
+        }
+
+        return try {
+            if (uniqueMacs.isEmpty()) {
+                if (activeMac != null) {
+                    val result = scanDevice(activeMac, forceRefresh, profileRepo)
+                    updateWidget(result != Result.success(), intervalMinutes)
+                    result
+                } else {
+                    AppLogger.d(TAG, "No widgets or active device configured, skipping scan")
+                    updateWidget(hasError = false, intervalMinutes = intervalMinutes)
+                    Result.success()
+                }
+            } else {
+                var anyError = false
+                for (mac in uniqueMacs) {
+                    val r = scanDevice(mac, forceRefresh, profileRepo)
+                    if (r != Result.success()) anyError = true
+                }
+                updateWidget(hasError = anyError, intervalMinutes = intervalMinutes)
+                if (anyError && runAttemptCount < MAX_RETRY_ATTEMPTS) Result.retry()
+                else Result.success()
+            }
+        } finally {
+            macsToClearLoading.forEach { mac ->
+                SensorRepository(applicationContext, mac, profileRepo).setLoading(false)
+            }
+        }
+    }
+
+    private suspend fun scanDevice(
+        mac: String,
+        forceRefresh: Boolean,
+        profileRepo: DeviceProfileRepository
+    ): Result {
+        val repository = SensorRepository(applicationContext, mac, profileRepo)
+
         val lastUpdate = repository.getLastUpdateTimestamp()
         val dataAge = System.currentTimeMillis() - lastUpdate
         val shouldSkipScan = dataAge < FRESH_DATA_THRESHOLD_MS && lastUpdate > 0
 
-        if (shouldSkipScan && (!forceRefresh || isRetry)) {
-            AppLogger.d(TAG, "Data is fresh (${dataAge}ms old), skipping scan and updating widget")
-            updateWidget(hasError = false, intervalMinutes = intervalMinutes)
+        if (shouldSkipScan && !forceRefresh) {
+            AppLogger.d(TAG, "[$mac] Data is fresh (${dataAge}ms old), skipping scan")
             return Result.success()
-        }
-
-        if (forceRefresh && !isRetry) {
-            AppLogger.d(TAG, "Force refresh requested, bypassing cache check")
         }
 
         val bluetoothManager =
             applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        if (bluetoothManager?.adapter == null) {
-            AppLogger.e(TAG, "Bluetooth adapter not available.")
-            updateWidget(hasError = true, intervalMinutes = intervalMinutes)
+        if (bluetoothManager?.adapter?.isEnabled != true) {
+            AppLogger.w(TAG, "[$mac] Bluetooth unavailable")
             return Result.failure()
         }
 
-        if (!com.mrboombastic.buwudzik.ui.utils.BluetoothUtils.hasBluetoothPermissions(applicationContext)) {
-            AppLogger.w(TAG, "Missing Bluetooth permissions for background scan.")
-            updateWidget(hasError = true, intervalMinutes = intervalMinutes)
+        if (!com.mrboombastic.buwudzik.ui.utils.BluetoothUtils.hasBluetoothPermissions(
+                applicationContext
+            )
+        ) {
+            AppLogger.w(TAG, "[$mac] Missing Bluetooth permissions")
             return Result.success()
         }
 
-        if (!bluetoothManager.adapter.isEnabled) {
-            AppLogger.w(TAG, "Bluetooth is disabled. Showing error indicator.")
-            updateWidget(hasError = true, intervalMinutes = intervalMinutes)
-            return Result.success()  // Don't fail, just show error
-        }
-
         val scanner = BluetoothScanner(applicationContext)
-        val targetMac = settingsRepository.targetMacAddress
-        // Use LOW_LATENCY for manual refreshes, BALANCED for periodic background updates
         val scanMode =
             if (forceRefresh) ScanSettings.SCAN_MODE_LOW_LATENCY else ScanSettings.SCAN_MODE_BALANCED
 
         val result = withTimeoutOrNull(SCAN_TIMEOUT_MS) {
             try {
-                scanner.scan(targetMac, scanMode).first()
+                scanner.scan(mac, scanMode).first()
             } catch (e: Exception) {
-                AppLogger.e(TAG, "Error during scan", e)
+                AppLogger.e(TAG, "[$mac] Error during scan", e)
                 null
             }
         }
@@ -89,52 +119,24 @@ class SensorUpdateWorker(
         return if (result != null) {
             AppLogger.d(
                 TAG,
-                "Got data: temp=${result.temperature}°C, humidity=${result.humidity}%, battery=${result.battery}%"
+                "[$mac] Got data: temp=${result.temperature}°C, humidity=${result.humidity}%"
             )
             repository.saveSensorData(result)
-            updateWidget(hasError = false, intervalMinutes = intervalMinutes)  // Success - clear any error indicator
             Result.success()
         } else {
-            AppLogger.w(TAG, "No sensor data received within timeout (device may be out of range).")
-
-            // Check again if data arrived from foreground while we were scanning
-            val freshLastUpdate = repository.getLastUpdateTimestamp()
-            if (freshLastUpdate > lastUpdate) {
-                AppLogger.d(TAG, "Fresh data arrived during scan, updating widget")
-                updateWidget(hasError = false, intervalMinutes = intervalMinutes)
-                return Result.success()
-            }
-
-            // Retry if we haven't exceeded max attempts
-            if (runAttemptCount < MAX_RETRY_ATTEMPTS) {
-                AppLogger.d(
-                    TAG,
-                    "Will retry (attempt ${runAttemptCount + 1} of $MAX_RETRY_ATTEMPTS)"
-                )
-                Result.retry()
-            } else {
-                AppLogger.w(TAG, "Max retry attempts reached. Device appears unreachable.")
-                updateWidget(hasError = true, intervalMinutes = intervalMinutes)  // Show error indicator after all retries failed
-                Result.success()  // Return success to keep periodic work scheduled
+            AppLogger.w(TAG, "[$mac] No data received within timeout")
+            if (runAttemptCount < MAX_RETRY_ATTEMPTS) Result.retry() else {
+                repository.setUpdateError(true)
+                Result.success()
             }
         }
     }
 
     private suspend fun updateWidget(hasError: Boolean, intervalMinutes: Long) {
         try {
-            // Store error and loading state in repository for Glance widget
-            val repository = SensorRepository(applicationContext)
-            repository.setUpdateError(hasError)
-            repository.setLoading(false)  // Clear loading state
-
-            // Update Glance widget
-            AppLogger.d(TAG, "Updating Glance widget, hasError=$hasError")
-            SensorGlanceWidget().updateAll(applicationContext)
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Failed to update widget", e)
+            AppLogger.d(TAG, "Updating all Glance widgets, hasError=$hasError")
+            SensorWidgetRefresher.updateAll(applicationContext)
         } finally {
-            // Reschedule the next alarm-based update
-            // This ensures continuous updates at the configured interval
             WidgetUpdateScheduler.scheduleUpdates(applicationContext, intervalMinutes)
         }
     }

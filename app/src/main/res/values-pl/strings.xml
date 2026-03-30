@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">bUwUdzik</string>
-    <string name="widget_description">Wyświetla temperaturę, wilgotność i stan baterii z Twojego urządzenia.</string>
+    <string name="widget_description">Wyświetla temperaturę, wilgotność, nazwę i stan baterii z Twojego urządzenia.</string>
     <string name="scanning_status">Szukam wybranego urządzenia…</string>
     <string name="battery_label">Bateria: %1$d%%</string>
     <string name="last_update_label">Ostatnia aktualizacja: %1$s</string>
@@ -8,8 +8,6 @@
     <string name="settings_desc">Ustawienia</string>
     <string name="settings_title">Ustawienia</string>
     <string name="back_desc">Wstecz</string>
-    <string name="target_mac_label">Docelowy adres MAC</string>
-    <string name="scan_devices_button">Skanuj urządzenia</string>
     <string name="scan_mode_label">Tryb skanowania</string>
     <string name="mode_low_power">oszczędzanie energii</string>
     <string name="mode_balanced">zrównoważony</string>
@@ -53,6 +51,9 @@
     <string name="update_download_channel_name">Pobieranie aktualizacji</string>
     <string name="update_download_channel_desc">Powiadomienia o postępie pobierania aktualizacji</string>
     <string name="update_downloading_title">Pobieranie aktualizacji</string>
+    <string name="update_downloading_progress">%1$d%% (%2$d MB / %3$d MB)</string>
+    <string name="update_downloading_starting">Rozpoczynanie pobierania…</string>
+    <string name="update_downloading_unknown_size">Pobrano %1$d MB…</string>
     <string name="update_download_complete">Pobieranie zakończone</string>
     <string name="update_download_complete_desc">Aktualizacja została pobrana. Kliknij, aby zainstalować.</string>
     <string name="update_download_error">Błąd pobierania</string>
@@ -66,19 +67,20 @@
     <string name="setup_scanning">Skanowanie urządzeń…</string>
     <string name="setup_no_devices">Nie znaleziono urządzeń</string>
     <string name="setup_enable_bluetooth">Włącz Bluetooth</string>
-    <string name="setup_rescan">Skanuj ponownie</string>
+    <string name="setup_scan">Skanuj</string>
     <string name="setup_skip">Pomiń</string>
+    <string name="setup_import_hint">Masz już kod QR z innego telefonu? Użyj go tutaj.</string>
     <string name="setup_select_device">Wybierz urządzenie</string>
     <string name="manage_alarms_label">Alarmy</string>
     <string name="add_alarm_desc">Dodaj budzik</string>
-    <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików (16).</string>
+    <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików.</string>
     <string name="cancel">Anuluj</string>
     <string name="save">Zapisz</string>
     <string name="error_prefix">Błąd: %1$s</string>
     <string name="updating_label">Aktualizowanie…</string>
     <string name="widget_tap_to_open">Stuknij, aby otworzyć</string>
-    <string name="connect_to_device">Połącz się z urządzeniem</string>
-    <string name="connecting_to_device">Łączenie z urządzeniem…</string>
+    <string name="connect_to_device">Połącz</string>
+    <string name="connecting_to_device">Łączenie…</string>
     <string name="disconnect">Rozłącz</string>
     <string name="device_settings_button">Ustawienia urządzenia</string>
     <string name="set_time_2137">Ustaw czas na 21:37</string>
@@ -177,7 +179,6 @@
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
     <string name="import_error">Nieprawidłowy kod QR</string>
-    <string name="no_device_to_share">Brak sparowanego urządzenia do udostępnienia</string>
     <string name="share_device_button">Udostępnij</string>
     <string name="import_device_button">Importuj urządzenie</string>
     <string name="camera_permission_required">Wymagane jest uprawnienie do aparatu, aby skanować kody QR.</string>
@@ -190,7 +191,6 @@
     <string name="content_desc_fast_forward">Przeskocz wprzód</string>
     <string name="widget_refresh_description">Odśwież dane z czujników</string>
     <string name="auth_hint">Może być konieczne zapomnienie urządzenia w ustawieniach, a następnie ponowne sparowanie.</string>
-    <string name="invalid_mac_format">Nieprawidłowy format adresu MAC (XX:XX:XX:XX:XX:XX)!</string>
     <string name="disconnect_reason_device_terminated">Urządzenie zakończyło połączenie.</string>
     <string name="disconnect_reason_timeout">Limit czasu połączenia.</string>
     <string name="disconnect_reason_link_lost">Utracono połączenie.</string>
@@ -206,4 +206,28 @@
     <string name="ringtone_base_url_json_note">W celu utworzenia niestandardowego manifestu JSON, zobacz instrukcje w repozytorium GitHub.</string>
     <string name="no_ringtones_available">Brak dostępnych dzwonków</string>
     <string name="check_repository_url">Sprawdź adres URL repozytorium w ustawieniach lub spróbuj ponownie później.</string>
+    <string name="my_devices_title">Moje urządzenia</string>
+    <string name="add_device_label">Dodaj urządzenie</string>
+    <string name="no_devices_message">Brak zapisanych urządzeń</string>
+    <string name="tap_plus_to_add">Stuknij +, aby dodać pierwsze urządzenie</string>
+    <string name="rename_device_title">Zmień nazwę urządzenia</string>
+    <string name="device_alias_label">Nazwa urządzenia</string>
+    <string name="delete_device_title">Usunąć urządzenie?</string>
+    <string name="delete_device_message">Usunąć „%1$s” z tej aplikacji? Fizyczne urządzenie nie zostanie zmienione.</string>
+    <string name="delete_confirm">Usuń</string>
+    <string name="select_devices_to_share">Wybierz urządzenia do udostępnienia:</string>
+    <string name="no_devices_selected">Wybierz co najmniej jedno urządzenie powyżej</string>
+    <string name="auth_token_label">Token uwierzytelniania</string>
+    <string name="auth_token_hint">Możesz użyć tego tokenu w integracjach zewnętrznych, np. Home Assistant.</string>
+    <string name="copy_token_label">Kopiuj token</string>
+    <string name="token_copied">Token skopiowany do schowka</string>
+    <string name="no_token_for_device">Brak zapisanego tokenu dla tego urządzenia.\nNajpierw sparuj je, aby wyeksportować.</string>
+    <string name="manage_devices_label">Zarządzaj urządzeniami</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">Twoje urządzenia</string>
+    <string name="device_sheet_swipe_hint_title">Wskazówka</string>
+    <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu, aby zmienić urządzenie, albo stuknij nazwę powyżej.</string>
+    <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>
+    <string name="widget_configure_title">Wybierz urządzenie dla widżetu</string>
+    <string name="widget_configure_subtitle">Wybierz urządzenie wyświetlane przez ten widżet:</string>
 </resources>

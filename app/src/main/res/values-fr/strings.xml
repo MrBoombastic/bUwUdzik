@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">clOwOck</string>
-    <string name="widget_description">Affiche la température, l\'humidité et l\'état de la batterie de votre appareil.</string>
+    <string name="widget_description">Affiche la température, l\'humidité, le nom et l\'état de la batterie de votre appareil.</string>
     <string name="scanning_status">Recherche de l\'appareil sélectionné…</string>
     <string name="battery_label">Batterie : %1$d%%</string>
     <string name="last_update_label">Dernière mise à jour : %1$s</string>
@@ -8,8 +8,6 @@
     <string name="settings_desc">Paramètres</string>
     <string name="settings_title">Paramètres</string>
     <string name="back_desc">Retour</string>
-    <string name="target_mac_label">Adresse MAC cible</string>
-    <string name="scan_devices_button">Scanner les appareils</string>
     <string name="scan_mode_label">Mode de scan</string>
     <string name="mode_low_power">faible consommation</string>
     <string name="mode_balanced">équilibré</string>
@@ -53,6 +51,9 @@
     <string name="update_download_channel_name">Téléchargement de mise à jour</string>
     <string name="update_download_channel_desc">Notifications de progression du téléchargement de mise à jour</string>
     <string name="update_downloading_title">Téléchargement de la mise à jour</string>
+    <string name="update_downloading_progress">%1$d %% (%2$d Mo / %3$d Mo)</string>
+    <string name="update_downloading_starting">Démarrage du téléchargement…</string>
+    <string name="update_downloading_unknown_size">%1$d Mo téléchargés…</string>
     <string name="update_download_complete">Téléchargement terminé</string>
     <string name="update_download_complete_desc">Mise à jour téléchargée. Appuyez pour installer.</string>
     <string name="update_download_error">Erreur de téléchargement</string>
@@ -66,19 +67,20 @@
     <string name="setup_scanning">Recherche d\'appareils…</string>
     <string name="setup_no_devices">Aucun appareil trouvé</string>
     <string name="setup_enable_bluetooth">Veuillez activer le Bluetooth</string>
-    <string name="setup_rescan">Scanner à nouveau</string>
+    <string name="setup_scan">Scanner</string>
     <string name="setup_skip">Passer pour l\'instant</string>
+    <string name="setup_import_hint">Vous avez déjà un code QR depuis un autre téléphone ? Utilisez-le ici.</string>
     <string name="setup_select_device">Sélectionner l\'appareil</string>
     <string name="manage_alarms_label">Alarmes</string>
     <string name="add_alarm_desc">Ajouter une alarme</string>
-    <string name="max_alarms_message">Nombre maximum d\'alarmes (16) atteint.</string>
+    <string name="max_alarms_message">Nombre maximum d\'alarmes atteint.</string>
     <string name="cancel">Annuler</string>
     <string name="save">Enregistrer</string>
     <string name="error_prefix">Erreur : %1$s</string>
     <string name="updating_label">Mise à jour…</string>
     <string name="widget_tap_to_open">Appuyez pour ouvrir</string>
-    <string name="connect_to_device">Se connecter à l\'appareil</string>
-    <string name="connecting_to_device">Connexion à l\'appareil…</string>
+    <string name="connect_to_device">Connecter</string>
+    <string name="connecting_to_device">Connexion…</string>
     <string name="disconnect">Déconnecter</string>
     <string name="device_settings_button">Paramètres de l\'appareil</string>
     <string name="set_time_2137">Régler l\'heure à 21:37</string>
@@ -174,7 +176,7 @@
     <string name="pair_and_connect">Jumeler et connecter</string>
     <string name="unpair_device">Oublier</string>
     <string name="unpair_confirm_title">Oublier l\'appareil ?</string>
-    <string name="unpair_confirm_message">Vous devrez jumeler à nouveau l\'horloge avant de vous reconnecter.</string>
+    <string name="unpair_confirm_message">Vous devrez jumeler à nouveau l\'appareil avant de vous reconnecter.</string>
     <string name="unpair_confirm">Oublier</string>
     <string name="local_settings_header">Paramètres locaux</string>
     <string name="local_settings_description">Ces paramètres sont enregistrés sur ce téléphone, pas sur l\'appareil distant.</string>
@@ -184,13 +186,11 @@
     <string name="import_qr_instruction">Pointez la caméra vers le code QR</string>
     <string name="import_success">Appareil importé avec succès !</string>
     <string name="import_error">Code QR invalide</string>
-    <string name="no_device_to_share">Aucun appareil jumelé à partager</string>
     <string name="share_device_button">Partager</string>
     <string name="import_device_button">Importer l\'appareil</string>
     <string name="camera_permission_required">L\'autorisation de la caméra est requise pour scanner les codes QR.</string>
     <string name="widget_refresh_description">Actualiser les données du capteur</string>
     <string name="auth_hint">Vous devrez peut-être oublier l\'appareil dans les paramètres, puis le jumeler à nouveau.</string>
-    <string name="invalid_mac_format">Format d\'adresse MAC invalide (XX:XX:XX:XX:XX:XX) !</string>
     <string name="disconnect_reason_device_terminated">L\'appareil a terminé la connexion.</string>
     <string name="disconnect_reason_timeout">Délai de connexion dépassé.</string>
     <string name="disconnect_reason_link_lost">Liaison perdue.</string>
@@ -206,5 +206,29 @@
     <string name="ringtone_base_url_json_note">Pour les manifestes JSON personnalisés, consultez les instructions de configuration dans le dépôt GitHub.</string>
     <string name="no_ringtones_available">Aucune sonnerie disponible</string>
     <string name="check_repository_url">Vérifiez l\'URL du dépôt dans les paramètres ou réessayez.</string>
+    <string name="my_devices_title">Mes appareils</string>
+    <string name="add_device_label">Ajouter un appareil</string>
+    <string name="no_devices_message">Aucun appareil enregistré</string>
+    <string name="tap_plus_to_add">Appuyez sur + pour ajouter votre premier appareil</string>
+    <string name="rename_device_title">Renommer l\'appareil</string>
+    <string name="device_alias_label">Nom de l\'appareil</string>
+    <string name="delete_device_title">Supprimer l\'appareil ?</string>
+    <string name="delete_device_message">Retirer « %1$s » de cette application ? L\'appareil physique ne sera pas affecté.</string>
+    <string name="delete_confirm">Supprimer</string>
+    <string name="select_devices_to_share">Sélectionnez les appareils à partager :</string>
+    <string name="no_devices_selected">Sélectionnez au moins un appareil ci-dessus</string>
+    <string name="auth_token_label">Jeton d\'authentification</string>
+    <string name="auth_token_hint">Vous pouvez utiliser ce jeton dans des intégrations tierces comme Home Assistant.</string>
+    <string name="copy_token_label">Copier le jeton</string>
+    <string name="token_copied">Jeton copié dans le presse-papiers</string>
+    <string name="no_token_for_device">Aucun jeton enregistré pour cet appareil.\nAssociez-le d\'abord pour l\'exporter.</string>
+    <string name="manage_devices_label">Gérer les appareils</string>
+    <string name="active_device_label">%1$s</string>
+    <string name="switch_device_sheet_title">Vos appareils</string>
+    <string name="device_sheet_swipe_hint_title">Astuce</string>
+    <string name="device_sheet_swipe_hint_body">Glissez vers le haut depuis le bas de l\'écran pour changer d\'appareil, ou appuyez sur la puce ci-dessus.</string>
+    <string name="device_sheet_swipe_hint_got_it">Compris</string>
+    <string name="widget_configure_title">Choisir l\'appareil pour le widget</string>
+    <string name="widget_configure_subtitle">Sélectionnez l\'appareil affiché par ce widget :</string>
 </resources>
 

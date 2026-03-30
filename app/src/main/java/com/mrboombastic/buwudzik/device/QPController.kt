@@ -64,7 +64,7 @@ class QPController(private val context: Context) {
     val isBusy = _isBusy.asStateFlow()
 
     init {
-        // Launch command consumer on separate scope that won't be canceled
+        // Launch command consumer on a separate scope that won't be canceled
         commandConsumerScope.launch {
             for (command in commandChannel) {
                 if (!isAuthenticated) {
@@ -113,7 +113,7 @@ class QPController(private val context: Context) {
     private var currentDeviceMac: String? = null
     private var currentToken: ByteArray? = null
 
-    // Build auth packets dynamically from current token
+    // Build auth packets dynamically from the current token
     private fun buildAuthInitPacket(): ByteArray {
         val token = currentToken ?: throw IllegalStateException("No token set")
         return byteArrayOf(0x11.toByte(), 0x01.toByte()) + token
@@ -125,7 +125,7 @@ class QPController(private val context: Context) {
     }
 
     /**
-     * Check if a device is already paired (has stored token).
+     * Check if a device is already paired (has a stored token).
      */
     fun isDevicePaired(macAddress: String): Boolean = tokenStorage.isPaired(macAddress)
 
@@ -137,7 +137,7 @@ class QPController(private val context: Context) {
     }
 
     /**
-     * Prepare token for connection. If device is already paired, use stored token.
+     * Prepare token for connection. If a device is already paired, use stored token.
      * Otherwise, generate a new random token for pairing (without storing yet).
      */
     private fun prepareTokenForDevice(macAddress: String): ByteArray {
@@ -182,7 +182,11 @@ class QPController(private val context: Context) {
     // Write completion for audio upload - using CompletableDeferred for thread safety
     private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
-    // Sensor stream callback
+    /**
+     * Live temperature / humidity from GATT **sensor notify** (short binary packet; no battery).
+     * Battery % still comes from BLE **advertising** parsed in [com.mrboombastic.buwudzik.device.BluetoothScanner]
+     * and cached by [com.mrboombastic.buwudzik.data.SensorRepository].
+     */
     var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
     var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     var onLastUpdated: ((timestamp: Long) -> Unit)? = null
@@ -554,7 +558,7 @@ class QPController(private val context: Context) {
                         AppLogger.d(
                             TAG, "Descriptor write complete, sending Auth Init (11 01)..."
                         )
-                        pendingAuthWriteChar = char // Save for second step
+                        pendingAuthWriteChar = char // Save for the second step
                         gatt?.writeCharacteristic(
                             char,
                             buildAuthInitPacket(),
@@ -601,7 +605,7 @@ class QPController(private val context: Context) {
 
     @Suppress("SameReturnValue")
     suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
-        // Prepare token for this device (generate new if fresh pairing, use stored if already paired)
+        // Prepare a token for this device (generate new if fresh pairing, use stored if already paired)
         val macAddress = device.address
         currentDeviceMac = macAddress
         currentToken = prepareTokenForDevice(macAddress)
@@ -887,7 +891,7 @@ class QPController(private val context: Context) {
             val result = currentGatt.writeCharacteristic(
                 characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             )
-            if (result == BluetoothGatt.GATT_SUCCESS) return true // wait, writeCharacteristic returns Int status in new API
+            if (result == BluetoothGatt.GATT_SUCCESS) return true
 
             AppLogger.w(
                 TAG,
@@ -913,7 +917,7 @@ class QPController(private val context: Context) {
 
                     pendingAckContinuations[0x01] = continuation
 
-                    // Use last packet as template to preserve unknown/header bytes, fallback to defaults
+                    // Use the last packet as a template to preserve unknown/header bytes, fallback to defaults
                     val payload = lastSettingsPacket?.copyOf() ?: ByteArray(20).apply {
                         this[0] = 0x13.toByte()
                         this[3] = 0x58.toByte()
@@ -953,7 +957,7 @@ class QPController(private val context: Context) {
                         payload[11] = settings.nightEndHour.toByte()
                         payload[12] = settings.nightEndMinute.toByte()
                     } else {
-                        // Fix: Hardware often ignores the enable bit, so set a minimal 1-min window
+                        // Fix: Hardware often ignores the enabled bit, so set a minimal 1-min window
                         AppLogger.d(TAG, "Night Mode disabled: forcing schedule to 00:00 - 00:01")
                         payload[9] = 0
                         payload[10] = 0
@@ -1320,9 +1324,8 @@ class QPController(private val context: Context) {
     }
 
     /**
-     * Cleanup all resources and cancel all jobs.
+     * Clean up all resources and cancel all jobs.
      * Should be called when QPController is no longer needed.
-     * Note: Currently not used, but maybe we need too?
      */
     fun close() {
         disconnect()
@@ -1444,7 +1447,7 @@ class QPController(private val context: Context) {
         AppLogger.d(TAG, "Sending Init: ${initPayload.toHexString()}")
         uploadInitAckReceived = false
 
-        // Write init packet and wait for callback (like original writeChar with withResponse=true)
+        // Write an init packet and wait for callback (like original writeChar with withResponse=true)
         val initSuccess = writeCharAndWait(dataWriteChar, initPayload)
         if (!initSuccess) {
             AppLogger.e(TAG, "Failed to send init command")
@@ -1509,14 +1512,14 @@ class QPController(private val context: Context) {
                 )
 
                 if (isLastInBlock) {
-                    // Last packet in block - wait for write callback then wait for device ACK
+                    // Last packet in block - wait for writing callback, then wait for device ACK
                     uploadAckReceived = false
                     val writeSuccess = writeCharAndWait(dataWriteChar, packet)
                     if (!writeSuccess) {
                         AppLogger.w(TAG, "Write failed for block $blockNum last packet")
                     }
 
-                    // Wait for block ACK from device (04 ff 08 XX)
+                    // Wait for block ACK from a device (04 ff 08 XX)
                     repeat(AUDIO_ACK_WAIT_ITERATIONS) {
                         if (uploadAckReceived) return@repeat
                         delay(AUDIO_ACK_WAIT_DELAY)

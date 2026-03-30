@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -14,27 +13,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Alarm
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -43,43 +26,33 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
-import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
-import com.mrboombastic.buwudzik.ui.components.InstructionCard
-import com.mrboombastic.buwudzik.ui.components.MenuTile
-import com.mrboombastic.buwudzik.ui.components.NumberedStep
-import com.mrboombastic.buwudzik.ui.components.SmallButton
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
+import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
+import com.mrboombastic.buwudzik.ui.screens.HomeScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
 import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
@@ -89,9 +62,6 @@ import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import com.mrboombastic.buwudzik.widget.WidgetUpdateScheduler
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 
 class MainActivity : AppCompatActivity() {
@@ -107,9 +77,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Resume scanning when app comes back to foreground - ONLY if we have permissions
-        if (BluetoothUtils.hasBluetoothPermissions(this)) {
-            mainViewModel?.startScanning()
+        // Resume BLE scan only when a device is configured and permissions are granted
+        val vm = mainViewModel ?: return
+        if (BluetoothUtils.hasBluetoothPermissions(this) &&
+            vm.deviceProfileRepository.getActiveDeviceId() != null
+        ) {
+            vm.startScanning()
         }
     }
 
@@ -164,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -189,11 +163,13 @@ class MainActivity : AppCompatActivity() {
             scheduleUpdates(applicationContext, settingsRepository.updateInterval)
         }
 
+        val deviceProfileRepository = DeviceProfileRepository(applicationContext)
+
         val viewModel: MainViewModel by viewModels {
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     @Suppress("UNCHECKED_CAST") return MainViewModel(
-                        scanner, settingsRepository, applicationContext
+                        scanner, settingsRepository, deviceProfileRepository, applicationContext
                     ) as T
                 }
             }
@@ -208,8 +184,9 @@ class MainActivity : AppCompatActivity() {
                     val navController = rememberNavController()
                     LocalContext.current
                     val resources = LocalResources.current
+                    val deviceProfileRepo = DeviceProfileRepository(applicationContext)
                     val startDestination =
-                        if (settingsRepository.isSetupCompleted) "home" else "setup"
+                        if (deviceProfileRepo.getActiveDeviceId() != null) "home" else "setup"
 
                     // Handle disconnection events
                     val disconnectionEvent by viewModel.disconnectionEvent.collectAsState()
@@ -276,7 +253,7 @@ class MainActivity : AppCompatActivity() {
                             } else {
                                 reasonMessage
                             }
-                            
+
                             // Show snackbar with reason
                             snackbarHostState.showSnackbar(
                                 message = fullMessage,
@@ -316,10 +293,15 @@ class MainActivity : AppCompatActivity() {
                             popEnterTransition = NavigationAnimations.popEnterTransition(),
                             popExitTransition = NavigationAnimations.popExitTransition()
                         ) {
-                            composable("setup") { DeviceSetupScreen(navController) }
+                            composable("setup") {
+                                DeviceSetupScreen(
+                                    navController,
+                                    mode = "setup",
+                                    viewModel = viewModel
+                                )
+                            }
                             composable("home") { HomeScreen(viewModel, navController) }
                             composable("settings") {
-                                // Handle system back to properly navigate back or to home
                                 BackHandler {
                                     if (!navController.popBackStack()) {
                                         navController.navigate("home") {
@@ -347,9 +329,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                DeviceSettingsScreen(
-                                    navController, viewModel
-                                )
+                                DeviceSettingsScreen(navController, viewModel)
                             }
                             composable("ringtone-upload") {
                                 BackHandler {
@@ -359,9 +339,7 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                RingtoneUploadScreen(
-                                    navController, viewModel
-                                )
+                                RingtoneUploadScreen(navController, viewModel)
                             }
                             composable("device-sharing") {
                                 BackHandler {
@@ -371,7 +349,26 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                DeviceSharingScreen(navController)
+                                DeviceSharingScreen(
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    preselectedMac = null
+                                )
+                            }
+                            composable("device-sharing/{mac}") { backStackEntry ->
+                                val mac = backStackEntry.arguments?.getString("mac")
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceSharingScreen(
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    preselectedMac = mac
+                                )
                             }
                             composable("device-import") {
                                 BackHandler {
@@ -383,6 +380,23 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 DeviceImportScreen(navController, viewModel)
                             }
+                            composable("devices") {
+                                BackHandler {
+                                    if (!navController.popBackStack()) {
+                                        navController.navigate("home") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                DeviceListScreen(navController, viewModel)
+                            }
+                            composable("device-add") {
+                                DeviceSetupScreen(
+                                    navController = navController,
+                                    mode = "add",
+                                    viewModel = viewModel
+                                )
+                            }
                         }
                     }
                 }
@@ -390,301 +404,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
-@Composable
-fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
-    val context = LocalContext.current
-    val sensorData by viewModel.sensorData.collectAsState()
-    val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
-
-    // Permissions handling
-    val permissionsToRequest = BluetoothUtils.BLUETOOTH_PERMISSIONS
-    val permissionsRequiredMessage = stringResource(R.string.permissions_required)
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions(), onResult = { perms ->
-            val allGranted = perms.values.all { it }
-            AppLogger.d(
-                "MainActivity", "Permissions result: $perms, All Granted: $allGranted"
-            )
-            if (allGranted) {
-                viewModel.startScanning()
-            } else {
-                val deniedPerms = perms.filter { !it.value }.keys.joinToString(", ")
-                val message = "$permissionsRequiredMessage\nMissing: $deniedPerms"
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            }
-        })
-
-    LaunchedEffect(Unit) {
-        val allGranted = permissionsToRequest.all {
-            context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
-        }
-        AppLogger.d("MainActivity", "Initial permission check. All granted: $allGranted")
-        if (allGranted) {
-            viewModel.startScanning()
-        } else {
-            permissionLauncher.launch(permissionsToRequest)
-        }
-    }
-
-
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { navController.navigate("settings") }) {
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = stringResource(R.string.settings_desc)
-                )
-            }
-        }) { padding ->
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()
-        ) {
-            Dashboard(
-                sensorData = sensorData,
-                isBluetoothEnabled = isBluetoothEnabled,
-                navController = navController,
-                viewModel = viewModel,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(padding)
-            )
-        }
-    }
-}
-
-@Composable
-fun ShareAndUnpairButtons(
-    navController: NavController,
-    onUnpairClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        SmallButton(
-            title = stringResource(R.string.share_device_button),
-            icon = Icons.Default.Share,
-            onClick = { navController.navigate("device-sharing") },
-            modifier = Modifier.weight(1f)
-        )
-
-        SmallButton(
-            title = stringResource(R.string.unpair_device),
-            icon = Icons.Default.Delete,
-            onClick = onUnpairClick,
-            contentColor = MaterialTheme.colorScheme.error,
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-fun Dashboard(
-    sensorData: SensorData?,
-    isBluetoothEnabled: Boolean,
-    navController: NavController,
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
-) {
-    val deviceConnected by viewModel.deviceConnected.collectAsState()
-    val deviceConnecting by viewModel.deviceConnecting.collectAsState()
-    val isPaired by viewModel.isPaired.collectAsState()
-    var showUnpairDialog by remember { mutableStateOf(false) }
-
-    // Unpair confirmation dialog
-    @Suppress("AssignedValueIsNeverRead") if (showUnpairDialog) {
-        AlertDialog(
-            onDismissRequest = { showUnpairDialog = false },
-            title = { Text(stringResource(R.string.unpair_confirm_title)) },
-            text = { Text(stringResource(R.string.unpair_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showUnpairDialog = false
-                        viewModel.disconnectFromDevice()
-                        viewModel.unpairDevice()
-                    }, colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.unpair_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUnpairDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            })
-    }
-
-    Column(
-        modifier = modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (!isBluetoothEnabled) {
-            Text(
-                text = stringResource(R.string.bluetooth_disabled),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-
-        if (sensorData == null) {
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(stringResource(R.string.scanning_status))
-        } else {
-            if (!sensorData.name.isNullOrEmpty()) {
-                Text(
-                    text = sensorData.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-            Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.temperature)}°C",
-                fontSize = 64.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.humidity)}%",
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.battery_label, sensorData.battery),
-                    fontSize = 24.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            val signalPercentage = BluetoothUtils.rssiToPercentage(sensorData.rssi)
-            Text(
-                text = stringResource(R.string.rssi_label, sensorData.rssi, signalPercentage),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-            val timeString = dateFormat.format(Date(sensorData.timestamp))
-            Text(
-                text = stringResource(R.string.last_update_label, timeString),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (deviceConnecting) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.connecting_to_device),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else if (!deviceConnected) {
-                if (!isPaired) {
-                    InstructionCard(
-                        icon = Icons.Default.PhonelinkSetup,
-                        title = stringResource(R.string.setup_new_device),
-                        subtitle = stringResource(R.string.pairing_subtitle),
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    ) {
-                        NumberedStep(
-                            number = "1",
-                            title = stringResource(R.string.pairing_step1_title),
-                            description = stringResource(R.string.pairing_step1_desc)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        NumberedStep(
-                            number = "2",
-                            title = stringResource(R.string.pairing_step2_title),
-                            description = stringResource(R.string.pairing_step2_desc)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        NumberedStep(
-                            number = "3",
-                            title = stringResource(R.string.pairing_step3_title),
-                            description = stringResource(R.string.pairing_step3_desc)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Big Connect/Pair button
-                MenuTile(
-                    title = if (isPaired) stringResource(R.string.connect_to_device) else stringResource(
-                        R.string.pair_and_connect
-                    ),
-                    icon = Icons.Default.PhonelinkSetup,
-                    onClick = { viewModel.connectToDevice() },
-                    modifier = Modifier.fillMaxWidth(0.9f),
-                    arrangementH = Arrangement.Center
-                )
-
-                // Small buttons for Share and Unpair
-                @Suppress("AssignedValueIsNeverRead")
-                if (isPaired) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ShareAndUnpairButtons(
-                        navController = navController,
-                        onUnpairClick = { showUnpairDialog = true },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.height(16.dp))
-                // Big buttons for main actions
-                Column(
-                    modifier = Modifier.fillMaxWidth(0.9f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    MenuTile(
-                        title = stringResource(R.string.manage_alarms_label),
-                        icon = Icons.Default.Alarm,
-                        onClick = { navController.navigate("alarms") })
-                    MenuTile(
-                        title = stringResource(R.string.device_settings_button),
-                        icon = Icons.Default.Settings,
-                        onClick = { navController.navigate("device-settings") })
-                    MenuTile(
-                        title = stringResource(R.string.disconnect),
-                        icon = Icons.AutoMirrored.Filled.ExitToApp,
-                        onClick = { viewModel.disconnectFromDevice() },
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-
-                // Small buttons for Share and Unpair
-                @Suppress("AssignedValueIsNeverRead")
-                if (isPaired) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ShareAndUnpairButtons(
-                        navController = navController,
-                        onUnpairClick = { showUnpairDialog = true },
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    )
-                }
-            }
-        }
-    }
-}
-
