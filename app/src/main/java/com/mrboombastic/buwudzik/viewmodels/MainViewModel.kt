@@ -3,6 +3,7 @@ package com.mrboombastic.buwudzik.viewmodels
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.icu.util.TimeZone
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -258,6 +259,16 @@ class MainViewModel(
                                 val settings = qpController.readDeviceSettings()
                                 _deviceSettings.value = settings
                                 AppLogger.d(TAG, "Loaded device settings: $settings")
+
+                                // Check if timezone needs sync (e.g. DST change)
+                                val currentPhoneTz = TimeZone.getDefault()
+                                val now = System.currentTimeMillis()
+                                if (settings.timeZone.getOffset(now) != currentPhoneTz.getOffset(now)) {
+                                    AppLogger.d(TAG, "Device timezone offset differs from phone, auto-syncing...")
+                                    val updatedSettings = settings.copy(timeZone = currentPhoneTz)
+                                    qpController.writeDeviceSettings(updatedSettings)
+                                    _deviceSettings.value = updatedSettings
+                                }
                             } catch (e: Exception) {
                                 AppLogger.e(TAG, "Error loading settings", e)
                             }

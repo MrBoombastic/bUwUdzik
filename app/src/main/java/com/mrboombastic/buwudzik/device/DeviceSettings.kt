@@ -74,16 +74,19 @@ enum class TimeFormat { H24, H12 }
 enum class Language { Chinese, English }
 
 fun TimeZone.encodeOffset(): Byte {
-    return abs(this.rawOffset.milliseconds.inWholeMinutes.div(6)).toByte()
+    val offsetMillis = this.getOffset(System.currentTimeMillis())
+    return abs(offsetMillis.toLong().milliseconds.inWholeMinutes.div(6)).toByte()
 }
 
 fun TimeZone.encodeOffsetSign(): Byte {
-    return if (this.rawOffset >= 0) 1 else 0
+    val offsetMillis = this.getOffset(System.currentTimeMillis())
+    return if (offsetMillis >= 0) 1 else 0
 }
 
 fun createTimeZone(offset: Int, isPositive: Boolean): TimeZone {
-    val rawOffset = offset * 6 * 1000
-    val timeZone = TimeZone.getDefault()
-    timeZone.rawOffset = if (isPositive) rawOffset else -rawOffset
-    return timeZone
+    val totalMinutes = offset * 6
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    val id = "GMT${if (isPositive) "+" else "-"}${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}"
+    return TimeZone.getTimeZone(id)
 }
