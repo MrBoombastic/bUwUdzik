@@ -20,6 +20,33 @@ configure<ApplicationExtension> {
         targetSdk = 36
         versionCode = 21
         versionName = "1.8.0"
+        buildConfigField(
+            "String",
+            "WIDGET_UPDATE_ACTION",
+            "\"com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET\""
+        )
+        manifestPlaceholders["widgetUpdateAction"] =
+            "com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("stable") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("beta") {
+            dimension = "distribution"
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+            buildConfigField(
+                "String",
+                "WIDGET_UPDATE_ACTION",
+                "\"com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET\""
+            )
+            manifestPlaceholders["widgetUpdateAction"] =
+                "com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET"
+        }
     }
 
     buildTypes {

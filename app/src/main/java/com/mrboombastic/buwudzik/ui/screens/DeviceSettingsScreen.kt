@@ -41,7 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.data.DeviceProfile
+import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.Language
 import com.mrboombastic.buwudzik.device.TempUnit
@@ -66,7 +66,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
     val appContext = context.applicationContext
     remember { SettingsRepository(context) }
     val activeProfile by viewModel.activeDevice.collectAsState()
-    var batteryType by remember { mutableStateOf(DeviceProfile.DEFAULT_BATTERY_TYPE) }
+    var batteryType by remember { mutableStateOf(BatteryType.ALKALINE) }
 
     val settings by viewModel.deviceSettings.collectAsState()
     val isBusy by viewModel.qpController.isBusy.collectAsState()
@@ -95,7 +95,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     LaunchedEffect(activeProfile?.mac) {
-        batteryType = activeProfile?.batteryType ?: DeviceProfile.DEFAULT_BATTERY_TYPE
+        batteryType = activeProfile?.batteryType ?: BatteryType.ALKALINE
     }
 
     Scaffold(
@@ -204,8 +204,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 Spacer(Modifier.height(8.dp))
 
                 val batteryTypes = mapOf(
-                    "alkaline" to stringResource(R.string.battery_alkaline),
-                    "nimh" to stringResource(R.string.battery_nimh)
+                    BatteryType.ALKALINE to stringResource(R.string.battery_alkaline),
+                    BatteryType.NIMH to stringResource(R.string.battery_nimh)
                 )
 
                 SettingsDropdown(

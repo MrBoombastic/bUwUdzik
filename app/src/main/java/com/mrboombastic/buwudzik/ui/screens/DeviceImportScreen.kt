@@ -60,6 +60,7 @@ import com.mrboombastic.buwudzik.data.AlarmTitleRepository
 import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceShareData
 import com.mrboombastic.buwudzik.data.TokenStorage
+import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.ui.components.ContentCard
 import com.mrboombastic.buwudzik.ui.components.InstructionCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
@@ -185,19 +186,18 @@ fun DeviceImportScreen(
                                     if (shareData != null) {
                                         // Add an imported device as a new profile
                                         val tokenStorage = TokenStorage(context)
-                                        val alarmTitleRepository =
-                                            AlarmTitleRepository(context, shareData.mac)
-
                                         val profile = DeviceProfile(
-                                            mac = shareData.mac.uppercase(),
+                                            mac = shareData.mac.normalizedBluetoothMac(),
                                             alias = shareData.mac, // user can rename it later
                                             batteryType = shareData.batteryType
                                         )
+                                        val alarmTitleRepository =
+                                            AlarmTitleRepository(context, profile.mac)
                                         viewModel.addDevice(profile)
 
                                         // Store token for the imported device
                                         tokenStorage.storeToken(
-                                            shareData.mac, tokenStorage.hexToBytes(shareData.token)
+                                            profile.mac, tokenStorage.hexToBytes(shareData.token)
                                         )
 
                                         // Import alarm titles (per-device)

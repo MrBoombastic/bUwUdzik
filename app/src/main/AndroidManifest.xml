@@ -70,7 +70,7 @@
                 android:name=".widget.WidgetUpdateReceiver"
                 android:exported="false">
             <intent-filter>
-                <action android:name="com.mrboombastic.buwudzik.ACTION_UPDATE_WIDGET" />
+                <action android:name="${widgetUpdateAction}" />
             </intent-filter>
         </receiver>
 

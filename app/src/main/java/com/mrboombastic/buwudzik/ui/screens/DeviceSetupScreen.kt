@@ -50,7 +50,9 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.BluetoothStateReceiver
 import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.DeviceProfile
+import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.StatusCard
 import com.mrboombastic.buwudzik.ui.components.StatusType
@@ -58,7 +60,6 @@ import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import java.util.Locale
 
 data class DiscoveredDevice(
     val name: String?,
@@ -107,7 +108,7 @@ fun DeviceSetupScreen(
         remember { MutableStateFlow<List<DeviceProfile>>(emptyList()) }
     val savedProfiles by (viewModel?.devices ?: emptySavedProfiles).collectAsState()
     val savedMacAddresses = remember(savedProfiles) {
-        savedProfiles.map { it.mac.uppercase(Locale.US) }.toSet()
+        savedProfiles.map { it.mac.normalizedBluetoothMac() }.toSet()
     }
 
     val permissionsToRequest = remember {
@@ -162,9 +163,9 @@ fun DeviceSetupScreen(
         if (mode == "add" && viewModel != null) {
             // Add as a new device profile and make it active
             val profile = DeviceProfile(
-                mac = device.address.uppercase(),
+                mac = device.address.normalizedBluetoothMac(),
                 alias = device.name ?: device.address,
-                batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE
+                batteryType = BatteryType.ALKALINE
             )
             viewModel.addDevice(profile)
             viewModel.setActiveDevice(profile.mac)
@@ -180,9 +181,9 @@ fun DeviceSetupScreen(
             // First-launch setup: add profile and set as active
             if (viewModel != null) {
                 val profile = DeviceProfile(
-                    mac = device.address.uppercase(),
+                    mac = device.address.normalizedBluetoothMac(),
                     alias = device.name ?: device.address,
-                    batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE
+                    batteryType = BatteryType.ALKALINE
                 )
                 viewModel.addDevice(profile)
                 viewModel.setActiveDevice(profile.mac)
@@ -400,12 +401,12 @@ private suspend fun performDeviceScan(
     try {
         kotlinx.coroutines.withTimeout(15000L) {
             scanner.scan(targetAddress = null).collect { sensorData ->
-                val macKey = sensorData.macAddress.uppercase(Locale.US)
+                val macKey = sensorData.macAddress.normalizedBluetoothMac()
                 if (macKey in savedMacAddresses) {
                     return@collect
                 }
                 val existingIndex =
-                    devices.indexOfFirst { it.address.uppercase(Locale.US) == macKey }
+                    devices.indexOfFirst { it.address.normalizedBluetoothMac() == macKey }
                 val device = DiscoveredDevice(
                     name = sensorData.name,
                     address = sensorData.macAddress,

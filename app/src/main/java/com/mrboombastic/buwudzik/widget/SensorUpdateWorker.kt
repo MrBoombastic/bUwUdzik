@@ -3,7 +3,6 @@ package com.mrboombastic.buwudzik.widget
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanSettings
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
@@ -48,7 +47,7 @@ class SensorUpdateWorker(
         return try {
             if (uniqueMacs.isEmpty()) {
                 if (activeMac != null) {
-                    val result = scanDevice(activeMac, forceRefresh)
+                    val result = scanDevice(activeMac, forceRefresh, profileRepo)
                     updateWidget(result != Result.success(), intervalMinutes)
                     result
                 } else {
@@ -59,7 +58,7 @@ class SensorUpdateWorker(
             } else {
                 var anyError = false
                 for (mac in uniqueMacs) {
-                    val r = scanDevice(mac, forceRefresh)
+                    val r = scanDevice(mac, forceRefresh, profileRepo)
                     if (r != Result.success()) anyError = true
                 }
                 updateWidget(hasError = anyError, intervalMinutes = intervalMinutes)
@@ -68,13 +67,17 @@ class SensorUpdateWorker(
             }
         } finally {
             macsToClearLoading.forEach { mac ->
-                SensorRepository(applicationContext, mac).setLoading(false)
+                SensorRepository(applicationContext, mac, profileRepo).setLoading(false)
             }
         }
     }
 
-    private suspend fun scanDevice(mac: String, forceRefresh: Boolean): Result {
-        val repository = SensorRepository(applicationContext, mac)
+    private suspend fun scanDevice(
+        mac: String,
+        forceRefresh: Boolean,
+        profileRepo: DeviceProfileRepository
+    ): Result {
+        val repository = SensorRepository(applicationContext, mac, profileRepo)
 
         val lastUpdate = repository.getLastUpdateTimestamp()
         val dataAge = System.currentTimeMillis() - lastUpdate
@@ -132,9 +135,7 @@ class SensorUpdateWorker(
     private suspend fun updateWidget(hasError: Boolean, intervalMinutes: Long) {
         try {
             AppLogger.d(TAG, "Updating all Glance widgets, hasError=$hasError")
-            SensorGlanceWidget().updateAll(applicationContext)
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Failed to update widget", e)
+            SensorWidgetRefresher.updateAll(applicationContext)
         } finally {
             WidgetUpdateScheduler.scheduleUpdates(applicationContext, intervalMinutes)
         }

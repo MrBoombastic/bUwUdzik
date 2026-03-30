@@ -13,9 +13,20 @@ import java.util.Locale
  * Keys are namespaced per-device using the MAC address so each device
  * has its own independent cached reading.
  *
+ * Battery: [saveSensorData] applies [BluetoothUtils.correctBatteryLevel] using the profile’s
+ * [DeviceProfile.batteryType]. Raw advertising values often omit battery (e.g. 0xFF); those are
+ * ignored so a previous valid reading is kept. While **connected**, GATT notifications carry only
+ * temperature and humidity ([QPController.onSensorData]); battery continues to come from the
+ * last scan/advertisement stored here.
+ *
  * @param mac Device MAC address (used to namespace keys).
+ * @param deviceProfileRepository Used for battery-type correction (shared instance avoids extra allocations).
  */
-class SensorRepository(private val context: Context, private val mac: String = "") {
+class SensorRepository(
+    private val context: Context,
+    private val mac: String = "",
+    private val deviceProfileRepository: DeviceProfileRepository = DeviceProfileRepository(context)
+) {
 
     companion object {
         private const val TAG = "SensorRepository"
@@ -35,7 +46,7 @@ class SensorRepository(private val context: Context, private val mac: String = "
         internal const val KEY_BATTERY_RAW = "battery_raw"
 
         private fun prefix(mac: String): String =
-            if (mac.isEmpty()) "" else "${mac.lowercase().replace(":", "_")}_"
+            if (mac.isEmpty()) "" else "${mac.lowercase(Locale.ROOT).replace(":", "_")}_"
 
         /**
          * One-time migration: copies legacy un-namespaced sensor keys to the per-device
@@ -88,42 +99,45 @@ class SensorRepository(private val context: Context, private val mac: String = "
     private fun profileMacKey(): String = mac.uppercase(Locale.ROOT)
 
     private fun resolveBatteryType(): String {
-        val profileRepo = DeviceProfileRepository(context)
         return if (mac.isNotEmpty()) {
-            profileRepo.getByMac(profileMacKey())?.batteryType
-                ?: DeviceProfile.DEFAULT_BATTERY_TYPE
+            deviceProfileRepository.getByMac(profileMacKey())?.batteryType
+                ?: BatteryType.ALKALINE
         } else {
-            profileRepo.getActiveProfile()?.batteryType ?: DeviceProfile.DEFAULT_BATTERY_TYPE
+            deviceProfileRepository.getActiveProfile()?.batteryType ?: BatteryType.ALKALINE
+        }
+    }
+
+    /** Last persisted raw (0–100) or corrected display value as fallback for legacy rows. */
+    private fun readPersistedRawBattery(): Int {
+        return when {
+            prefs.contains("${p}$KEY_BATTERY_RAW") ->
+                prefs.getInt("${p}$KEY_BATTERY_RAW", 0).coerceIn(0, 100)
+
+            prefs.contains("${p}battery") ->
+                prefs.getInt("${p}battery", 0).coerceIn(0, 100)
+
+            else -> 0
         }
     }
 
     /**
      * Saves sensor data with battery level correction applied.
-     * This is the single point where battery correction happens (DRY).
      * Raw device percentage is stored separately so changing battery type can re-run correction.
      * @return The corrected SensorData for UI display consistency.
      */
     fun saveSensorData(data: SensorData): SensorData {
-        // If for some reason battery percent was absent; coerceIn(0,100) would turn that into 100%.
+        // Values outside 0–100 (e.g. advert 0xFF) are treated as unknown; keep last good raw.
         val rawBattery = when (val inc = data.battery) {
             in 0..100 -> inc
             else -> {
                 AppLogger.d(TAG, "Ignoring invalid battery $inc, keeping stored value")
-                when {
-                    prefs.contains("${p}$KEY_BATTERY_RAW") ->
-                        prefs.getInt("${p}$KEY_BATTERY_RAW", 0).coerceIn(0, 100)
-
-                    prefs.contains("${p}battery") ->
-                        prefs.getInt("${p}battery", 0).coerceIn(0, 100)
-
-                    else -> 0
-                }
+                readPersistedRawBattery()
             }
         }
         val correctedBattery = BluetoothUtils.correctBatteryLevel(rawBattery, resolveBatteryType())
         val correctedData = data.copy(battery = correctedBattery)
 
-        prefs.edit().apply {
+        prefs.edit(commit = true) {
             putFloat("${p}temp", correctedData.temperature.toFloat())
             putFloat("${p}humidity", correctedData.humidity.toFloat())
             putInt("${p}$KEY_BATTERY_RAW", rawBattery)
@@ -133,7 +147,6 @@ class SensorRepository(private val context: Context, private val mac: String = "
             putString("${p}mac_address", correctedData.macAddress)
             putLong("${p}timestamp", System.currentTimeMillis())
             putBoolean("${p}has_error", false)
-            commit()
         }
 
         return correctedData
@@ -145,11 +158,7 @@ class SensorRepository(private val context: Context, private val mac: String = "
      */
     fun reapplyBatteryCorrection(): SensorData? {
         if (!prefs.contains("${p}temp")) return null
-        val raw = if (prefs.contains("${p}$KEY_BATTERY_RAW")) {
-            prefs.getInt("${p}$KEY_BATTERY_RAW", 0).coerceIn(0, 100)
-        } else {
-            prefs.getInt("${p}battery", 0).coerceIn(0, 100)
-        }
+        val raw = readPersistedRawBattery()
         val corrected = BluetoothUtils.correctBatteryLevel(raw, resolveBatteryType())
         prefs.edit(commit = true) { putInt("${p}battery", corrected) }
         return getSensorData()

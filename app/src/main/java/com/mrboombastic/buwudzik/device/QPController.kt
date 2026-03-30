@@ -182,7 +182,11 @@ class QPController(private val context: Context) {
     // Write completion for audio upload - using CompletableDeferred for thread safety
     private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
-    // Sensor stream callback
+    /**
+     * Live temperature / humidity from GATT **sensor notify** (short binary packet; no battery).
+     * Battery % still comes from BLE **advertising** parsed in [com.mrboombastic.buwudzik.device.BluetoothScanner]
+     * and cached by [com.mrboombastic.buwudzik.data.SensorRepository].
+     */
     var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
     var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     var onLastUpdated: ((timestamp: Long) -> Unit)? = null

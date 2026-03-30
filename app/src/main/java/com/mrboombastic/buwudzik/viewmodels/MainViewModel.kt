@@ -3,7 +3,6 @@ package com.mrboombastic.buwudzik.viewmodels
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrboombastic.buwudzik.data.AlarmTitleRepository
@@ -11,6 +10,7 @@ import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.DeviceSettings
@@ -18,7 +18,7 @@ import com.mrboombastic.buwudzik.device.QPController
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
-import com.mrboombastic.buwudzik.widget.SensorGlanceWidget
+import com.mrboombastic.buwudzik.widget.SensorWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -30,7 +30,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 private const val TAG = "MainViewModel"
 
@@ -76,7 +75,12 @@ class MainViewModel(
         stopAll()
         _deviceConnected.value = false
         _deviceConnecting.value = false
-        _sensorData.value = SensorRepository(applicationContext, profile.mac).getSensorData()
+        _sensorData.value =
+            SensorRepository(
+                applicationContext,
+                profile.mac,
+                deviceProfileRepository
+            ).getSensorData()
         _alarms.value = emptyList()
         _deviceSettings.value = null
         startScanning()
@@ -88,20 +92,18 @@ class MainViewModel(
     }
 
     fun updateDeviceBatteryType(mac: String, batteryType: String) {
-        val normalizedMac = mac.uppercase(Locale.ROOT)
+        val normalizedMac = mac.normalizedBluetoothMac()
         deviceProfileRepository.getByMac(normalizedMac)?.let { profile ->
             deviceProfileRepository.addOrUpdate(profile.copy(batteryType = batteryType))
         }
-        val updated = SensorRepository(applicationContext, normalizedMac).reapplyBatteryCorrection()
-        if (normalizedMac == activeMac.uppercase(Locale.ROOT)) {
+        val updated =
+            SensorRepository(applicationContext, normalizedMac, deviceProfileRepository)
+                .reapplyBatteryCorrection()
+        if (normalizedMac == activeMac.normalizedBluetoothMac()) {
             updated?.let { _sensorData.value = it }
         }
         viewModelScope.launch {
-            try {
-                SensorGlanceWidget().updateAll(applicationContext)
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "Widget update after battery type: ${e.message}")
-            }
+            SensorWidgetRefresher.updateAll(applicationContext)
         }
     }
 
@@ -113,7 +115,8 @@ class MainViewModel(
         get() = deviceProfileRepository.getActiveDeviceId() ?: ""
 
     /** Per-active-device sensor repository. */
-    private fun sensorRepo(): SensorRepository = SensorRepository(applicationContext, activeMac)
+    private fun sensorRepo(): SensorRepository =
+        SensorRepository(applicationContext, activeMac, deviceProfileRepository)
 
     /** Per-active-device alarm title repository. */
     private fun alarmTitleRepo(): AlarmTitleRepository =
@@ -188,12 +191,7 @@ class MainViewModel(
         _isBluetoothEnabled.value = BluetoothUtils.isBluetoothEnabled(applicationContext)
         checkPairingStatus()
         viewModelScope.launch {
-            combine(
-                deviceProfileRepository.profilesFlow,
-                deviceProfileRepository.activeDeviceIdFlow
-            ) { profiles, activeMac ->
-                profiles.find { it.mac == activeMac }
-            }.collect { profile ->
+            activeDevice.collect { profile ->
                 if (profile == null) {
                     stopAll()
                     clearPerDeviceUiState()
@@ -254,11 +252,7 @@ class MainViewModel(
                 AppLogger.d(TAG, "Received data: $data")
                 val correctedData = sensorRepo().saveSensorData(data)
                 _sensorData.value = correctedData
-                try {
-                    SensorGlanceWidget().updateAll(applicationContext)
-                } catch (e: Exception) {
-                    AppLogger.d(TAG, "Widget update skipped: ${e.message}")
-                }
+                SensorWidgetRefresher.updateAll(applicationContext)
             }
         }
     }
@@ -304,28 +298,7 @@ class MainViewModel(
                     _connectionError.value = null
                     checkPairingStatus()
 
-                    qpController.onSensorData = { temperature, humidity ->
-                        val currentData = _sensorData.value
-                        val mac = activeMac
-
-                        _sensorData.value = currentData?.copy(
-                            temperature = temperature.toDouble(),
-                            humidity = humidity.toDouble(),
-                            timestamp = System.currentTimeMillis()
-                        ) ?: SensorData(
-                            name = "clOwOck",
-                            macAddress = mac,
-                            temperature = temperature.toDouble(),
-                            humidity = humidity.toDouble(),
-                            battery = 0,
-                            rssi = 0,
-                            timestamp = System.currentTimeMillis()
-                        )
-                    }
-
-                    qpController.onRssiUpdate = { rssi ->
-                        _sensorData.value = _sensorData.value?.copy(rssi = rssi)
-                    }
+                    attachLiveSensorCallbacks()
 
                     rssiPollJob?.cancel()
                     rssiPollJob = viewModelScope.launch {
@@ -340,41 +313,7 @@ class MainViewModel(
                     }
 
                     if (reloadAlarms) {
-                        AppLogger.d(TAG, "Clock connected, reading alarms and settings...")
-                        launch {
-                            try {
-                                val deviceAlarms = qpController.readAlarms()
-                                val titleRepo = alarmTitleRepo()
-                                val alarmsWithTitles = deviceAlarms.map { alarm ->
-                                    alarm.copy(title = titleRepo.getTitle(alarm.id))
-                                }
-                                _alarms.value = alarmsWithTitles
-                                AppLogger.d(TAG, "Loaded ${alarmsWithTitles.size} alarms")
-                            } catch (e: Exception) {
-                                AppLogger.e(TAG, "Error loading alarms", e)
-                            }
-
-                            delay(QPController.DELAY_BLE_OPERATION)
-
-                            try {
-                                val settings = qpController.readDeviceSettings()
-                                _deviceSettings.value = settings
-                                AppLogger.d(TAG, "Loaded device settings: $settings")
-                            } catch (e: Exception) {
-                                AppLogger.e(TAG, "Error loading settings", e)
-                            }
-
-                            delay(QPController.DELAY_BLE_OPERATION)
-
-                            try {
-                                val version = qpController.readFirmwareVersion()
-                                _deviceSettings.value =
-                                    _deviceSettings.value?.copy(firmwareVersion = version)
-                                AppLogger.d(TAG, "Loaded firmware version: $version")
-                            } catch (e: Exception) {
-                                AppLogger.e(TAG, "Error loading firmware version", e)
-                            }
-                        }
+                        launch { loadDeviceMetadataAfterConnect() }
                     }
                 } else {
                     AppLogger.e(TAG, "Failed to connect to clock")
@@ -398,16 +337,76 @@ class MainViewModel(
             try {
                 delay(QPController.DELAY_ALARM_RELOAD)
                 AppLogger.d(TAG, "Reloading alarms...")
-                val deviceAlarms = qpController.readAlarms()
-                val titleRepo = alarmTitleRepo()
-                val alarmsWithTitles = deviceAlarms.map { alarm ->
-                    alarm.copy(title = titleRepo.getTitle(alarm.id))
-                }
-                _alarms.value = alarmsWithTitles
-                AppLogger.d(TAG, "Reloaded ${alarmsWithTitles.size} alarms")
+                _alarms.value = fetchAlarmsWithTitles()
+                AppLogger.d(TAG, "Reloaded ${_alarms.value.size} alarms")
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Error reloading alarms", e)
             }
+        }
+    }
+
+    private suspend fun fetchAlarmsWithTitles(): List<Alarm> {
+        val deviceAlarms = qpController.readAlarms()
+        val titleRepo = alarmTitleRepo()
+        return deviceAlarms.map { alarm ->
+            alarm.copy(title = titleRepo.getTitle(alarm.id))
+        }
+    }
+
+    private suspend fun loadDeviceMetadataAfterConnect() {
+        AppLogger.d(TAG, "Clock connected, reading alarms and settings...")
+        try {
+            val alarmsWithTitles = fetchAlarmsWithTitles()
+            _alarms.value = alarmsWithTitles
+            AppLogger.d(TAG, "Loaded ${alarmsWithTitles.size} alarms")
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error loading alarms", e)
+        }
+
+        delay(QPController.DELAY_BLE_OPERATION)
+
+        try {
+            val settings = qpController.readDeviceSettings()
+            _deviceSettings.value = settings
+            AppLogger.d(TAG, "Loaded device settings: $settings")
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error loading settings", e)
+        }
+
+        delay(QPController.DELAY_BLE_OPERATION)
+
+        try {
+            val version = qpController.readFirmwareVersion()
+            _deviceSettings.value = _deviceSettings.value?.copy(firmwareVersion = version)
+            AppLogger.d(TAG, "Loaded firmware version: $version")
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error loading firmware version", e)
+        }
+    }
+
+    private fun attachLiveSensorCallbacks() {
+        qpController.onSensorData = { temperature, humidity ->
+            val currentData = _sensorData.value
+            val mac = activeMac
+            val batteryFromStore = sensorRepo().getSensorData()?.battery
+            val resolvedBattery = batteryFromStore ?: currentData?.battery ?: 0
+            _sensorData.value = currentData?.copy(
+                temperature = temperature.toDouble(),
+                humidity = humidity.toDouble(),
+                battery = resolvedBattery,
+                timestamp = System.currentTimeMillis()
+            ) ?: SensorData(
+                name = "clOwOck",
+                macAddress = mac,
+                temperature = temperature.toDouble(),
+                humidity = humidity.toDouble(),
+                battery = resolvedBattery,
+                rssi = 0,
+                timestamp = System.currentTimeMillis()
+            )
+        }
+        qpController.onRssiUpdate = { rssi ->
+            _sensorData.value = _sensorData.value?.copy(rssi = rssi)
         }
     }
 

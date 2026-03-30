@@ -6,7 +6,6 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.updateAll
 import androidx.work.BackoffPolicy
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
@@ -55,7 +54,7 @@ class RefreshAction : ActionCallback {
         }
 
         SensorGlanceWidget().update(context, glanceId)
-        SensorGlanceWidget().updateAll(context)
+        SensorWidgetRefresher.updateAll(context)
 
         val workRequest = OneTimeWorkRequestBuilder<SensorUpdateWorker>()
             .setInputData(

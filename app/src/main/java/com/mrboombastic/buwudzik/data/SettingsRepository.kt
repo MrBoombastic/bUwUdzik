@@ -3,8 +3,7 @@ package com.mrboombastic.buwudzik.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
-import androidx.glance.appwidget.updateAll
-import com.mrboombastic.buwudzik.widget.SensorGlanceWidget
+import com.mrboombastic.buwudzik.widget.SensorWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -48,7 +47,7 @@ class SettingsRepository(private val context: Context) {
      * Updates all widgets to reflect setting changes.
      */
     suspend fun updateAllWidgets() = withContext(Dispatchers.IO) {
-        SensorGlanceWidget().updateAll(context)
+        SensorWidgetRefresher.updateAll(context)
     }
 
     var lastVersionCode: Int

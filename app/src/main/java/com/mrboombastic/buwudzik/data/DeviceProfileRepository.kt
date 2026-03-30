@@ -61,9 +61,9 @@ class DeviceProfileRepository(private val context: Context) {
 
         // Do not import legacy flat `battery_type`
         val profile = DeviceProfile(
-            mac = legacyMac.uppercase(),
+            mac = legacyMac.normalizedBluetoothMac(),
             alias = "Device 1",
-            batteryType = DeviceProfile.DEFAULT_BATTERY_TYPE,
+            batteryType = BatteryType.ALKALINE,
             addedAt = System.currentTimeMillis()
         )
 
