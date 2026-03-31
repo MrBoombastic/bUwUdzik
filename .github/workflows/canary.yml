@@ -52,17 +52,21 @@ jobs:
           mv "${{ steps.sign_apk.outputs.signedFile }}" "$output"
           echo "SIGNED_APK_PATH=$output" >> "$GITHUB_ENV"
 
+      - name: Prepare canary release metadata
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          echo "SHORT_SHA=$short_sha" >> "$GITHUB_ENV"
+          echo "CANARY_TAG=canary-$short_sha" >> "$GITHUB_ENV"
+
       - name: Publish/Update rolling canary prerelease
         uses: ncipollo/release-action@v1
         with:
-          tag: canary
-          name: canary ${GITHUB_SHA::7}
+          tag: ${{ env.CANARY_TAG }}
+          name: Canary ${{ env.SHORT_SHA }}
           body: |
             Auto-published canary build from the `master` branch. Uses different namespace, so you can use both canary and stable simultaneously.
             Commit: ${{ github.sha }}
           prerelease: true
-          allowUpdates: true
-          removeArtifacts: true
           artifacts: ${{ env.SIGNED_APK_PATH }}
           token: ${{ secrets.GITHUB_TOKEN }}
 

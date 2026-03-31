@@ -45,6 +45,7 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -255,7 +256,13 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
-                            TextButton(onClick = dismissSwipeHint) {
+                            FilledTonalButton(
+                                onClick = dismissSwipeHint,
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
                                 Text(stringResource(R.string.device_sheet_swipe_hint_got_it))
                             }
                         }

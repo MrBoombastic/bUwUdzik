@@ -198,6 +198,9 @@ class MainViewModel(
         checkPairingStatus()
         viewModelScope.launch {
             activeDevice.collect { profile ->
+                // Refresh pairing state when active profile changes (e.g. QR import -> makeActive),
+                // so UI does not wait for Activity.onResume to notice a newly stored token.
+                checkPairingStatus()
                 if (profile == null) {
                     stopAll()
                     clearPerDeviceUiState()
