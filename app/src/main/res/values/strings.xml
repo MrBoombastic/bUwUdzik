@@ -35,6 +35,8 @@
     <string name="hours_24">24 hours</string>
     <string name="show_widget_error_label">Show widget error indicator</string>
     <string name="show_widget_error_hint">Display warning when background updates fail.</string>
+    <string name="auto_update_check_label">Check updates automatically</string>
+    <string name="auto_update_check_hint">At app startup, checks at most once per day.</string>
     <string name="widget_select_app_label">App to launch after tapping widget</string>
     <string name="default_app_label">default (this app)</string>
     <string name="theme_label">Theme</string>

@@ -30,7 +30,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -88,6 +91,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val AUTO_UPDATE_CHECK_INTERVAL_MS = 24L * 60L * 60L * 1000L
 
         /**
          * Schedule periodic widget updates using AlarmManager.
@@ -187,6 +191,9 @@ class MainActivity : AppCompatActivity() {
                     val deviceProfileRepo = DeviceProfileRepository(applicationContext)
                     val startDestination =
                         if (deviceProfileRepo.getActiveDeviceId() != null) "home" else "setup"
+                    var startupUpdateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
+                    var showStartupUpdateDialog by remember { mutableStateOf(false) }
+                    val scope = rememberCoroutineScope()
 
                     // Handle disconnection events
                     val disconnectionEvent by viewModel.disconnectionEvent.collectAsState()
@@ -281,6 +288,68 @@ class MainActivity : AppCompatActivity() {
                             }
                             viewModel.clearConnectionError()
                         }
+                    }
+
+                    LaunchedEffect(Unit) {
+                        if (!settingsRepository.autoUpdateCheckEnabled) return@LaunchedEffect
+                        val now = System.currentTimeMillis()
+                        if (now - settingsRepository.lastAutoUpdateCheckMs < AUTO_UPDATE_CHECK_INTERVAL_MS) {
+                            return@LaunchedEffect
+                        }
+                        // Enforce at-most-once-per-day attempts even if request fails.
+                        settingsRepository.lastAutoUpdateCheckMs = now
+                        try {
+                            val updateChecker = UpdateChecker(applicationContext)
+                            val result = try {
+                                updateChecker.checkForUpdates()
+                            } finally {
+                                updateChecker.close()
+                            }
+                            if (result.updateAvailable) {
+                                startupUpdateResult = result
+                                showStartupUpdateDialog = true
+                            }
+                        } catch (e: Exception) {
+                            AppLogger.w(TAG, "Automatic update check failed: ${e.message}", e)
+                        }
+                    }
+
+                    if (showStartupUpdateDialog && startupUpdateResult != null) {
+                        AlertDialog(
+                            onDismissRequest = { showStartupUpdateDialog = false },
+                            title = { Text(stringResource(R.string.update_available_title)) },
+                            text = {
+                                val update = startupUpdateResult!!
+                                Text(
+                                    stringResource(
+                                        R.string.update_available_message,
+                                        update.currentVersion,
+                                        update.latestVersion
+                                    )
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showStartupUpdateDialog = false
+                                        val downloadUrl = startupUpdateResult?.downloadUrl ?: return@TextButton
+                                        scope.launch {
+                                            val updateChecker = UpdateChecker(applicationContext)
+                                            updateChecker.downloadAndInstall(downloadUrl)
+                                            updateChecker.close()
+                                        }
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.download_update))
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showStartupUpdateDialog = false }) {
+                                    Text(stringResource(R.string.later))
+                                }
+                            },
+                            icon = { Icon(Icons.Default.Settings, contentDescription = null) }
+                        )
                     }
 
                     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter") Scaffold(

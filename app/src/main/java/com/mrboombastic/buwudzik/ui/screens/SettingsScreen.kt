@@ -87,6 +87,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     var theme by remember { mutableStateOf(repository.theme) }
     var ringtoneBaseUrl by remember { mutableStateOf(repository.ringtoneBaseUrl) }
     var showWidgetError by remember { mutableStateOf(repository.showWidgetError) }
+    var autoUpdateCheckEnabled by remember { mutableStateOf(repository.autoUpdateCheckEnabled) }
 
     var expandedWidgetAction by remember { mutableStateOf(false) }
 
@@ -317,6 +318,32 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
 
             Spacer(Modifier.height(16.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.auto_update_check_label),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.auto_update_check_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = autoUpdateCheckEnabled,
+                    onCheckedChange = {
+                        autoUpdateCheckEnabled = it
+                        repository.autoUpdateCheckEnabled = it
+                    }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = ringtoneBaseUrl,

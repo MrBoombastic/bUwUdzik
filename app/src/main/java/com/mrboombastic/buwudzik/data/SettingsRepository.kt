@@ -41,6 +41,8 @@ class SettingsRepository(private val context: Context) {
         const val DEFAULT_SHOW_WIDGET_ERROR = true
 
         private const val KEY_DEVICE_SHEET_SWIPE_HINT_SHOWN = "device_sheet_swipe_hint_shown"
+        private const val KEY_AUTO_UPDATE_CHECK_ENABLED = "auto_update_check_enabled"
+        private const val KEY_LAST_AUTO_UPDATE_CHECK_MS = "last_auto_update_check_ms"
     }
 
     /**
@@ -107,5 +109,17 @@ class SettingsRepository(private val context: Context) {
         get() = prefs.getBoolean(KEY_DEVICE_SHEET_SWIPE_HINT_SHOWN, false)
         set(value) {
             prefs.edit { putBoolean(KEY_DEVICE_SHEET_SWIPE_HINT_SHOWN, value) }
+        }
+
+    var autoUpdateCheckEnabled: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_UPDATE_CHECK_ENABLED, true)
+        set(value) {
+            prefs.edit { putBoolean(KEY_AUTO_UPDATE_CHECK_ENABLED, value) }
+        }
+
+    var lastAutoUpdateCheckMs: Long
+        get() = prefs.getLong(KEY_LAST_AUTO_UPDATE_CHECK_MS, 0L)
+        set(value) {
+            prefs.edit { putLong(KEY_LAST_AUTO_UPDATE_CHECK_MS, value.coerceAtLeast(0L)) }
         }
 }

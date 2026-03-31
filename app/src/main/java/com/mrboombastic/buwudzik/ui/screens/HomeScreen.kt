@@ -283,7 +283,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             val homeSwipeOpenPx = remember(densityForSwipe) {
                 with(densityForSwipe) { 56.dp.toPx() }
             }
-            var homeSwipeAcc by remember { mutableFloatStateOf(0f) }
+            var homeSwipeAccum by remember { mutableFloatStateOf(0f) }
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -293,11 +293,11 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                     .height(88.dp)
                     .pointerInput(homeSwipeOpenPx) {
                         detectVerticalDragGestures(
-                            onDragStart = { homeSwipeAcc = 0f },
+                            onDragStart = { homeSwipeAccum = 0f },
                             onVerticalDrag = { _, dragAmount ->
-                                homeSwipeAcc += dragAmount
-                                if (homeSwipeAcc <= -homeSwipeOpenPx) {
-                                    homeSwipeAcc = 0f
+                                homeSwipeAccum += dragAmount
+                                if (homeSwipeAccum <= -homeSwipeOpenPx) {
+                                    homeSwipeAccum = 0f
                                     deviceSwitcherOpen = true
                                 }
                             }
