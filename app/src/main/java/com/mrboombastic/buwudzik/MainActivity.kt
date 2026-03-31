@@ -65,6 +65,7 @@ import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import com.mrboombastic.buwudzik.widget.WidgetUpdateScheduler
+import kotlinx.coroutines.launch
 
 
 class MainActivity : AppCompatActivity() {
