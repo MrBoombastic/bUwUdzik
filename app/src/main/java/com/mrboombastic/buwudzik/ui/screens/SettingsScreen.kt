@@ -58,6 +58,7 @@ import com.mrboombastic.buwudzik.UpdateChecker
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
+import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -445,10 +446,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = changelog,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
+                            ReleaseChangelogMarkdown(
+                                markdown = changelog,
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }

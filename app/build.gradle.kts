@@ -50,8 +50,22 @@ configure<ApplicationExtension> {
     }
 
     buildTypes {
+        debug {
+            // Pretend the app is older, so update + changelog dialogs always qualify against GitHub latest.
+            // Set to "" to use the real versionName from the manifest during debug.
+            buildConfigField(
+                "String",
+                "UPDATE_CHECK_DEBUG_FAKE_VERSION",
+                "\"0.0.1\""
+            )
+        }
         release {
             isMinifyEnabled = true
+            buildConfigField(
+                "String",
+                "UPDATE_CHECK_DEBUG_FAKE_VERSION",
+                "\"\""
+            )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -97,5 +111,6 @@ dependencies {
     implementation(libs.camerax.view)
     implementation(libs.guava.android)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.mikepenz.markdown.m3)
     debugImplementation(libs.androidx.ui.tooling)
 }

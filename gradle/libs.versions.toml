@@ -12,6 +12,7 @@ zxing = "4.3.0"
 cameraX = "1.6.0"
 glance = "1.1.1"
 guavaAndroid = "33.5.0-android"
+markdownRenderer = "0.39.2"
 
 
 [libraries]
@@ -37,6 +38,7 @@ camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "ca
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraX" }
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "cameraX" }
 guava-android = { group = "com.google.guava", name = "guava", version.ref = "guavaAndroid" }
+mikepenz-markdown-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 
 
 [plugins]

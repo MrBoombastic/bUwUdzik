@@ -13,7 +13,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -38,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
@@ -49,6 +56,7 @@ import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
+import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
@@ -75,7 +83,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Stop BLE scanning when app goes to background
+        // Stop BLE scanning when the app goes to the background
         mainViewModel?.stopScanning()
     }
 
@@ -92,7 +100,13 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
-        private const val AUTO_UPDATE_CHECK_INTERVAL_MS = 24L * 60L * 60L * 1000L
+
+        /**
+         * Release: at most one automatic check per day.
+         * Debug: no throttle, so every cold start re-runs the check (fast manual/CI-style retests).
+         */
+        private val AUTO_UPDATE_CHECK_INTERVAL_MS =
+            if (BuildConfig.DEBUG) 0L else 24L * 60L * 60L * 1000L
 
         /**
          * Schedule periodic widget updates using AlarmManager.
@@ -109,11 +123,11 @@ class MainActivity : AppCompatActivity() {
 
         /**
          * Force reschedule updates with a new interval.
-         * Call this when user changes the update interval in settings.
+         * Call this when the user changes the update interval in settings.
          */
         fun rescheduleUpdates(context: Context, intervalMinutes: Long) {
             AppLogger.d(TAG, "Rescheduling AlarmManager for $intervalMinutes min intervals")
-            // Cancel existing alarms and schedule new one with updated interval
+            // Cancel existing alarms and schedule a new one with an updated interval
             WidgetUpdateScheduler.cancelUpdates(context)
             WidgetUpdateScheduler.scheduleUpdates(
                 context,
@@ -248,7 +262,7 @@ class MainActivity : AppCompatActivity() {
                             // Reset connection state FIRST
                             viewModel.handleUnexpectedDisconnect()
 
-                            // Navigate to home screen
+                            // Navigate to the home screen
                             navController.navigate("home") {
                                 popUpTo("home") { inclusive = true }
                             }
@@ -262,7 +276,7 @@ class MainActivity : AppCompatActivity() {
                                 reasonMessage
                             }
 
-                            // Show snackbar with reason
+                            // Show a snackbar with reason
                             snackbarHostState.showSnackbar(
                                 message = fullMessage,
                                 duration = SnackbarDuration.Long
@@ -277,7 +291,7 @@ class MainActivity : AppCompatActivity() {
                     val okText = stringResource(android.R.string.ok)
                     LaunchedEffect(connectionError) {
                         connectionError?.let { error ->
-                            // Avoid showing generic "Disconnected" message if we already have a specific DisconnectionEvent
+                            // Avoid showing a generic "Disconnected" message if we already have a specific DisconnectionEvent
                             val isGenericDisconnect =
                                 error.trim() == "Disconnected" || error.startsWith("Disconnected (status")
                             if (!isGenericDisconnect) {
@@ -297,7 +311,7 @@ class MainActivity : AppCompatActivity() {
                         if (now - settingsRepository.lastAutoUpdateCheckMs < AUTO_UPDATE_CHECK_INTERVAL_MS) {
                             return@LaunchedEffect
                         }
-                        // Enforce at-most-once-per-day attempts even if request fails.
+                        // Enforce at-most-once-per-day attempts even if the request fails.
                         settingsRepository.lastAutoUpdateCheckMs = now
                         try {
                             val updateChecker = UpdateChecker(applicationContext)
@@ -321,13 +335,33 @@ class MainActivity : AppCompatActivity() {
                             title = { Text(stringResource(R.string.update_available_title)) },
                             text = {
                                 val update = startupUpdateResult!!
-                                Text(
-                                    stringResource(
-                                        R.string.update_available_message,
-                                        update.currentVersion,
-                                        update.latestVersion
+                                val changelog = update.changelog
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            R.string.update_available_message,
+                                            update.currentVersion,
+                                            update.latestVersion
+                                        )
                                     )
-                                )
+                                    if (!changelog.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = stringResource(R.string.changelog_label),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        ReleaseChangelogMarkdown(
+                                            markdown = changelog,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
                             },
                             confirmButton = {
                                 TextButton(

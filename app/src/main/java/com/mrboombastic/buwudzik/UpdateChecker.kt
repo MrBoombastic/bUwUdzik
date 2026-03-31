@@ -1,6 +1,5 @@
 package com.mrboombastic.buwudzik
 
-
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -80,10 +79,21 @@ class UpdateChecker(private val context: Context) {
             AppLogger.d(TAG, "Latest release: ${release.tagName}")
 
             val latestVersion = release.tagName.removePrefix("v")
-            val currentVersion =
+            val packageVersion =
                 context.packageManager
                     .getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
                     .versionName ?: "0.0.0"
+            val fakeCurrent = BuildConfig.UPDATE_CHECK_DEBUG_FAKE_VERSION
+            val currentVersion =
+                if (fakeCurrent.isNotEmpty()) {
+                    AppLogger.d(
+                        TAG,
+                        "Debug: update check uses fake current version $fakeCurrent (installed $packageVersion)"
+                    )
+                    fakeCurrent
+                } else {
+                    packageVersion
+                }
 
             val updateAvailable = isNewerVersion(latestVersion, currentVersion)
             val downloadUrl =
