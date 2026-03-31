@@ -6,7 +6,6 @@ permissions:
 on:
   release:
     types: [ published ]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -32,33 +31,32 @@ jobs:
         run: yes | sdkmanager "build-tools;36.0.0"
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleStableRelease
 
       - name: Sign APK
         id: sign_apk
         uses: ilharp/sign-android-release@v2
         with:
-          releaseDir: app/build/outputs/apk/release
+          releaseDir: app/build/outputs/apk/stable/release
           signingKey: ${{ secrets.SIGNING_KEY }}
           keyAlias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: "36.0.0"
 
       - name: Rename signed APK
-        run: mv ${{ steps.sign_apk.outputs.signedFile }} app/build/outputs/apk/release/clOwOck-release.apk
+        run: mv "${{ steps.sign_apk.outputs.signedFile }}" app/build/outputs/apk/stable/release/clOwOck-stable-release.apk
         id: rename_apk
 
       - name: Upload Signed APK to Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: app/build/outputs/apk/release/clOwOck-release.apk
+          files: app/build/outputs/apk/stable/release/clOwOck-stable-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Unsigned APK as Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: unsigned-apk
-          path: app/build/outputs/apk/release/*-unsigned.apk
+          name: unsigned-stable-apk
+          path: app/build/outputs/apk/stable/release/*-unsigned.apk

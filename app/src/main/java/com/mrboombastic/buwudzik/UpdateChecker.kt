@@ -29,6 +29,7 @@ import java.io.File
 data class GitHubRelease(
     @SerialName("tag_name") val tagName: String,
     val body: String? = null,
+    val prerelease: Boolean = false,
     val assets: List<GitHubAsset>
 )
 
@@ -50,8 +51,10 @@ class UpdateChecker(private val context: Context) {
 
     companion object {
         private const val TAG = "UpdateChecker"
-        private const val GITHUB_API_URL =
+        private const val GITHUB_API_LATEST_STABLE_URL =
             "https://api.github.com/repos/MrBoombastic/bUwUdzik/releases/latest"
+        private const val GITHUB_API_RELEASES_URL =
+            "https://api.github.com/repos/MrBoombastic/bUwUdzik/releases?per_page=100"
 
         /** v3: DEFAULT importance so progress appears in the status bar / shade. */
         private const val NOTIFICATION_CHANNEL_ID = "update_download_channel_v3"
@@ -73,10 +76,21 @@ class UpdateChecker(private val context: Context) {
      * Check for updates without downloading.
      * Returns information about available updates.
      */
-    suspend fun checkForUpdates(): UpdateCheckResult = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdates(
+        includePrerelease: Boolean = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
+    ): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
-            val release: GitHubRelease = client.get(GITHUB_API_URL).body()
-            AppLogger.d(TAG, "Latest release: ${release.tagName}")
+            val release = if (includePrerelease) {
+                client.get(GITHUB_API_RELEASES_URL).body<List<GitHubRelease>>()
+                    .firstOrNull { it.assets.isNotEmpty() }
+                    ?: throw IllegalStateException("No GitHub releases with assets found")
+            } else {
+                client.get(GITHUB_API_LATEST_STABLE_URL).body()
+            }
+            AppLogger.d(
+                TAG,
+                "Latest ${if (includePrerelease) "stable/canary" else "stable"} release: ${release.tagName} (prerelease=${release.prerelease})"
+            )
 
             val latestVersion = release.tagName.removePrefix("v")
             val packageVersion =
@@ -96,8 +110,17 @@ class UpdateChecker(private val context: Context) {
                 }
 
             val updateAvailable = isNewerVersion(latestVersion, currentVersion)
-            val downloadUrl =
-                release.assets.firstOrNull { it.name.endsWith(".apk") }?.browserDownloadURL
+            val isCanaryFlavor = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
+            val preferredApkNamePart = if (isCanaryFlavor) "canary-release" else "stable-release"
+            val downloadUrl = release.assets
+                .firstOrNull { asset ->
+                    asset.name.endsWith(".apk") && asset.name.contains(
+                        preferredApkNamePart,
+                        ignoreCase = true
+                    )
+                }
+                ?.browserDownloadURL
+                ?: release.assets.firstOrNull { it.name.endsWith(".apk") }?.browserDownloadURL
 
             UpdateCheckResult(
                 updateAvailable = updateAvailable,
@@ -330,8 +353,8 @@ class UpdateChecker(private val context: Context) {
 
     private fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
         try {
-            val latest = latestVersion.split(".").map { it.toIntOrNull() ?: 0 }
-            val current = currentVersion.split(".").map { it.toIntOrNull() ?: 0 }
+            val latest = parseVersion(latestVersion)
+            val current = parseVersion(currentVersion)
 
             for (i in 0 until maxOf(latest.size, current.size)) {
                 val latestPart = latest.getOrNull(i) ?: 0
@@ -348,6 +371,12 @@ class UpdateChecker(private val context: Context) {
             return false
         }
         return false
+    }
+
+    private fun parseVersion(version: String): List<Int> {
+        // Accept forms like "1.8.0", "1.8.0-canary", "v1.8.0-rc.1".
+        val parts = Regex("\\d+").findAll(version).map { it.value.toIntOrNull() ?: 0 }.toList()
+        return parts.ifEmpty { listOf(0) }
     }
 
     /**

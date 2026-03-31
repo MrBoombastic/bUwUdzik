@@ -1,0 +1,71 @@
+name: Build and Publish Canary APK
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: "jetbrains"
+          java-version: "25"
+          cache: "gradle"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android Build Tools
+        run: yes | sdkmanager "build-tools;36.0.0"
+
+      - name: Build Canary APK (canary flavor)
+        run: ./gradlew assembleCanaryRelease
+
+      - name: Sign Canary APK
+        id: sign_apk
+        uses: ilharp/sign-android-release@v2
+        with:
+          releaseDir: app/build/outputs/apk/canary/release
+          signingKey: ${{ secrets.SIGNING_KEY }}
+          keyAlias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename signed APK
+        run: |
+          output="app/build/outputs/apk/canary/release/clOwOck-canary-release-${GITHUB_SHA::7}.apk"
+          mv "${{ steps.sign_apk.outputs.signedFile }}" "$output"
+          echo "SIGNED_APK_PATH=$output" >> "$GITHUB_ENV"
+
+      - name: Publish/Update rolling canary prerelease
+        uses: ncipollo/release-action@v1
+        with:
+          tag: canary
+          name: Canary (latest from master)
+          body: |
+            Auto-published canary build from `master`.
+            Commit: ${{ github.sha }}
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: ${{ env.SIGNED_APK_PATH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Unsigned Canary APK Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-canary-apk
+          path: app/build/outputs/apk/canary/release/*-unsigned.apk

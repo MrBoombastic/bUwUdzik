@@ -18,7 +18,7 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 22
+        versionCode = 24
         versionName = "1.8.0"
         buildConfigField(
             "String",
@@ -35,17 +35,17 @@ configure<ApplicationExtension> {
             dimension = "distribution"
             isDefault = true
         }
-        create("beta") {
+        create("canary") {
             dimension = "distribution"
-            applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta"
+            applicationIdSuffix = ".canary"
+            versionNameSuffix = "-canary"
             buildConfigField(
                 "String",
                 "WIDGET_UPDATE_ACTION",
-                "\"com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET\""
+                "\"com.mrboombastic.buwudzik.canary.ACTION_UPDATE_WIDGET\""
             )
             manifestPlaceholders["widgetUpdateAction"] =
-                "com.mrboombastic.buwudzik.beta.ACTION_UPDATE_WIDGET"
+                "com.mrboombastic.buwudzik.canary.ACTION_UPDATE_WIDGET"
         }
     }
 
