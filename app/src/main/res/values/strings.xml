@@ -53,6 +53,7 @@
     <string name="no_updates_available">No updates available</string>
     <string name="update_available_title">Update available</string>
     <string name="update_available_message">A new version is available. Current: %1$s, latest: %2$s. Would you like to download it now?</string>
+    <string name="changelog_label">Changelog</string>
     <string name="download_update">Download</string>
     <string name="later">Later</string>
     <string name="update_error">Error checking for updates</string>

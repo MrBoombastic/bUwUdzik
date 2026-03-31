@@ -45,6 +45,7 @@
     <string name="no_updates_available">Brak dostępnych aktualizacji</string>
     <string name="update_available_title">Dostępna aktualizacja</string>
     <string name="update_available_message">Dostępna jest nowa wersja. Obecna: %1$s, najnowsza: %2$s. Czy chcesz ją teraz pobrać?</string>
+    <string name="changelog_label">Lista zmian</string>
     <string name="download_update">Pobierz</string>
     <string name="later">Później</string>
     <string name="update_error">Błąd sprawdzania aktualizacji</string>

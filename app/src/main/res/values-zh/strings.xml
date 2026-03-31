@@ -45,6 +45,7 @@
     <string name="no_updates_available">无可用更新</string>
     <string name="update_available_title">有可用更新</string>
     <string name="update_available_message">有新版本可用。当前：%1$s，最新：%2$s。是否立即下载？</string>
+    <string name="changelog_label">更新日志</string>
     <string name="download_update">下载</string>
     <string name="later">稍后</string>
     <string name="update_error">检查更新时出错</string>

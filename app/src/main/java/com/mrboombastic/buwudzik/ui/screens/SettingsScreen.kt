@@ -397,13 +397,34 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 androidx.compose.material3.AlertDialog(onDismissRequest = {
                     showUpdateDialog = false
                 }, title = { Text(stringResource(R.string.update_available_title)) }, text = {
-                    Text(
-                        stringResource(
-                            R.string.update_available_message,
-                            updateResult!!.currentVersion,
-                            updateResult!!.latestVersion
+                    val changelog = updateResult?.changelog
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            stringResource(
+                                R.string.update_available_message,
+                                updateResult!!.currentVersion,
+                                updateResult!!.latestVersion
+                            )
                         )
-                    )
+                        if (!changelog.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.changelog_label),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = changelog,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                 }, confirmButton = {
                     androidx.compose.material3.TextButton(
                         onClick = {

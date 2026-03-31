@@ -45,6 +45,7 @@
     <string name="no_updates_available">Keine Updates verfügbar</string>
     <string name="update_available_title">Update verfügbar</string>
     <string name="update_available_message">Eine neue Version ist verfügbar. Aktuell: %1$s, neueste: %2$s. Möchten Sie sie jetzt herunterladen?</string>
+    <string name="changelog_label">Änderungsprotokoll</string>
     <string name="download_update">Herunterladen</string>
     <string name="later">Später</string>
     <string name="update_error">Fehler beim Suchen nach Updates</string>

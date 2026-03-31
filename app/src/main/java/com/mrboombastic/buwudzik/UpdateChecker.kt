@@ -29,6 +29,7 @@ import java.io.File
 @Serializable
 data class GitHubRelease(
     @SerialName("tag_name") val tagName: String,
+    val body: String? = null,
     val assets: List<GitHubAsset>
 )
 
@@ -42,7 +43,8 @@ data class UpdateCheckResult(
     val updateAvailable: Boolean,
     val latestVersion: String,
     val currentVersion: String,
-    val downloadUrl: String? = null
+    val downloadUrl: String? = null,
+    val changelog: String? = null
 )
 
 class UpdateChecker(private val context: Context) {
@@ -91,7 +93,8 @@ class UpdateChecker(private val context: Context) {
                 updateAvailable = updateAvailable,
                 latestVersion = latestVersion,
                 currentVersion = currentVersion,
-                downloadUrl = downloadUrl
+                downloadUrl = downloadUrl,
+                changelog = extractChangelogForDisplay(release.body)
             )
         } catch (e: Exception) {
             AppLogger.e(TAG, "Error checking for updates", e)
@@ -335,6 +338,31 @@ class UpdateChecker(private val context: Context) {
             return false
         }
         return false
+    }
+
+    /**
+     * If a Markdown heading containing "changelog" exists, returns only that section
+     * until the next heading. Otherwise, returns the full body as a fallback.
+     */
+    private fun extractChangelogForDisplay(body: String?): String? {
+        val normalized = body?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
+        val lines = normalized.lines()
+        val headingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*$", RegexOption.IGNORE_CASE)
+        val changelogHeadingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*changelog.*$", RegexOption.IGNORE_CASE)
+
+        val startIndex = lines.indexOfFirst { changelogHeadingRegex.matches(it) }
+        if (startIndex < 0) return normalized
+
+        val endExclusive = (startIndex + 1 until lines.size)
+            .firstOrNull { headingRegex.matches(lines[it]) }
+            ?: lines.size
+
+        val section = lines
+            .subList(startIndex + 1, endExclusive)
+            .joinToString("\n")
+            .trim()
+
+        return section.ifEmpty { normalized }
     }
 
     /**
