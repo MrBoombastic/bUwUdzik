@@ -65,7 +65,7 @@ class TokenStorage(context: Context) {
         val key = macAddressToKey(macAddress)
         val tokenHex = bytesToHex(token)
         prefs.edit { putString(key, tokenHex) }
-        AppLogger.i(TAG, "Stored token key=$key mac=$macAddress")
+        AppLogger.d(TAG, "Stored token for $macAddress")
     }
 
     /**
@@ -82,8 +82,7 @@ class TokenStorage(context: Context) {
     fun removeToken(macAddress: String) {
         val key = macAddressToKey(macAddress)
         prefs.edit { remove(key) }
-        // Always log (not DEBUG-only): audit trail when users report “tokens vanished”
-        AppLogger.w(TAG, "Removed token prefs entry key=$key mac=$macAddress")
+        AppLogger.d(TAG, "Removed token for $macAddress")
     }
 
     /** SharedPreferences key for this MAC (for debug / support tooling). */
