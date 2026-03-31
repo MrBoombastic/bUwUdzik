@@ -44,14 +44,16 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
       - name: Rename signed APK
-        run: mv "${{ steps.sign_apk.outputs.signedFile }}" app/build/outputs/apk/stable/release/clOwOck-stable-release.apk
+        run: |
+          output="app/build/outputs/apk/stable/release/clOwOck-release.apk"
+          mv "${{ steps.sign_apk.outputs.signedFile }}" "$output"
         id: rename_apk
 
       - name: Upload Signed APK to Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: app/build/outputs/apk/stable/release/clOwOck-stable-release.apk
+          files: app/build/outputs/apk/stable/release/clOwOck-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

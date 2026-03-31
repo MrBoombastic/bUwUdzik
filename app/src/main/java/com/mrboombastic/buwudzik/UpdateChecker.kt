@@ -111,15 +111,16 @@ class UpdateChecker(private val context: Context) {
 
             val updateAvailable = isNewerVersion(latestVersion, currentVersion)
             val isCanaryFlavor = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
-            val preferredApkNamePart = if (isCanaryFlavor) "canary-release" else "stable-release"
-            val downloadUrl = release.assets
-                .firstOrNull { asset ->
-                    asset.name.endsWith(".apk") && asset.name.contains(
-                        preferredApkNamePart,
-                        ignoreCase = true
-                    )
-                }
-                ?.browserDownloadURL
+            val preferredNameHints = if (isCanaryFlavor) {
+                listOf("canary-release")
+            } else {
+                listOf("clowock-release")
+            }
+            val downloadUrl = preferredNameHints.firstNotNullOfOrNull { hint ->
+                release.assets.firstOrNull { asset ->
+                    asset.name.endsWith(".apk") && asset.name.contains(hint, ignoreCase = true)
+                }?.browserDownloadURL
+            }
                 ?: release.assets.firstOrNull { it.name.endsWith(".apk") }?.browserDownloadURL
 
             UpdateCheckResult(

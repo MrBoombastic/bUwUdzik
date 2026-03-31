@@ -54,9 +54,9 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: canary
-          name: Canary (latest from master)
+          name: canary ${GITHUB_SHA::7}
           body: |
-            Auto-published canary build from `master`.
+            Auto-published canary build from the `master` branch. Uses different namespace, so you can use both canary and stable simultaneously.
             Commit: ${{ github.sha }}
           prerelease: true
           allowUpdates: true
