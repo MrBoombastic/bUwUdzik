@@ -213,7 +213,7 @@
     <string name="rename_device_title">Rinomina dispositivo</string>
     <string name="device_alias_label">Nome dispositivo</string>
     <string name="delete_device_title">Eliminare il dispositivo?</string>
-    <string name="delete_device_message">Rimuovere « %1$s » da questa app? Il dispositivo fisico non sarà interessato.</string>
+    <string name="delete_device_message">Rimuovere «%1$s» da questa app? Il dispositivo fisico non sarà interessato.</string>
     <string name="delete_confirm">Elimina</string>
     <string name="select_devices_to_share">Seleziona i dispositivi da condividere:</string>
     <string name="no_devices_selected">Seleziona almeno un dispositivo sopra</string>

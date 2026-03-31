@@ -167,8 +167,7 @@ fun DeviceSetupScreen(
                 alias = device.name ?: device.address,
                 batteryType = BatteryType.ALKALINE
             )
-            viewModel.addDevice(profile)
-            viewModel.setActiveDevice(profile.mac)
+            viewModel.addDevice(profile, makeActive = true)
             // Navigate back to devices list or home
             if (navController.previousBackStackEntry?.destination?.route == "devices") {
                 navController.popBackStack()
@@ -183,10 +182,10 @@ fun DeviceSetupScreen(
                 val profile = DeviceProfile(
                     mac = device.address.normalizedBluetoothMac(),
                     alias = device.name ?: device.address,
+                  
                     batteryType = BatteryType.ALKALINE
                 )
-                viewModel.addDevice(profile)
-                viewModel.setActiveDevice(profile.mac)
+                viewModel.addDevice(profile, makeActive = true)
             }
             if (navController.previousBackStackEntry != null) {
                 navController.popBackStack()

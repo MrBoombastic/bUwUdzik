@@ -129,7 +129,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             val allGranted = perms.values.all { it }
             AppLogger.d(TAG, "Permissions result: $perms, All granted: $allGranted")
             if (allGranted) {
-                if (viewModel.deviceProfileRepository.getActiveDeviceId() != null) {
+                if (activeDevice != null) {
                     viewModel.startScanning()
                 }
             } else {
@@ -283,7 +283,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             val homeSwipeOpenPx = remember(densityForSwipe) {
                 with(densityForSwipe) { 56.dp.toPx() }
             }
-            var homeSwipeAccum by remember { mutableFloatStateOf(0f) }
+            var homeSwipeAcc by remember { mutableFloatStateOf(0f) }
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -293,11 +293,11 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                     .height(88.dp)
                     .pointerInput(homeSwipeOpenPx) {
                         detectVerticalDragGestures(
-                            onDragStart = { homeSwipeAccum = 0f },
+                            onDragStart = { homeSwipeAcc = 0f },
                             onVerticalDrag = { _, dragAmount ->
-                                homeSwipeAccum += dragAmount
-                                if (homeSwipeAccum <= -homeSwipeOpenPx) {
-                                    homeSwipeAccum = 0f
+                                homeSwipeAcc += dragAmount
+                                if (homeSwipeAcc <= -homeSwipeOpenPx) {
+                                    homeSwipeAcc = 0f
                                     deviceSwitcherOpen = true
                                 }
                             }

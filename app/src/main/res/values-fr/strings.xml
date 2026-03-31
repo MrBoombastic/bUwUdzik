@@ -103,7 +103,7 @@
     <string name="night_brightness_label">Luminosité de nuit : %1$d%%</string>
     <string name="start_time_label">Heure de début</string>
     <string name="end_time_label">Heure de fin</string>
-    <string name="firmware_version_fmt">Version du firmware : %1$s</string>
+    <string name="firmware_version_fmt">Version du firmware: %1$s</string>
     <string name="device_timeout_message">Délai d\'attente de l\'appareil dépassé. Veuillez vous rapprocher et réessayer.</string>
     <string name="save_failed_message">Échec de l\'enregistrement : %1$s</string>
     <string name="alarm_management_title">Alarmes</string>

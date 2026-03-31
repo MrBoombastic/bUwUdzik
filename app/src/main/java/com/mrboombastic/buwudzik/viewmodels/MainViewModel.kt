@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.icu.util.TimeZone
-import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrboombastic.buwudzik.data.AlarmTitleRepository
@@ -12,7 +11,6 @@ import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
-import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.DeviceSettings
@@ -25,8 +23,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -50,10 +50,68 @@ class MainViewModel(
         deviceProfileRepository.getActiveDeviceId() ?: ""
     )
 
-    val activeDevice = deviceProfileRepository.activeProfile
+    val activeDevice: StateFlow<DeviceProfile?> = deviceProfileRepository.activeProfile
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = deviceProfileRepository.getActiveProfile()
+        )
 
     val activeMac: String
         get() = deviceProfileRepository.getActiveDeviceId() ?: ""
+
+    val devices: StateFlow<List<DeviceProfile>> = deviceProfileRepository.profilesFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setActiveDevice(mac: String) {
+        val currentActive = deviceProfileRepository.getActiveDeviceId()
+        if (currentActive == mac) {
+            // Even if already active, refresh pairing status just in case
+            checkPairingStatus()
+            return
+        }
+
+        AppLogger.d(TAG, "Setting active device to $mac")
+        stopAll()
+        deviceProfileRepository.setActiveDeviceId(mac)
+        clearPerDeviceUiState()
+        checkPairingStatus()
+        startScanning()
+    }
+
+    fun addDevice(profile: DeviceProfile, makeActive: Boolean = false) {
+        deviceProfileRepository.addOrUpdate(profile)
+        if (makeActive) {
+            setActiveDevice(profile.mac)
+        }
+    }
+
+    fun removeDevice(mac: String) {
+        if (activeMac == mac) {
+            stopAll()
+        }
+        deviceProfileRepository.remove(mac)
+    }
+
+    fun updateDeviceAlias(mac: String, alias: String) {
+        val profile = deviceProfileRepository.getByMac(mac)
+        if (profile != null) {
+            deviceProfileRepository.addOrUpdate(profile.copy(alias = alias))
+        }
+    }
+
+    fun updateDeviceBatteryType(mac: String, batteryType: String) {
+        val profile = deviceProfileRepository.getByMac(mac)
+        if (profile != null) {
+            deviceProfileRepository.addOrUpdate(profile.copy(batteryType = batteryType))
+            // Recompute cached battery immediately so UI reflects battery-type change without waiting for next scan.
+            if (activeMac == mac) {
+                sensorRepo().reapplyBatteryCorrection()?.let { corrected ->
+                    _sensorData.value = corrected
+                }
+            }
+        }
+    }
 
     private val _sensorData = MutableStateFlow<SensorData?>(null)
     val sensorData: StateFlow<SensorData?> = _sensorData.asStateFlow()
@@ -102,12 +160,10 @@ class MainViewModel(
         }
     }
 
-    fun deleteDevice(mac: String) {
-        viewModelScope.launch {
-            val tokenStorage = TokenStorage(applicationContext)
-            tokenStorage.removeToken(mac)
-            deviceProfileRepository.removeProfile(mac)
-        }
+    fun deviceSheetSwipeHintAlreadyShown(): Boolean = settingsRepository.deviceSheetSwipeHintShown
+
+    fun markDeviceSheetSwipeHintSeen() {
+        settingsRepository.deviceSheetSwipeHintShown = true
     }
 
     fun handleUnexpectedDisconnect() {

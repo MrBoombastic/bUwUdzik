@@ -193,7 +193,7 @@ fun DeviceImportScreen(
                                         )
                                         val alarmTitleRepository =
                                             AlarmTitleRepository(context, profile.mac)
-                                        viewModel.addDevice(profile)
+                                        viewModel.addDevice(profile, makeActive = true)
 
                                         // Store token for the imported device
                                         tokenStorage.storeToken(
@@ -204,9 +204,6 @@ fun DeviceImportScreen(
                                         shareData.alarmTitles.forEach { (id, title) ->
                                             alarmTitleRepository.setTitle(id, title)
                                         }
-
-                                        viewModel.setActiveDevice(profile.mac)
-                                        viewModel.checkPairingStatus()
 
                                         Toast.makeText(
                                             context, importSuccessMsg, Toast.LENGTH_SHORT

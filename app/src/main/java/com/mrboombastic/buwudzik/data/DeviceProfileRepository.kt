@@ -168,4 +168,10 @@ class DeviceProfileRepository(private val context: Context) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
+
+    /** Emits the full [DeviceProfile] of the active device. */
+    val activeProfile: Flow<DeviceProfile?> =
+        kotlinx.coroutines.flow.combine(profilesFlow, activeDeviceIdFlow) { profiles, activeMac ->
+            profiles.find { it.mac == activeMac }
+        }
 }

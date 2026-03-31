@@ -189,7 +189,7 @@ Managed via a single comprehensive payload on **Data Write**.
 | 2     | `1-5`           | Sound Volume                                                                                                   |
 | 3-4   | `58 02`         | Fixed Header / Version (???)                                                                                   |
 | 5     | Bitmask         | Mode Flags: See the **Mode Flags Breakdown** table below.                                                      |
-| 6     | Integer         | Timezone Offset (Units of 6 minutes)                                                                           |
+| 6     | Integer         | Timezone Offset (Units of 6 minutes). Device does not handle DST automatically.                                |
 | 7     | Seconds         | Backlight Duration (0=Off)                                                                                     |
 | 8     | Packed          | Brightness (High nibble: Day/10, Low nibble: Night/10)                                                         |
 | 9-10  | HH:MM           | Night Start Time                                                                                               |

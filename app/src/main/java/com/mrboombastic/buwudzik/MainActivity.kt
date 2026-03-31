@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         // Resume BLE scan only when a device is configured and permissions are granted
         val vm = mainViewModel ?: return
         if (BluetoothUtils.hasBluetoothPermissions(this) &&
-            vm.deviceProfileRepository.getActiveDeviceId() != null
+            vm.activeMac.isNotEmpty()
         ) {
             vm.startScanning()
         }
