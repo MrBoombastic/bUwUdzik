@@ -19,7 +19,9 @@ jobs:
         with:
           distribution: 'jetbrains'
           java-version: '25'
-          cache: 'gradle'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -31,7 +33,7 @@ jobs:
         run: yes | sdkmanager "build-tools;36.0.0"
 
       - name: Build Release APK
-        run: ./gradlew assembleStableRelease
+        run: ./gradlew --no-daemon --build-cache --configuration-cache assembleStableRelease
 
       - name: Sign APK
         id: sign_apk

@@ -20,7 +20,9 @@ jobs:
         with:
           distribution: "jetbrains"
           java-version: "25"
-          cache: "gradle"
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -32,7 +34,7 @@ jobs:
         run: yes | sdkmanager "build-tools;36.0.0"
 
       - name: Build Canary APK (canary flavor)
-        run: ./gradlew assembleCanaryRelease
+        run: ./gradlew --no-daemon --build-cache --configuration-cache assembleCanaryRelease
 
       - name: Sign Canary APK
         id: sign_apk
