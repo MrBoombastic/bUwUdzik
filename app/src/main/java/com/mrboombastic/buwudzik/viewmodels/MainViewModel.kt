@@ -7,6 +7,7 @@ import android.icu.util.TimeZone
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mrboombastic.buwudzik.data.AlarmTitleRepository
+import com.mrboombastic.buwudzik.data.DeviceLocalDataCleaner
 import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
@@ -66,7 +67,7 @@ class MainViewModel(
     fun setActiveDevice(mac: String) {
         val currentActive = deviceProfileRepository.getActiveDeviceId()
         if (currentActive == mac) {
-            // Even if already active, refresh pairing status just in case
+            // Even if already active, refresh the pairing status just in case
             checkPairingStatus()
             return
         }
@@ -87,10 +88,19 @@ class MainViewModel(
     }
 
     fun removeDevice(mac: String) {
-        if (activeMac == mac) {
+        val wasActive = activeMac == mac
+        if (wasActive) {
             stopAll()
         }
+        DeviceLocalDataCleaner.wipeAllLocalStateForDevice(applicationContext, mac)
         deviceProfileRepository.remove(mac)
+        viewModelScope.launch { SensorWidgetRefresher.updateAll(applicationContext) }
+        if (wasActive) {
+            clearPerDeviceUiState()
+            if (activeMac.isNotEmpty()) {
+                startScanning()
+            }
+        }
     }
 
     fun updateDeviceAlias(mac: String, alias: String) {
@@ -149,7 +159,7 @@ class MainViewModel(
 
     fun checkPairingStatus() {
         val mac = activeMac
-        _isPaired.value = if (mac.isNotEmpty()) qpController.isDevicePaired(mac) else false
+        _isPaired.value = mac.isNotEmpty() && qpController.isDevicePaired(mac)
     }
 
     fun unpairDevice() {
@@ -157,6 +167,8 @@ class MainViewModel(
         if (mac.isNotEmpty()) {
             qpController.unpairDevice(mac)
             checkPairingStatus()
+            clearPerDeviceUiState()
+            viewModelScope.launch { SensorWidgetRefresher.updateAll(applicationContext) }
         }
     }
 
@@ -171,8 +183,10 @@ class MainViewModel(
         rssiPollJob = null
         _deviceConnected.value = false
         _deviceConnecting.value = false
-        AppLogger.d(TAG, "Handled unexpected disconnect, starting scan")
-        startScanning()
+        AppLogger.d(TAG, "Handled unexpected disconnect, restarting scan")
+        // Always restart: connect failures often call startScanning() first; a second start is ignored
+        // while the job is still winding down, leaving no active collection.
+        restartScanning()
     }
 
     private var scanJob: Job? = null
@@ -309,13 +323,13 @@ class MainViewModel(
                     }
                 } else {
                     AppLogger.e(TAG, "Failed to connect to clock")
-                    startScanning()
+                    restartScanning()
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Error connecting to clock ($targetMac): ${e.message}", e)
                 _deviceConnected.value = false
                 _connectionError.value = e.message ?: "Connection failed"
-                startScanning()
+                restartScanning()
             } finally {
                 if (reloadAlarms) {
                     _deviceConnecting.value = false
@@ -362,7 +376,7 @@ class MainViewModel(
             _deviceSettings.value = settings
             AppLogger.d(TAG, "Loaded device settings: $settings")
 
-            // Check if timezone needs sync (e.g. DST change)
+            // Check if the timezone needs sync (e.g. DST change)
             val currentPhoneTz = TimeZone.getDefault()
             val now = System.currentTimeMillis()
             if (settings.timeZone.getOffset(now) != currentPhoneTz.getOffset(now)) {

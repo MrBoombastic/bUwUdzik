@@ -11,6 +11,7 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import androidx.annotation.RequiresPermission
+import com.mrboombastic.buwudzik.data.DeviceLocalDataCleaner
 import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_WRITE
@@ -125,15 +126,16 @@ class QPController(private val context: Context) {
     }
 
     /**
-     * Check if a device is already paired (has a stored token).
+     * True when this app has completed auth with the clock (stored token). These devices are not
+     * Android-bonded; the pairing state is app-local only.
      */
     fun isDevicePaired(macAddress: String): Boolean = tokenStorage.isPaired(macAddress)
 
     /**
-     * Remove pairing (stored token) for a device.
+     * Forget the device in-app: token, cached sensor, alarm titles, widget bindings.
      */
     fun unpairDevice(macAddress: String) {
-        tokenStorage.removeToken(macAddress)
+        DeviceLocalDataCleaner.wipeAllLocalStateForDevice(context, macAddress)
     }
 
     /**

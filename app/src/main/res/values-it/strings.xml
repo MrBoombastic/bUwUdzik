@@ -28,6 +28,8 @@
     <string name="hours_24">24 ore</string>
     <string name="show_widget_error_label">Mostra indicatore di errore widget</string>
     <string name="show_widget_error_hint">Visualizza avviso quando gli aggiornamenti in background falliscono.</string>
+    <string name="auto_update_check_label">Controlla aggiornamenti automaticamente</string>
+    <string name="auto_update_check_hint">All\'avvio dell\'app, al massimo una volta al giorno.</string>
     <string name="widget_select_app_label">App da avviare dopo aver toccato il widget</string>
     <string name="default_app_label">predefinita (questa app)</string>
     <string name="theme_label">Tema</string>
@@ -225,7 +227,6 @@
     <string name="no_token_for_device">Nessun token salvato per questo dispositivo.\nAbbinalo prima per esportarlo.</string>
     <string name="manage_devices_label">Gestisci dispositivi</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">I tuoi dispositivi</string>
     <string name="device_sheet_swipe_hint_title">Suggerimento</string>
     <string name="device_sheet_swipe_hint_body">Scorri verso l\'alto dal basso dello schermo per cambiare dispositivo, oppure tocca il chip sopra.</string>
     <string name="device_sheet_swipe_hint_got_it">Ho capito</string>

@@ -28,6 +28,8 @@
     <string name="hours_24">24 heures</string>
     <string name="show_widget_error_label">Afficher l\'indicateur d\'erreur du widget</string>
     <string name="show_widget_error_hint">Afficher un avertissement lorsque les mises à jour en arrière-plan échouent.</string>
+    <string name="auto_update_check_label">Vérifier les mises à jour automatiquement</string>
+    <string name="auto_update_check_hint">Au lancement de l\'application, au plus une fois par jour.</string>
     <string name="widget_select_app_label">Application à lancer après avoir tapé sur le widget</string>
     <string name="default_app_label">par défaut (cette application)</string>
     <string name="theme_label">Thème</string>
@@ -225,7 +227,6 @@
     <string name="no_token_for_device">Aucun jeton enregistré pour cet appareil.\nAssociez-le d\'abord pour l\'exporter.</string>
     <string name="manage_devices_label">Gérer les appareils</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">Vos appareils</string>
     <string name="device_sheet_swipe_hint_title">Astuce</string>
     <string name="device_sheet_swipe_hint_body">Glissez vers le haut depuis le bas de l\'écran pour changer d\'appareil, ou appuyez sur la puce ci-dessus.</string>
     <string name="device_sheet_swipe_hint_got_it">Compris</string>

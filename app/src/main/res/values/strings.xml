@@ -96,6 +96,11 @@
     <string name="disconnect">Disconnect</string>
     <string name="device_settings_button">Device settings</string>
     <string name="set_time_2137">Set time to 21:37</string>
+    <string name="debug_saved_data_title" translatable="false">Debug: saved data</string>
+    <string name="debug_saved_data_hint" translatable="false">SharedPreferences dump (tokens, profiles, sensors, widgets). Debug builds only.</string>
+    <string name="debug_saved_data_nav" translatable="false">Debug: show saved data</string>
+    <string name="debug_copy_report" translatable="false">Copy report</string>
+    <string name="debug_report_copied" translatable="false">Copied to clipboard</string>
     <string name="time_set_success">Time set to 21:37!</string>
     <string name="time_set_failed">Failed to set time</string>
     <string name="device_settings_title">Device settings</string>
@@ -240,7 +245,6 @@
     <string name="no_token_for_device">No token saved for this device.\nPair it first to export.</string>
     <string name="manage_devices_label">Manage devices</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">Your devices</string>
     <string name="device_sheet_swipe_hint_title">Quick tip</string>
     <string name="device_sheet_swipe_hint_body">Swipe up from the bottom edge of the screen to switch devices - or tap the chip above.</string>
     <string name="device_sheet_swipe_hint_got_it">Got it</string>

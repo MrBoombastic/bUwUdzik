@@ -334,9 +334,10 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                         .fillMaxWidth()
                         .fillMaxHeight()
                 ) {
-                    Column(
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .weight(1f)
                             .pointerInput(sheetState.currentValue) {
                                 detectVerticalDragGestures(
                                     onDragStart = { sheetDragAccum = 0f },
@@ -350,88 +351,24 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                                         }
                                     }
                                 )
-                            }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp, vertical = 8.dp)
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Default.DevicesOther,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.switch_device_sheet_title),
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .clickable {
-                                    scope.launch {
-                                        sheetState.hide()
-                                        deviceSwitcherOpen = false
-                                        navController.navigate("devices")
-                                    }
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Settings,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(R.string.manage_devices_label),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 28.dp),
+                            },
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 4.dp,
+                            bottom = 20.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        items(
+                            count = 1,
+                            key = { "device_sheet_divider" }
+                        ) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        }
                         items(devices.sortedBy { it.addedAt }, key = { it.mac }) { profile ->
                             val isActive = profile.mac == activeDevice?.mac
                             Surface(
@@ -492,6 +429,48 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                                             } else {
                                                 MaterialTheme.colorScheme.onSurfaceVariant
                                             }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        items(
+                            count = 1,
+                            key = { "manage_devices_row" }
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                                    .clickable {
+                                        scope.launch {
+                                            sheetState.hide()
+                                            deviceSwitcherOpen = false
+                                            navController.navigate("devices")
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Settings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(R.string.manage_devices_label),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                 }
@@ -610,7 +589,9 @@ fun Dashboard(
                 modifier = Modifier.fillMaxWidth(0.9f),
                 arrangementH = Arrangement.Center
             )
-        } else if (sensorData == null && !isPaired) {
+        } else if (!isPaired && hasActiveDevice) {
+            // New profile selected but not bonded yet — ignore advertising-only sensorData so we
+            // don't show temperature/humidity/RSSI as if the device were fully set up.
             if (deviceConnecting) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(16.dp))
@@ -652,6 +633,15 @@ fun Dashboard(
                     arrangementH = Arrangement.Center
                 )
             }
+        } else if (deviceConnecting && hasActiveDevice) {
+            // Paired device: GATT connect in progress — avoid the generic "scanning" branch (empty-looking
+            // when BLE scan is paused for connection).
+            CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.connecting_to_device),
+                style = MaterialTheme.typography.bodyMedium
+            )
         } else if (sensorData == null) {
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.BuildConfig
 import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.UpdateCheckResult
@@ -570,6 +571,18 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 )
             }
 
+
+            if (BuildConfig.DEBUG) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { navController.navigate("debug-saved-data") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.debug_saved_data_nav))
+                }
+            }
 
             // Easter Egg Button
             Spacer(modifier = Modifier.height(8.dp))

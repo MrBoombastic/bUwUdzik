@@ -28,6 +28,8 @@
     <string name="hours_24">24小时</string>
     <string name="show_widget_error_label">显示小部件错误指示器</string>
     <string name="show_widget_error_hint">后台更新失败时显示警告。</string>
+    <string name="auto_update_check_label">自动检查更新</string>
+    <string name="auto_update_check_hint">应用启动时检查，每天最多一次。</string>
     <string name="widget_select_app_label">点击小部件后启动的应用</string>
     <string name="default_app_label">默认（此应用）</string>
     <string name="theme_label">主题</string>
@@ -225,7 +227,6 @@
     <string name="no_token_for_device">此设备未保存令牌。\n请先配对后再导出。</string>
     <string name="manage_devices_label">管理设备</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">您的设备</string>
     <string name="device_sheet_swipe_hint_title">提示</string>
     <string name="device_sheet_swipe_hint_body">从屏幕底部向上滑动可切换设备，或点按上方芯片。</string>
     <string name="device_sheet_swipe_hint_got_it">知道了</string>

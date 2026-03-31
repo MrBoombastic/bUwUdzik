@@ -28,6 +28,8 @@
     <string name="hours_24">24 Stunden</string>
     <string name="show_widget_error_label">Widget-Fehleranzeige anzeigen</string>
     <string name="show_widget_error_hint">Warnung anzeigen, wenn Hintergrundaktualisierungen fehlschlagen.</string>
+    <string name="auto_update_check_label">Automatisch nach Updates suchen</string>
+    <string name="auto_update_check_hint">Beim App-Start, höchstens einmal pro Tag.</string>
     <string name="widget_select_app_label">App, die nach Tippen auf Widget gestartet wird</string>
     <string name="default_app_label">Standard (diese App)</string>
     <string name="theme_label">Design</string>
@@ -225,7 +227,6 @@
     <string name="no_token_for_device">Kein Token für dieses Gerät gespeichert.\nZuerst koppeln, um es zu exportieren.</string>
     <string name="manage_devices_label">Geräte verwalten</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">Ihre Geräte</string>
     <string name="device_sheet_swipe_hint_title">Tipp</string>
     <string name="device_sheet_swipe_hint_body">Wischen Sie von unten nach oben, um das Gerät zu wechseln, oder tippen Sie auf den Chip oben.</string>
     <string name="device_sheet_swipe_hint_got_it">Verstanden</string>

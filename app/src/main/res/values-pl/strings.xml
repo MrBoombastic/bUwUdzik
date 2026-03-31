@@ -28,6 +28,8 @@
     <string name="hours_24">24 godziny</string>
     <string name="show_widget_error_label">Pokaż wskaźnik błędu widżetu</string>
     <string name="show_widget_error_hint">Wyświetlaj ostrzeżenie, gdy aktualizacja w tle się nie powiedzie.</string>
+    <string name="auto_update_check_label">Sprawdzaj aktualizacje automatycznie</string>
+    <string name="auto_update_check_hint">Przy starcie aplikacji, co najwyżej raz dziennie.</string>
     <string name="widget_select_app_label">Aplikacja do uruchomienia po kliknięciu widżetu</string>
     <string name="default_app_label">domyślna (ta aplikacja)</string>
     <string name="theme_label">Motyw</string>
@@ -225,7 +227,6 @@
     <string name="no_token_for_device">Brak zapisanego tokenu dla tego urządzenia.\nNajpierw sparuj je, aby wyeksportować.</string>
     <string name="manage_devices_label">Zarządzaj urządzeniami</string>
     <string name="active_device_label">%1$s</string>
-    <string name="switch_device_sheet_title">Twoje urządzenia</string>
     <string name="device_sheet_swipe_hint_title">Wskazówka</string>
     <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu, aby zmienić urządzenie, albo stuknij nazwę powyżej.</string>
     <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>

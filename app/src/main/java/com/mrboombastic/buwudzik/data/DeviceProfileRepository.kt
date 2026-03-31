@@ -112,11 +112,14 @@ class DeviceProfileRepository(private val context: Context) {
     fun remove(mac: String) {
         migrateIfNeeded()
         val updated = getProfiles().filter { it.mac != mac }
-        saveProfiles(updated)
-        // If this was the active device, clear active selection
-        if (getActiveDeviceId() == mac) {
-            setActiveDeviceId(null)
+        val wasActive = getActiveDeviceId() == mac
+        // Point active at a remaining device *before* persisting the new list so [activeProfile]
+        // never briefly sees a MAC that is already absent from the in-memory list (avoids a null flash).
+        if (wasActive) {
+            val nextMac = updated.minByOrNull { it.addedAt }?.mac
+            setActiveDeviceId(nextMac)
         }
+        saveProfiles(updated)
     }
 
     fun getByMac(mac: String): DeviceProfile? = getProfiles().find { it.mac == mac }

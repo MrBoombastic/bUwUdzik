@@ -3,6 +3,7 @@ package com.mrboombastic.buwudzik.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.mrboombastic.buwudzik.data.SensorRepository.Companion.prefix
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -89,6 +90,17 @@ class SensorRepository(
             )
             }
         }
+
+        /** Removes all sensor_prefs keys namespaced to this device (see [prefix]). */
+        fun clearNamespaceForMac(context: Context, mac: String) {
+            val normalized = mac.normalizedBluetoothMac()
+            if (normalized.isEmpty()) return
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val p = prefix(normalized)
+            val keys = prefs.all.keys.filter { it.startsWith(p) }
+            if (keys.isEmpty()) return
+            prefs.edit { keys.forEach { remove(it) } }
+        }
     }
 
     private val prefs: SharedPreferences =
@@ -122,7 +134,7 @@ class SensorRepository(
 
     /**
      * Saves sensor data with battery level correction applied.
-     * Raw device percentage is stored separately so changing battery type can re-run correction.
+     * Raw device percentage is stored separately, so changing a battery type can re-run correction.
      * @return The corrected SensorData for UI display consistency.
      */
     fun saveSensorData(data: SensorData): SensorData {

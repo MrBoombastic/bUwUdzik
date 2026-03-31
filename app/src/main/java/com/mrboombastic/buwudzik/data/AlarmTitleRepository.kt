@@ -52,6 +52,17 @@ class AlarmTitleRepository(context: Context, private val mac: String = "") {
                 }
             }
         }
+
+        /** Removes all alarm title keys for this device. */
+        fun clearNamespaceForMac(context: Context, mac: String) {
+            val normalized = mac.normalizedBluetoothMac()
+            if (normalized.isEmpty()) return
+            val prefs = context.getSharedPreferences("alarm_titles_prefs", Context.MODE_PRIVATE)
+            val devPrefix = devicePrefix(normalized)
+            val keys = prefs.all.keys.filter { it.startsWith(devPrefix) }
+            if (keys.isEmpty()) return
+            prefs.edit { keys.forEach { remove(it) } }
+        }
     }
 
     private val prefix: String

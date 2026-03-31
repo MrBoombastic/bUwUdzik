@@ -58,6 +58,7 @@ import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
+import com.mrboombastic.buwudzik.ui.screens.DebugSavedDataScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
@@ -91,6 +92,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Resume BLE scan only when a device is configured and permissions are granted
         val vm = mainViewModel ?: return
+        vm.checkPairingStatus()
         if (BluetoothUtils.hasBluetoothPermissions(this) &&
             vm.activeMac.isNotEmpty()
         ) {
@@ -262,9 +264,11 @@ class MainActivity : AppCompatActivity() {
                             // Reset connection state FIRST
                             viewModel.handleUnexpectedDisconnect()
 
-                            // Navigate to the home screen
+                            // Navigate to home without popping home itself (inclusive=true empties the graph and
+                            // can leave a blank NavHost until the new home entry is committed).
                             navController.navigate("home") {
-                                popUpTo("home") { inclusive = true }
+                                launchSingleTop = true
+                                popUpTo("home") { inclusive = false }
                             }
 
                             val reasonMessage = reason.getMessage(resources)
@@ -414,6 +418,18 @@ class MainActivity : AppCompatActivity() {
                                     }
                                 }
                                 SettingsScreen(navController, viewModel)
+                            }
+                            if (BuildConfig.DEBUG) {
+                                composable("debug-saved-data") {
+                                    BackHandler {
+                                        if (!navController.popBackStack()) {
+                                            navController.navigate("home") {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                    DebugSavedDataScreen(navController, viewModel)
+                                }
                             }
                             composable("alarms") {
                                 BackHandler {

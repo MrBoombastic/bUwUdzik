@@ -40,4 +40,14 @@ class WidgetPreferencesRepository(context: Context) {
             }
             .toMap()
     }
+
+    /** Unbinds every widget instance that was pointing at this device MAC. */
+    fun removeWidgetsBoundToMac(mac: String) {
+        val target = mac.normalizedBluetoothMac()
+        val ids = getAllWidgetMacs()
+            .filter { (_, m) -> m.normalizedBluetoothMac() == target }
+            .keys
+        if (ids.isEmpty()) return
+        prefs.edit { ids.forEach { remove("$KEY_PREFIX$it") } }
+    }
 }
