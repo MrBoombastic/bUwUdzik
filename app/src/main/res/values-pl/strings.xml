@@ -228,7 +228,7 @@
     <string name="manage_devices_label">Zarządzaj urządzeniami</string>
     <string name="active_device_label">%1$s</string>
     <string name="device_sheet_swipe_hint_title">Wskazówka</string>
-    <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu, aby zmienić urządzenie, albo stuknij nazwę powyżej.</string>
+    <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu aby zmienić urządzenie albo stuknij nazwę powyżej.</string>
     <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>
     <string name="widget_configure_title">Wybierz urządzenie dla widżetu</string>
     <string name="widget_configure_subtitle">Wybierz urządzenie wyświetlane przez ten widżet:</string>

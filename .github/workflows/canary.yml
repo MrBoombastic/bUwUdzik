@@ -24,6 +24,14 @@ jobs:
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Restore configuration cache
+        uses: actions/cache@v4
+        with:
+          path: .gradle/configuration-cache
+          key: ${{ runner.os }}-cc-canary-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cc-canary-
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -34,7 +42,7 @@ jobs:
         run: yes | sdkmanager "build-tools;36.0.0"
 
       - name: Build Canary APK (canary flavor)
-        run: ./gradlew --no-daemon --build-cache --configuration-cache assembleCanaryRelease
+        run: ./gradlew --no-daemon --build-cache --configuration-cache -PCANARY_BUILD=${{ github.run_number }} assembleCanaryRelease
 
       - name: Sign Canary APK
         id: sign_apk
@@ -55,14 +63,17 @@ jobs:
       - name: Prepare canary release metadata
         run: |
           short_sha="${GITHUB_SHA::7}"
+          app_version=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          canary_version="${app_version}-canary.${GITHUB_RUN_NUMBER}"
           echo "SHORT_SHA=$short_sha" >> "$GITHUB_ENV"
-          echo "CANARY_TAG=canary-$short_sha" >> "$GITHUB_ENV"
+          echo "CANARY_VERSION=$canary_version" >> "$GITHUB_ENV"
+          echo "CANARY_TAG=v$canary_version" >> "$GITHUB_ENV"
 
       - name: Publish/Update rolling canary prerelease
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ env.CANARY_TAG }}
-          name: Canary ${{ env.SHORT_SHA }}
+          name: Canary ${{ env.CANARY_VERSION }}
           body: |
             Auto-published canary build from the `master` branch. Uses different namespace, so you can use both canary and stable simultaneously.
             Commit: ${{ github.sha }}

@@ -9,6 +9,7 @@ plugins {
 
 
 configure<ApplicationExtension> {
+    val canaryBuild = providers.gradleProperty("CANARY_BUILD").orNull
     namespace = "com.mrboombastic.buwudzik"
     compileSdk {
         version = release(36)
@@ -38,7 +39,8 @@ configure<ApplicationExtension> {
         create("canary") {
             dimension = "distribution"
             applicationIdSuffix = ".canary"
-            versionNameSuffix = "-canary"
+            versionNameSuffix =
+                if (canaryBuild.isNullOrBlank()) "-canary" else "-canary.$canaryBuild"
             buildConfigField(
                 "String",
                 "WIDGET_UPDATE_ACTION",
