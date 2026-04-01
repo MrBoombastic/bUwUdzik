@@ -100,19 +100,22 @@ class DeviceProfileRepository(private val context: Context) {
 
     fun addOrUpdate(profile: DeviceProfile) {
         val current = getProfiles().toMutableList()
-        val idx = current.indexOfFirst { it.mac == profile.mac }
+        val normalizedTarget = profile.mac.normalizedBluetoothMac()
+        val normalizedProfile = profile.copy(mac = normalizedTarget)
+        val idx = current.indexOfFirst { it.mac.normalizedBluetoothMac() == normalizedTarget }
         if (idx >= 0) {
-            current[idx] = profile
+            current[idx] = normalizedProfile
         } else {
-            current.add(profile)
+            current.add(normalizedProfile)
         }
         saveProfiles(current)
     }
 
     fun remove(mac: String) {
         migrateIfNeeded()
-        val updated = getProfiles().filter { it.mac != mac }
-        val wasActive = getActiveDeviceId() == mac
+        val target = mac.normalizedBluetoothMac()
+        val updated = getProfiles().filter { it.mac.normalizedBluetoothMac() != target }
+        val wasActive = getActiveDeviceId()?.normalizedBluetoothMac() == target
         // Point active at a remaining device *before* persisting the new list so [activeProfile]
         // never briefly sees a MAC that is already absent from the in-memory list (avoids a null flash).
         if (wasActive) {
@@ -122,7 +125,10 @@ class DeviceProfileRepository(private val context: Context) {
         saveProfiles(updated)
     }
 
-    fun getByMac(mac: String): DeviceProfile? = getProfiles().find { it.mac == mac }
+    fun getByMac(mac: String): DeviceProfile? {
+        val target = mac.normalizedBluetoothMac()
+        return getProfiles().find { it.mac.normalizedBluetoothMac() == target }
+    }
 
     private fun saveProfiles(profiles: List<DeviceProfile>) {
         prefs.edit { putString(KEY_PROFILES, json.encodeToString(profiles)) }
@@ -138,8 +144,12 @@ class DeviceProfileRepository(private val context: Context) {
     }
 
     fun setActiveDeviceId(mac: String?) {
+        val normalized = mac?.normalizedBluetoothMac()
         prefs.edit {
-            if (mac == null) remove(KEY_ACTIVE_MAC) else putString(KEY_ACTIVE_MAC, mac)
+            if (normalized == null) remove(KEY_ACTIVE_MAC) else putString(
+                KEY_ACTIVE_MAC,
+                normalized
+            )
         }
     }
 

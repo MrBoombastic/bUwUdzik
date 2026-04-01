@@ -199,6 +199,9 @@ fun DeviceImportScreen(
                                         tokenStorage.storeToken(
                                             profile.mac, tokenStorage.hexToBytes(shareData.token)
                                         )
+                                        // Active device is already selected above; refresh paired state now
+                                        // so Home doesn't wait for onResume / lifecycle events.
+                                        viewModel.checkPairingStatus()
 
                                         // Import alarm titles (per-device)
                                         shareData.alarmTitles.forEach { (id, title) ->
