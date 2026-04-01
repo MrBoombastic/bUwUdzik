@@ -187,6 +187,11 @@
     <string name="import_device_title">Importer l\'appareil</string>
     <string name="share_qr_instruction">Scannez ce code QR sur un autre appareil pour importer les paramètres.</string>
     <string name="import_qr_instruction">Pointez la caméra vers le code QR</string>
+    <string name="import_token_instruction">Ou collez le jeton d\'authentification</string>
+    <string name="import_token_label">Jeton d\'auth. (hex)</string>
+    <string name="import_token_button">Importer le jeton</string>
+    <string name="import_token_no_active_device">Sélectionnez d\'abord un appareil, puis importez le jeton.</string>
+    <string name="import_token_invalid">Format de jeton invalide.</string>
     <string name="import_success">Appareil importé avec succès !</string>
     <string name="import_error">Code QR invalide</string>
     <string name="share_device_button">Partager</string>
@@ -215,6 +220,7 @@
     <string name="tap_plus_to_add">Appuyez sur + pour ajouter votre premier appareil</string>
     <string name="rename_device_title">Renommer l\'appareil</string>
     <string name="device_alias_label">Nom de l\'appareil</string>
+    <string name="default_device_alias">Mon appareil</string>
     <string name="delete_device_title">Supprimer l\'appareil ?</string>
     <string name="delete_device_message">Retirer « %1$s » de cette application ? L\'appareil physique ne sera pas affecté.</string>
     <string name="delete_confirm">Supprimer</string>

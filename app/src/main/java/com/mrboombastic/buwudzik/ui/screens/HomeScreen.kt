@@ -32,13 +32,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DevicesOther
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -55,7 +53,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -491,30 +488,16 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
 }
 
 @Composable
-fun ShareAndUnpairButtons(
+fun ShareDeviceButton(
     navController: NavController,
-    onUnpairClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        SmallButton(
-            title = stringResource(R.string.share_device_button),
-            icon = Icons.Default.Share,
-            onClick = { navController.navigate("device-sharing") },
-            modifier = Modifier.weight(1f)
-        )
-
-        SmallButton(
-            title = stringResource(R.string.unpair_device),
-            icon = Icons.Default.Delete,
-            onClick = onUnpairClick,
-            contentColor = MaterialTheme.colorScheme.error,
-            modifier = Modifier.weight(1f)
-        )
-    }
+    SmallButton(
+        title = stringResource(R.string.share_device_button),
+        icon = Icons.Default.Share,
+        onClick = { navController.navigate("device-sharing") },
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -532,33 +515,6 @@ fun Dashboard(
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
-    var showUnpairDialog by remember { mutableStateOf(false) }
-
-    @Suppress("AssignedValueIsNeverRead")
-    if (showUnpairDialog) {
-        AlertDialog(
-            onDismissRequest = { showUnpairDialog = false },
-            title = { Text(stringResource(R.string.unpair_confirm_title)) },
-            text = { Text(stringResource(R.string.unpair_confirm_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showUnpairDialog = false
-                        viewModel.disconnectFromDevice()
-                        viewModel.unpairDevice()
-                    }, colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(stringResource(R.string.unpair_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showUnpairDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            })
-    }
 
     Column(
         modifier = modifier
@@ -750,12 +706,10 @@ fun Dashboard(
                     arrangementH = Arrangement.Center
                 )
 
-                @Suppress("AssignedValueIsNeverRead")
                 if (isPaired) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    ShareAndUnpairButtons(
+                    ShareDeviceButton(
                         navController = navController,
-                        onUnpairClick = { showUnpairDialog = true },
                         modifier = Modifier.fillMaxWidth(0.9f)
                     )
                 }
@@ -782,12 +736,10 @@ fun Dashboard(
                     )
                 }
 
-                @Suppress("AssignedValueIsNeverRead")
                 if (isPaired) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    ShareAndUnpairButtons(
+                    ShareDeviceButton(
                         navController = navController,
-                        onUnpairClick = { showUnpairDialog = true },
                         modifier = Modifier.fillMaxWidth(0.9f)
                     )
                 }

@@ -203,6 +203,11 @@
     <string name="import_device_title">Import Device</string>
     <string name="share_qr_instruction">Scan this QR code on another device to import settings.</string>
     <string name="import_qr_instruction">Point camera at QR code</string>
+    <string name="import_token_instruction">Or paste authentication token</string>
+    <string name="import_token_label">Auth token (hex)</string>
+    <string name="import_token_button">Import token</string>
+    <string name="import_token_no_active_device">Select a device first, then import token.</string>
+    <string name="import_token_invalid">Invalid token format.</string>
     <string name="import_success">Device imported successfully!</string>
     <string name="import_error">Invalid QR code</string>
     <string name="share_device_button">Share</string>
@@ -233,6 +238,7 @@
     <string name="tap_plus_to_add">Tap + to add your first device</string>
     <string name="rename_device_title">Rename device</string>
     <string name="device_alias_label">Device name</string>
+    <string name="default_device_alias">My device</string>
     <string name="delete_device_title">Delete device?</string>
     <string name="delete_device_message">Remove \"%1$s\" from this app? The device itself will not be affected.</string>
     <string name="delete_confirm">Delete</string>

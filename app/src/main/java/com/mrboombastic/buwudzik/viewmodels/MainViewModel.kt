@@ -162,16 +162,6 @@ class MainViewModel(
         _isPaired.value = mac.isNotEmpty() && qpController.isDevicePaired(mac)
     }
 
-    fun unpairDevice() {
-        val mac = activeMac
-        if (mac.isNotEmpty()) {
-            qpController.unpairDevice(mac)
-            checkPairingStatus()
-            clearPerDeviceUiState()
-            viewModelScope.launch { SensorWidgetRefresher.updateAll(applicationContext) }
-        }
-    }
-
     fun deviceSheetSwipeHintAlreadyShown(): Boolean = settingsRepository.deviceSheetSwipeHintShown
 
     fun markDeviceSheetSwipeHintSeen() {

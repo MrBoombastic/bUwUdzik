@@ -23,17 +23,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,10 +86,15 @@ fun DeviceImportScreen(
     navController: NavController, viewModel: MainViewModel
 ) {
     val context = LocalContext.current
+    val activeDevice by viewModel.activeDevice.collectAsState()
     var hasCameraPermission by remember { mutableStateOf(false) }
     var isScanning by remember { mutableStateOf(true) }
+    var manualToken by remember { mutableStateOf("") }
+    val defaultAlias = stringResource(R.string.default_device_alias)
     val importSuccessMsg = stringResource(R.string.import_success)
     val importErrorMsg = stringResource(R.string.import_error)
+    val importTokenNoActiveMsg = stringResource(R.string.import_token_no_active_device)
+    val importTokenInvalidMsg = stringResource(R.string.import_token_invalid)
 
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -156,6 +164,56 @@ fun DeviceImportScreen(
                         // No additional content is needed for this instruction card.
                     }
 
+                    InstructionCard(
+                        icon = Icons.Default.QrCodeScanner,
+                        title = stringResource(R.string.import_token_instruction)
+                    ) {
+                        OutlinedTextField(
+                            value = manualToken,
+                            onValueChange = { manualToken = it },
+                            label = { Text(stringResource(R.string.import_token_label)) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        )
+                        Button(
+                            onClick = {
+                                val current = activeDevice
+                                if (current == null) {
+                                    Toast.makeText(
+                                        context,
+                                        importTokenNoActiveMsg,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    return@Button
+                                }
+                                try {
+                                    val tokenStorage = TokenStorage(context)
+                                    val token = tokenStorage.hexToBytes(manualToken.trim())
+                                    tokenStorage.storeToken(current.mac, token)
+                                    viewModel.checkPairingStatus()
+                                    Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT)
+                                        .show()
+                                    navController.navigate("home") {
+                                        popUpTo(navController.graph.id) { inclusive = true }
+                                    }
+                                } catch (_: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        importTokenInvalidMsg,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Text(stringResource(R.string.import_token_button))
+                        }
+                    }
+
                     // Camera preview card
                     Card(
                         modifier = Modifier
@@ -188,7 +246,7 @@ fun DeviceImportScreen(
                                         val tokenStorage = TokenStorage(context)
                                         val profile = DeviceProfile(
                                             mac = shareData.mac.normalizedBluetoothMac(),
-                                            alias = shareData.mac, // user can rename it later
+                                            alias = defaultAlias,
                                             batteryType = shareData.batteryType
                                         )
                                         val alarmTitleRepository =

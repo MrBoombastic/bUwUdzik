@@ -187,6 +187,11 @@
     <string name="import_device_title">Gerät importieren</string>
     <string name="share_qr_instruction">Scannen Sie diesen QR-Code auf einem anderen Gerät, um Einstellungen zu importieren.</string>
     <string name="import_qr_instruction">Richten Sie die Kamera auf den QR-Code</string>
+    <string name="import_token_instruction">Oder Authentifizierungstoken einfügen</string>
+    <string name="import_token_label">Auth-Token (Hex)</string>
+    <string name="import_token_button">Token importieren</string>
+    <string name="import_token_no_active_device">Wählen Sie zuerst ein Gerät aus und importieren Sie dann den Token.</string>
+    <string name="import_token_invalid">Ungültiges Token-Format.</string>
     <string name="import_success">Gerät erfolgreich importiert!</string>
     <string name="import_error">Ungültiger QR-Code</string>
     <string name="share_device_button">Teilen</string>
@@ -215,6 +220,7 @@
     <string name="tap_plus_to_add">Tippen Sie auf +, um Ihr erstes Gerät hinzuzufügen</string>
     <string name="rename_device_title">Gerät umbenennen</string>
     <string name="device_alias_label">Gerätename</string>
+    <string name="default_device_alias">Mein Gerät</string>
     <string name="delete_device_title">Gerät löschen?</string>
     <string name="delete_device_message">„%1$s“ aus dieser App entfernen? Das physische Gerät bleibt unverändert.</string>
     <string name="delete_confirm">Löschen</string>

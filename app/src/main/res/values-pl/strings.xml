@@ -180,6 +180,11 @@
     <string name="import_device_title">Importuj urządzenie</string>
     <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia.</string>
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
+    <string name="import_token_instruction">Lub wklej token uwierzytelniania</string>
+    <string name="import_token_label">Token uwierzytelniania (hex)</string>
+    <string name="import_token_button">Importuj token</string>
+    <string name="import_token_no_active_device">Najpierw wybierz urządzenie, potem zaimportuj token.</string>
+    <string name="import_token_invalid">Nieprawidłowy format tokenu.</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
     <string name="import_error">Nieprawidłowy kod QR</string>
     <string name="share_device_button">Udostępnij</string>
@@ -215,6 +220,7 @@
     <string name="tap_plus_to_add">Stuknij +, aby dodać pierwsze urządzenie</string>
     <string name="rename_device_title">Zmień nazwę urządzenia</string>
     <string name="device_alias_label">Nazwa urządzenia</string>
+    <string name="default_device_alias">Moje urządzenie</string>
     <string name="delete_device_title">Usunąć urządzenie?</string>
     <string name="delete_device_message">Usunąć „%1$s” z tej aplikacji? Fizyczne urządzenie nie zostanie zmienione.</string>
     <string name="delete_confirm">Usuń</string>
