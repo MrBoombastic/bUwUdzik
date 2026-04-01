@@ -204,8 +204,10 @@
     <string name="share_qr_instruction">Scan this QR code on another device to import settings.</string>
     <string name="import_qr_instruction">Point camera at QR code</string>
     <string name="import_token_instruction">Or paste authentication token</string>
-    <string name="import_token_label">Auth token (hex)</string>
+    <string name="import_token_label">Authentication token</string>
     <string name="import_token_button">Import token</string>
+    <string name="import_token_show">Paste auth token</string>
+    <string name="import_token_hide">Hide</string>
     <string name="import_token_no_active_device">Select a device first, then import token.</string>
     <string name="import_token_invalid">Invalid token format.</string>
     <string name="import_success">Device imported successfully!</string>

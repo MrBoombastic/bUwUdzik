@@ -11,28 +11,40 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -65,7 +78,6 @@ import com.mrboombastic.buwudzik.data.DeviceShareData
 import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.ui.components.ContentCard
-import com.mrboombastic.buwudzik.ui.components.InstructionCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
@@ -90,6 +102,7 @@ fun DeviceImportScreen(
     var hasCameraPermission by remember { mutableStateOf(false) }
     var isScanning by remember { mutableStateOf(true) }
     var manualToken by remember { mutableStateOf("") }
+    var tokenSectionExpanded by remember { mutableStateOf(false) }
     val defaultAlias = stringResource(R.string.default_device_alias)
     val importSuccessMsg = stringResource(R.string.import_success)
     val importErrorMsg = stringResource(R.string.import_error)
@@ -121,9 +134,10 @@ fun DeviceImportScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             when {
                 !hasCameraPermission -> {
@@ -156,65 +170,34 @@ fun DeviceImportScreen(
                 }
 
                 isScanning -> {
-                    // Header card with instructions
-                    InstructionCard(
-                        icon = Icons.Default.QrCodeScanner,
-                        title = stringResource(R.string.import_qr_instruction)
-                    ) {
-                        // No additional content is needed for this instruction card.
-                    }
-
-                    InstructionCard(
-                        icon = Icons.Default.QrCodeScanner,
-                        title = stringResource(R.string.import_token_instruction)
-                    ) {
-                        OutlinedTextField(
-                            value = manualToken,
-                            onValueChange = { manualToken = it },
-                            label = { Text(stringResource(R.string.import_token_label)) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                        )
-                        Button(
-                            onClick = {
-                                val current = activeDevice
-                                if (current == null) {
-                                    Toast.makeText(
-                                        context,
-                                        importTokenNoActiveMsg,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    return@Button
-                                }
-                                try {
-                                    val tokenStorage = TokenStorage(context)
-                                    val token = tokenStorage.hexToBytes(manualToken.trim())
-                                    tokenStorage.storeToken(current.mac, token)
-                                    viewModel.checkPairingStatus()
-                                    Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT)
-                                        .show()
-                                    navController.navigate("home") {
-                                        popUpTo(navController.graph.id) { inclusive = true }
-                                    }
-                                } catch (_: Exception) {
-                                    Toast.makeText(
-                                        context,
-                                        importTokenInvalidMsg,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.import_token_button))
+                    fun applyManualToken() {
+                        val current = activeDevice
+                        if (current == null) {
+                            Toast.makeText(
+                                context,
+                                importTokenNoActiveMsg,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return
+                        }
+                        try {
+                            val tokenStorage = TokenStorage(context)
+                            val token = tokenStorage.hexToBytes(manualToken.trim())
+                            tokenStorage.storeToken(current.mac, token)
+                            viewModel.checkPairingStatus()
+                            Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT).show()
+                            navController.navigate("home") {
+                                popUpTo(navController.graph.id) { inclusive = true }
+                            }
+                        } catch (_: Exception) {
+                            Toast.makeText(
+                                context,
+                                importTokenInvalidMsg,
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
 
-                    // Camera preview card
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -222,12 +205,13 @@ fun DeviceImportScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(12.dp)
+                                .padding(10.dp)
                         ) {
                             Surface(
                                 modifier = Modifier
@@ -236,7 +220,8 @@ fun DeviceImportScreen(
                                         width = 2.dp,
                                         color = MaterialTheme.colorScheme.primary,
                                         shape = RoundedCornerShape(12.dp)
-                                    ), shape = RoundedCornerShape(12.dp)
+                                    ),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 QrScannerView { content ->
                                     isScanning = false
@@ -279,6 +264,95 @@ fun DeviceImportScreen(
                                     }
                                 }
                             }
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.88f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(
+                                        horizontal = 12.dp,
+                                        vertical = 10.dp
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCodeScanner,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.inverseOnSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.import_qr_instruction),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.inverseOnSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { tokenSectionExpanded = !tokenSectionExpanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = if (tokenSectionExpanded) {
+                                stringResource(R.string.import_token_hide)
+                            } else {
+                                stringResource(R.string.import_token_show)
+                            },
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Icon(
+                            imageVector = if (tokenSectionExpanded) {
+                                Icons.Default.KeyboardArrowUp
+                            } else {
+                                Icons.Default.KeyboardArrowDown
+                            },
+                            contentDescription = null
+                        )
+                    }
+
+                    AnimatedVisibility(
+                        visible = tokenSectionExpanded,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.import_token_instruction),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedTextField(
+                                value = manualToken,
+                                onValueChange = { manualToken = it },
+                                placeholder = {
+                                    Text(stringResource(R.string.import_token_label))
+                                },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                trailingIcon = {
+                                    IconButton(onClick = { applyManualToken() }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = stringResource(R.string.import_token_button)
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }

@@ -181,8 +181,10 @@
     <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia.</string>
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
     <string name="import_token_instruction">Lub wklej token uwierzytelniania</string>
-    <string name="import_token_label">Token uwierzytelniania (hex)</string>
+    <string name="import_token_label">Token uwierzytelniania</string>
     <string name="import_token_button">Importuj token</string>
+    <string name="import_token_show">Wklej token uwierzytelniania</string>
+    <string name="import_token_hide">Ukryj</string>
     <string name="import_token_no_active_device">Najpierw wybierz urządzenie, potem zaimportuj token.</string>
     <string name="import_token_invalid">Nieprawidłowy format tokenu.</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>

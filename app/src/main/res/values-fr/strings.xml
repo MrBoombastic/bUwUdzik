@@ -188,8 +188,10 @@
     <string name="share_qr_instruction">Scannez ce code QR sur un autre appareil pour importer les paramètres.</string>
     <string name="import_qr_instruction">Pointez la caméra vers le code QR</string>
     <string name="import_token_instruction">Ou collez le jeton d\'authentification</string>
-    <string name="import_token_label">Jeton d\'auth. (hex)</string>
+    <string name="import_token_label">Jeton d\'authentification</string>
     <string name="import_token_button">Importer le jeton</string>
+    <string name="import_token_show">Coller le jeton d\'authentification</string>
+    <string name="import_token_hide">Masquer</string>
     <string name="import_token_no_active_device">Sélectionnez d\'abord un appareil, puis importez le jeton.</string>
     <string name="import_token_invalid">Format de jeton invalide.</string>
     <string name="import_success">Appareil importé avec succès !</string>

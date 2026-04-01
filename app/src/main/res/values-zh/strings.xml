@@ -188,8 +188,10 @@
     <string name="share_qr_instruction">在另一台设备上扫描此二维码以导入设置。</string>
     <string name="import_qr_instruction">将相机对准二维码。</string>
     <string name="import_token_instruction">或粘贴认证令牌</string>
-    <string name="import_token_label">认证令牌（十六进制）</string>
+    <string name="import_token_label">认证令牌</string>
     <string name="import_token_button">导入令牌</string>
+    <string name="import_token_show">粘贴认证令牌</string>
+    <string name="import_token_hide">收起</string>
     <string name="import_token_no_active_device">请先选择设备，再导入令牌。</string>
     <string name="import_token_invalid">令牌格式无效。</string>
     <string name="import_success">设备导入成功！</string>
