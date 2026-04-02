@@ -25,7 +25,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Restore configuration cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .gradle/configuration-cache
           key: ${{ runner.os }}-cc-canary-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'gradle/libs.versions.toml') }}
