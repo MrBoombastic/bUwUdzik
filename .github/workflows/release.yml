@@ -21,7 +21,7 @@ jobs:
           java-version: '25'
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Restore configuration cache
         uses: actions/cache@v5
