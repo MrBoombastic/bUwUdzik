@@ -100,6 +100,20 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
+        val mac = intent.getStringExtra("mac")
+        if (!mac.isNullOrEmpty()) {
+            AppLogger.d(TAG, "Intent received with MAC extra: $mac. Switching active device.")
+            mainViewModel?.setActiveDevice(mac)
+        }
+    }
+
     companion object {
         private const val TAG = "MainActivity"
 
@@ -195,6 +209,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
         mainViewModel = viewModel
+
+        // Handle initial intent
+        handleIntent(intent)
 
         setContent {
             BuwudzikTheme {

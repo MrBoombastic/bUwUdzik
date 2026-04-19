@@ -1,10 +1,12 @@
 package com.mrboombastic.buwudzik.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -18,6 +20,7 @@ import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -80,6 +83,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
 
                 val size = LocalSize.current
                 WidgetContent(
+                    mac = state.mac,
                     tempText = tempText,
                     humidityText = humidityText,
                     batteryText = batteryText,
@@ -96,6 +100,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
 
     @Composable
     private fun WidgetContent(
+        mac: String,
         tempText: String,
         humidityText: String,
         batteryText: String,
@@ -108,6 +113,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
     ) {
         val width = size.width
         val height = size.height
+        val context = LocalContext.current
 
         val minDimension = minOf(width.value, height.value)
         // Single-row / near-min-height widgets: tighter layout (spacers, gaps).
@@ -135,11 +141,23 @@ class SensorGlanceWidget : GlanceAppWidget() {
         val hPadding = (width.value * 0.06f).dp.coerceIn(8.dp, 16.dp)
         val vPadding = (height.value * 0.06f).dp.coerceIn(4.dp, 12.dp)
 
+        val clickAction = if (mac.isNotEmpty()) {
+            actionStartActivity(
+                Intent(context, MainActivity::class.java).apply {
+                    putExtra("mac", mac)
+                    // Set unique data URI to prevent Intent merging by the system
+                    data = "buwudzik://device/$mac".toUri()
+                }
+            )
+        } else {
+            actionStartActivity<MainActivity>()
+        }
+
         Column(
             modifier = GlanceModifier.fillMaxSize().cornerRadius(16.dp)
                 .background(GlanceTheme.colors.widgetBackground)
                 .padding(horizontal = hPadding, vertical = vPadding)
-                .clickable(actionStartActivity<MainActivity>()),
+                .clickable(clickAction),
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
