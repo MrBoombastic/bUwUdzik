@@ -11,7 +11,6 @@ import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import androidx.annotation.RequiresPermission
-import com.mrboombastic.buwudzik.data.DeviceLocalDataCleaner
 import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_WRITE
@@ -132,14 +131,7 @@ class QPController(private val context: Context) {
     fun isDevicePaired(macAddress: String): Boolean = tokenStorage.isPaired(macAddress)
 
     /**
-     * Forget the device in-app: token, cached sensor, alarm titles, widget bindings.
-     */
-    fun unpairDevice(macAddress: String) {
-        DeviceLocalDataCleaner.wipeAllLocalStateForDevice(context, macAddress)
-    }
-
-    /**
-     * Prepare token for connection. If a device is already paired, use stored token.
+     * Prepare token for connection. If a device is already paired, use a stored token.
      * Otherwise, generate a new random token for pairing (without storing yet).
      */
     private fun prepareTokenForDevice(macAddress: String): ByteArray {
@@ -202,6 +194,80 @@ class QPController(private val context: Context) {
      */
     fun clearDisconnectionEvent() {
         _disconnectionEvent.value = null
+    }
+
+    private fun clearConnectionState(status: Int? = null) {
+        AppLogger.d(TAG, "Clearing connection state (GATT status: $status)")
+        isConnected = false
+        isAuthenticated = false
+        enabledNotifications.clear()
+        authInitAckReceived = false
+        alarmBuffer.clear()
+        lastSettingsPacket = null
+        pendingAuthWriteChar = null
+        pendingAuthWrite = null
+        pendingDataCommand = null
+        alarmCompletionJob?.cancel()
+        alarmCompletionJob = null
+
+        // Emit disconnection event with reason if status is provided
+        status?.let {
+            _disconnectionEvent.value = DisconnectionReason.fromGattStatus(it)
+        }
+
+        // Handle continuations
+        val error = Exception("Disconnected")
+
+        connectContinuation?.let {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+            connectContinuation = null
+        }
+
+        val acks = pendingAckContinuations.values.toList()
+        pendingAckContinuations.clear()
+        acks.forEach {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+        }
+
+        alarmReadContinuation?.let {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+            alarmReadContinuation = null
+        }
+
+        deviceSettingsReadContinuation?.let {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+            deviceSettingsReadContinuation = null
+        }
+
+        firmwareVersionReadContinuation?.let {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+            firmwareVersionReadContinuation = null
+        }
+
+        sensorNotificationContinuation?.let {
+            try {
+                it.resumeWithException(error)
+            } catch (_: Exception) {
+            }
+            sensorNotificationContinuation = null
+        }
+
+        _isBusy.value = false
     }
 
     private fun handleAckNotification(value: ByteArray, characteristicUuid: UUID) {
@@ -286,31 +352,8 @@ class QPController(private val context: Context) {
                 }
 
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    isConnected = false
-                    isAuthenticated = false
-                    enabledNotifications.clear()
                     AppLogger.d(TAG, "Disconnected from GATT server (status: $status)")
-
-                    // Emit disconnection event with reason
-                    _disconnectionEvent.value = DisconnectionReason.fromGattStatus(status)
-
-                    connectContinuation?.resumeWithException(Exception("Disconnected"))
-                    connectContinuation = null
-
-                    val continuations = pendingAckContinuations.values.toList()
-                    pendingAckContinuations.clear()
-                    continuations.forEach { it.resumeWithException(Exception("Disconnected")) }
-
-                    alarmReadContinuation?.resumeWithException(Exception("Disconnected"))
-                    alarmReadContinuation = null
-
-                    deviceSettingsReadContinuation?.resumeWithException(Exception("Disconnected"))
-                    deviceSettingsReadContinuation = null
-
-                    firmwareVersionReadContinuation?.resumeWithException(Exception("Disconnected"))
-                    firmwareVersionReadContinuation = null
-
-                    _isBusy.value = false
+                    clearConnectionState(status)
                 }
             }
         }
@@ -1316,8 +1359,7 @@ class QPController(private val context: Context) {
 
     fun disconnect() {
         // Set state flags first to prevent command consumer from processing commands during teardown
-        isAuthenticated = false
-        isConnected = false
+        clearConnectionState()
         deviceJob.cancelChildren()
         gatt?.disconnect()
         gatt?.close()
