@@ -100,7 +100,6 @@
     <string name="debug_saved_data_hint" translatable="false">SharedPreferences dump (tokens, profiles, sensors, widgets). Debug builds only.</string>
     <string name="debug_saved_data_nav" translatable="false">Debug: show saved data</string>
     <string name="debug_copy_report" translatable="false">Copy report</string>
-    <string name="debug_report_copied" translatable="false">Copied to clipboard</string>
     <string name="time_set_success">Time set to 21:37!</string>
     <string name="time_set_failed">Failed to set time</string>
     <string name="device_settings_title">Device settings</string>

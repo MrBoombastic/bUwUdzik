@@ -1,11 +1,12 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Bitmap.createBitmap
-import android.widget.Toast
+import android.os.PersistableBundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -356,12 +357,11 @@ private fun DeviceQrCard(
                         onClick = {
                             val cm =
                                 context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            cm.setPrimaryClip(ClipData.newPlainText("token", tokenHex))
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.token_copied),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            val clip = ClipData.newPlainText("token", tokenHex)
+                            clip.description.extras = PersistableBundle().apply {
+                                putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                            }
+                            cm.setPrimaryClip(clip)
                         }
                     ) {
                         Icon(

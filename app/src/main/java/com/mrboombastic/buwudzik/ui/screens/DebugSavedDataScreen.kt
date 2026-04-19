@@ -1,8 +1,10 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.PersistableBundle
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,7 +44,6 @@ fun DebugSavedDataScreen(navController: NavController, viewModel: MainViewModel)
     val context = LocalContext.current
     val appContext = context.applicationContext
     var report by remember { mutableStateOf("") }
-    val snackbarMessage = stringResource(R.string.debug_report_copied)
 
     LaunchedEffect(viewModel.activeMac) {
         report = withContext(Dispatchers.IO) {
@@ -76,12 +77,11 @@ fun DebugSavedDataScreen(navController: NavController, viewModel: MainViewModel)
                 onClick = {
                     val cm =
                         appContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    cm.setPrimaryClip(ClipData.newPlainText("bUwUdzik-debug", report))
-                    android.widget.Toast.makeText(
-                        context,
-                        snackbarMessage,
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
+                    val clip = ClipData.newPlainText("bUwUdzik-debug", report)
+                    clip.description.extras = PersistableBundle().apply {
+                        putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+                    }
+                    cm.setPrimaryClip(clip)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
