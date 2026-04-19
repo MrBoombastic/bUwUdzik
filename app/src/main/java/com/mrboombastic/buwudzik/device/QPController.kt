@@ -1412,38 +1412,35 @@ class QPController(private val context: Context) {
             AppLogger.d(TAG, "Previewing ringtone with default/current volume")
             byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
         }
-        writeToDataCharacteristic(command, Command.PREVIEW_RINGTONE)
-    }
 
-    private suspend fun writeToDataCharacteristic(
-        command: ByteArray, ackId: Int
-    ): Boolean = suspendCancellableCoroutine { continuation ->
-        val currentGatt = gatt ?: run {
-            continuation.resumeWithException(Exception("GATT not connected"))
-            return@suspendCancellableCoroutine
-        }
-        if (!isAuthenticated) {
-            continuation.resumeWithException(Exception("Not authenticated"))
-            return@suspendCancellableCoroutine
-        }
+        suspendCancellableCoroutine { continuation ->
+            val currentGatt = gatt ?: run {
+                continuation.resumeWithException(Exception("GATT not connected"))
+                return@suspendCancellableCoroutine
+            }
+            if (!isAuthenticated) {
+                continuation.resumeWithException(Exception("Not authenticated"))
+                return@suspendCancellableCoroutine
+            }
 
-        pendingAckContinuations[ackId] = continuation
+            pendingAckContinuations[Command.PREVIEW_RINGTONE] = continuation
 
-        val dataService =
-            currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-        val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+            val dataService =
+                currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
+            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
 
-        if (dataWriteChar == null) {
-            pendingAckContinuations.remove(ackId)
-            continuation.resumeWithException(Exception("Data write characteristic not found"))
-            return@suspendCancellableCoroutine
-        }
+            if (dataWriteChar == null) {
+                pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
+                continuation.resumeWithException(Exception("Data write characteristic not found"))
+                return@suspendCancellableCoroutine
+            }
 
-        scope.launch {
-            val started = writeCharacteristicWithRetry(dataWriteChar, command)
-            if (!started) {
-                pendingAckContinuations.remove(ackId)
-                continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+            scope.launch {
+                val started = writeCharacteristicWithRetry(dataWriteChar, command)
+                if (!started) {
+                    pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
+                    continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+                }
             }
         }
     }
