@@ -11,7 +11,7 @@ ktor = "3.4.2"
 zxing = "4.3.0"
 cameraX = "1.6.0"
 glance = "1.1.1"
-guavaAndroid = "33.5.0-android"
+guavaAndroid = "33.6.0-android"
 markdownRenderer = "0.40.2"
 
 
