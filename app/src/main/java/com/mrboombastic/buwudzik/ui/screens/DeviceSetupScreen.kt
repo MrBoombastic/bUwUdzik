@@ -52,6 +52,7 @@ import com.mrboombastic.buwudzik.BluetoothStateReceiver
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.DeviceProfile
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.StatusCard
@@ -81,7 +82,10 @@ fun DeviceSetupScreen(
     viewModel: MainViewModel? = null
 ) {
     val context = LocalContext.current
-    val scanner = remember { BluetoothScanner(context) }
+    val scanner = remember {
+        val repo = DeviceProfileRepository(context)
+        BluetoothScanner(context, repo)
+    }
 
     var isBluetoothEnabled by remember {
         mutableStateOf(BluetoothUtils.isBluetoothEnabled(context))

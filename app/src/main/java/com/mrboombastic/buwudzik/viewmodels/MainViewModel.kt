@@ -12,6 +12,7 @@ import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
+import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.DeviceSettings
@@ -27,6 +28,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -65,19 +69,12 @@ class MainViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setActiveDevice(mac: String) {
-        val currentActive = deviceProfileRepository.getActiveDeviceId()
-        if (currentActive == mac) {
-            // Even if already active, refresh the pairing status just in case
+        if (activeMac == mac) {
             checkPairingStatus()
             return
         }
-
         AppLogger.d(TAG, "Setting active device to $mac")
-        stopAll()
         deviceProfileRepository.setActiveDeviceId(mac)
-        clearPerDeviceUiState()
-        checkPairingStatus()
-        startScanning()
     }
 
     fun addDevice(profile: DeviceProfile, makeActive: Boolean = false) {
@@ -88,19 +85,9 @@ class MainViewModel(
     }
 
     fun removeDevice(mac: String) {
-        val wasActive = activeMac == mac
-        if (wasActive) {
-            stopAll()
-        }
         DeviceLocalDataCleaner.wipeAllLocalStateForDevice(applicationContext, mac)
         deviceProfileRepository.remove(mac)
         viewModelScope.launch { SensorWidgetRefresher.updateAll(applicationContext) }
-        if (wasActive) {
-            clearPerDeviceUiState()
-            if (activeMac.isNotEmpty()) {
-                startScanning()
-            }
-        }
     }
 
     fun updateDeviceAlias(mac: String, alias: String) {
@@ -185,23 +172,22 @@ class MainViewModel(
 
     init {
         _isBluetoothEnabled.value = BluetoothUtils.isBluetoothEnabled(applicationContext)
-        checkPairingStatus()
-        viewModelScope.launch {
-            activeDevice.collect { profile ->
-                // Refresh pairing state when active profile changes (e.g. QR import -> makeActive),
-                // so UI does not wait for Activity.onResume to notice a newly stored token.
-                checkPairingStatus()
-                if (profile == null) {
-                    stopAll()
-                    clearPerDeviceUiState()
+        deviceProfileRepository.activeDeviceIdFlow
+            .distinctUntilChanged()
+            .onEach { mac ->
+                AppLogger.d(TAG, "Active device changed to $mac, resetting UI and connections")
+                stopActiveConnection()
+                updateActiveDeviceUiState()
+                if (mac != null && _isBluetoothEnabled.value) {
+                    startScanning()
                 }
             }
-        }
+            .launchIn(viewModelScope)
     }
 
     /** Reset cached device UI when there is no selected profile (e.g. all devices removed). */
-    private fun clearPerDeviceUiState() {
-        _sensorData.value = null
+    private fun updateActiveDeviceUiState() {
+        _sensorData.value = if (activeMac.isNotEmpty()) sensorRepo().getSensorData() else null
         _alarms.value = emptyList()
         _deviceSettings.value = null
         _deviceConnected.value = false
@@ -223,8 +209,7 @@ class MainViewModel(
         }
     }
 
-    private fun stopAll() {
-        scanJob?.cancel(); scanJob = null
+    private fun stopActiveConnection() {
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
         if (_deviceConnected.value) {
@@ -238,20 +223,24 @@ class MainViewModel(
             return
         }
 
-        val mac = activeMac
-        if (mac.isEmpty()) {
-            AppLogger.d(TAG, "No active device – skipping scan")
-            return
-        }
-
         val scanMode = settingsRepository.scanMode
-        AppLogger.d(TAG, "Starting scanning flow for $mac with mode $scanMode...")
+        AppLogger.d(TAG, "Starting global scanning flow with mode $scanMode...")
         scanJob = viewModelScope.launch(Dispatchers.IO) {
-            scanner.scan(mac, scanMode).collect { data ->
-                AppLogger.d(TAG, "Received data: $data")
-                val correctedData = sensorRepo().saveSensorData(data)
-                _sensorData.value = correctedData
-                SensorWidgetRefresher.updateAll(applicationContext)
+            scanner.scan(null, scanMode).collect { data ->
+                val mac = data.macAddress.normalizedBluetoothMac()
+                val profile = deviceProfileRepository.getByMac(mac)
+
+                if (profile != null) {
+                    AppLogger.d(TAG, "Received data for saved device $mac: $data")
+                    val repo = SensorRepository(applicationContext, mac, deviceProfileRepository)
+                    val correctedData = repo.saveSensorData(data)
+
+                    if (mac == activeMac.normalizedBluetoothMac()) {
+                        _sensorData.value = correctedData
+                    }
+
+                    SensorWidgetRefresher.updateAll(applicationContext)
+                }
             }
         }
     }
@@ -483,10 +472,7 @@ class MainViewModel(
     }
 
     fun disconnectFromDevice() {
-        rssiPollJob?.cancel(); rssiPollJob = null
-        connectionJob?.cancel(); connectionJob = null
-        qpController.disconnect()
-        _deviceConnected.value = false
+        stopActiveConnection()
         AppLogger.d(TAG, "Disconnected from clock, restarting scan.")
         startScanning()
     }

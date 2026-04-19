@@ -9,6 +9,8 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
+import com.mrboombastic.buwudzik.data.DeviceProfileRepository
+import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -25,7 +27,10 @@ data class SensorData(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-class BluetoothScanner(private val context: Context) {
+class BluetoothScanner(
+    private val context: Context,
+    private val deviceProfileRepository: DeviceProfileRepository
+) {
 
     private val bluetoothManager =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -35,6 +40,9 @@ class BluetoothScanner(private val context: Context) {
         get() = adapter?.bluetoothLeScanner
 
     private val serviceUUID = ParcelUuid.fromString("0000fdcd-0000-1000-8000-00805f9b34fb")
+
+    // Class-level cache to remember names across scan sessions
+    private val nameCache = mutableMapOf<String, String>()
 
     @SuppressLint("MissingPermission")
     fun scan(
@@ -74,24 +82,30 @@ class BluetoothScanner(private val context: Context) {
             return@callbackFlow
         }
 
-        var cachedName: String? = null
+        // Get the list of saved MAC addresses once at the start of the scan
+        val savedMacs = deviceProfileRepository.getProfiles()
+            .map { it.mac.normalizedBluetoothMac() }
+            .toSet()
 
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
                 val device = result?.device ?: return
+                val mac = device.address.normalizedBluetoothMac()
 
-                if (targetAddress != null && !device.address.equals(
-                        targetAddress, ignoreCase = true
+                // Cache the name ONLY if the device is saved/known to the app
+                if (mac in savedMacs) {
+                    val recordName = result.scanRecord?.deviceName
+                    if (!recordName.isNullOrEmpty()) {
+                        nameCache[mac] = recordName
+                    }
+                }
+
+                if (targetAddress != null && !mac.equals(
+                        targetAddress.normalizedBluetoothMac(), ignoreCase = true
                     )
                 ) return
 
-
-                // Cache the name if available in this packet (e.g. Scan Response)
-                val recordName = result.scanRecord?.deviceName
-                if (!recordName.isNullOrEmpty()) cachedName = recordName
-
-
-                val displayName = cachedName ?: device.name
+                val displayName = nameCache[mac] ?: device.name
                 val serviceData = result.scanRecord?.getServiceData(serviceUUID) ?: return
 
                 try {
@@ -179,5 +193,3 @@ class BluetoothScanner(private val context: Context) {
     }
 
 }
-
-

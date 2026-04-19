@@ -103,7 +103,8 @@ class SensorUpdateWorker(
             return Result.success()
         }
 
-        val scanner = BluetoothScanner(applicationContext)
+        val deviceProfileRepository = DeviceProfileRepository(applicationContext)
+        val scanner = BluetoothScanner(applicationContext, deviceProfileRepository)
         val scanMode =
             if (forceRefresh) ScanSettings.SCAN_MODE_LOW_LATENCY else ScanSettings.SCAN_MODE_BALANCED
 

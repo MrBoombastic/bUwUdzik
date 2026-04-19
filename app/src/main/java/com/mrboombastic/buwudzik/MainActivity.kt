@@ -162,7 +162,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        scanner = BluetoothScanner(applicationContext)
+        val deviceProfileRepository = DeviceProfileRepository(applicationContext)
+        scanner = BluetoothScanner(applicationContext, deviceProfileRepository)
         settingsRepository = SettingsRepository(applicationContext)
 
         clearCacheIfUpdated()
@@ -183,8 +184,6 @@ class MainActivity : AppCompatActivity() {
         if (BluetoothUtils.hasBluetoothPermissions(applicationContext)) {
             scheduleUpdates(applicationContext, settingsRepository.updateInterval)
         }
-
-        val deviceProfileRepository = DeviceProfileRepository(applicationContext)
 
         val viewModel: MainViewModel by viewModels {
             object : ViewModelProvider.Factory {
