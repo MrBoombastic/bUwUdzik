@@ -202,19 +202,16 @@ class MainViewModel(
             startScanning()
         } else {
             scanJob?.cancel()
-            rssiPollJob?.cancel()
-            connectionJob?.cancel()
-            _deviceConnected.value = false
-            _deviceConnecting.value = false
+            stopActiveConnection()
         }
     }
 
     private fun stopActiveConnection() {
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
-        if (_deviceConnected.value) {
-            qpController.disconnect()
-        }
+        qpController.disconnect()
+        _deviceConnected.value = false
+        _deviceConnecting.value = false
     }
 
     fun startScanning() {
