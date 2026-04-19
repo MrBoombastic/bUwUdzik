@@ -8,31 +8,32 @@ Android app for displaying data from the Qingping CGD1 - Bluetooth LE alarm cloc
 - [Features](#features)
 - [Technical Details](#technical-details)
 - [Screenshots](#screenshots)
+- [Firmware Compatibility](#firmware-compatibility)
 - [Protocol Specification](#protocol-specification)
-  - [1. Service & Characteristics Profile](#1-service--characteristics-profile)
-  - [2. Protocol Structure](#2-protocol-structure)
-    - [2.1. Known Headers](#21-known-headers)
-    - [2.2. Authentication (Two-Step Token Protocol)](#22-authentication-two-step-token-protocol)
-    - [2.3. Time Synchronization](#23-time-synchronization)
-  - [3. Managing Alarms](#3-managing-alarms)
-    - [3.1. Set Alarm](#31-set-alarm)
-    - [3.2. Alarm Payload (5 bytes)](#32-alarm-payload-5-bytes)
-    - [3.3. Delete Alarm](#33-delete-alarm)
-    - [3.4. Read Alarms](#34-read-alarms)
-  - [4. Device Settings](#4-device-settings)
-    - [4.1. Set Immediate Brightness (Preview)](#41-set-immediate-brightness-preview)
-    - [4.2. Preview Ringtone](#42-preview-ringtone)
-  - [5. Real-Time Sensor Stream (Connected)](#5-real-time-sensor-stream-connected)
-  - [6. Passive Sensor Stream (Advertising)](#6-passive-sensor-stream-advertising)
-  - [7. Battery Level (Connected)](#7-battery-level-connected)
-  - [8. Firmware Version](#8-firmware-version)
-  - [9. Audio Transfer Protocol (Ringtone Upload)](#9-audio-transfer-protocol-ringtone-upload)
-    - [Known Ringtone Signatures](#known-ringtone-signatures)
-    - [Custom Ringtone Slots](#custom-ringtone-slots)
-    - [Custom Ringtone JSON Manifest](#custom-ringtone-json-manifest)
-    - [Upload Protocol](#upload-protocol)
-  - [10. Known Command IDs Summary](#10-known-command-ids-summary)
-  - [11. GATT Disconnection Status Codes](#11-gatt-disconnection-status-codes)
+    - [1. Service & Characteristics Profile](#1-service--characteristics-profile)
+    - [2. Protocol Structure](#2-protocol-structure)
+        - [2.1. Known Headers](#21-known-headers)
+        - [2.2. Authentication (Two-Step Token Protocol)](#22-authentication-two-step-token-protocol)
+        - [2.3. Time Synchronization](#23-time-synchronization)
+    - [3. Managing Alarms](#3-managing-alarms)
+        - [3.1. Set Alarm](#31-set-alarm)
+        - [3.2. Alarm Payload (5 bytes)](#32-alarm-payload-5-bytes)
+        - [3.3. Delete Alarm](#33-delete-alarm)
+        - [3.4. Read Alarms](#34-read-alarms)
+    - [4. Device Settings](#4-device-settings)
+        - [4.1. Set Immediate Brightness (Preview)](#41-set-immediate-brightness-preview)
+        - [4.2. Preview Ringtone](#42-preview-ringtone)
+    - [5. Real-Time Sensor Stream (Connected)](#5-real-time-sensor-stream-connected)
+    - [6. Passive Sensor Stream (Advertising)](#6-passive-sensor-stream-advertising)
+    - [7. Battery Level (Connected)](#7-battery-level-connected)
+    - [8. Firmware Version](#8-firmware-version)
+    - [9. Audio Transfer Protocol (Ringtone Upload)](#9-audio-transfer-protocol-ringtone-upload)
+        - [Known Ringtone Signatures](#known-ringtone-signatures)
+        - [Custom Ringtone Slots](#custom-ringtone-slots)
+        - [Custom Ringtone JSON Manifest](#custom-ringtone-json-manifest)
+        - [Upload Protocol](#upload-protocol)
+    - [10. Known Command IDs Summary](#10-known-command-ids-summary)
+    - [11. GATT Disconnection Status Codes](#11-gatt-disconnection-status-codes)
 
 ## Warning
 
@@ -79,6 +80,17 @@ versions.
 <img src="docs/s7.png" width="23%" alt="Trimming audio screenshot"></img>
 <img src="docs/import.png" width="23%" alt="Import device screenshot"></img>
 <img src="docs/widget.png" width="23%" alt="Multiple widgets screenshot"></img>
+
+### Firmware Compatibility
+
+| Version      | Status  | Notes                                                          |
+|--------------|---------|----------------------------------------------------------------|
+| `1.0.1_0046` | Unknown |                                                                |
+| `1.0.1_0063` | Unknown |                                                                |
+| `1.0.1_0067` | Unknown |                                                                |
+| `1.0.1_0126` | Unknown |                                                                |
+| `1.0.1_0130` | Working | *Marked as the latest for some devices, perhaps different HW?* |
+| `1.0.1_0132` | Working | *Marked as the latest for some devices, perhaps different HW?* |
 
 ## Protocol Specification
 
@@ -171,14 +183,14 @@ To create or modify an alarm:
 - **Enabled:** `0x01` = On, `0x00` = Off
 - **HH, MM:** Hour (0-23) and Minute (0-59)
 - **Days (Bitmask):**
-  - `0x01` = Monday
-  - `0x02` = Tuesday
-  - `0x04` = Wednesday
-  - `0x08` = Thursday
-  - `0x10` = Friday
-  - `0x20` = Saturday
-  - `0x40` = Sunday
-  - `0x00` = Once
+    - `0x01` = Monday
+    - `0x02` = Tuesday
+    - `0x04` = Wednesday
+    - `0x08` = Thursday
+    - `0x10` = Friday
+    - `0x20` = Saturday
+    - `0x40` = Sunday
+    - `0x00` = Once
 - **Snooze:** `0x01` = On, `0x00` = Off
 
 #### 3.2. Alarm Payload (5 bytes)
