@@ -8,9 +8,10 @@ import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
-import android.os.ParcelUuid
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
+import com.mrboombastic.buwudzik.device.BleConstants.Advertise
+import com.mrboombastic.buwudzik.device.BleConstants.UUID_SERVICE_ADVERTISING
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -38,8 +39,6 @@ class BluetoothScanner(
 
     private val scanner
         get() = adapter?.bluetoothLeScanner
-
-    private val serviceUUID = ParcelUuid.fromString("0000fdcd-0000-1000-8000-00805f9b34fb")
 
     // Class-level cache to remember names across scan sessions
     private val nameCache = mutableMapOf<String, String>()
@@ -106,7 +105,8 @@ class BluetoothScanner(
                 ) return
 
                 val displayName = nameCache[mac] ?: device.name
-                val serviceData = result.scanRecord?.getServiceData(serviceUUID) ?: return
+                val serviceData =
+                    result.scanRecord?.getServiceData(UUID_SERVICE_ADVERTISING) ?: return
 
                 try {
                     val sensorData =
@@ -132,7 +132,7 @@ class BluetoothScanner(
                         setDeviceAddress(targetAddress)
                     }
                 }
-                .setServiceData(serviceUUID, null)
+                .setServiceData(UUID_SERVICE_ADVERTISING, null)
                 .build()
         )
 
@@ -166,28 +166,28 @@ class BluetoothScanner(
     private fun parseCGD1(
         serviceData: ByteArray, rssi: Int, name: String?, macAddress: String
     ): SensorData? {
-        if (serviceData.size < 17) return null
+        if (serviceData.size < Advertise.MIN_PAYLOAD_SIZE) return null
 
-        // Byte 1 must be 0x0C (CGD1 model ID)
-        val deviceId = serviceData[1].toInt()
-        if (deviceId != 0x0C) return null
+        // model ID check
+        val deviceId = serviceData[Advertise.INDEX_DEVICE_ID].toInt()
+        if (deviceId != Advertise.DEVICE_ID_CGD1) return null
 
         // MAC Address is at 2..7 (ignored)
 
-        // Temperature: indexes 10-11 (Little Endian Int16)
-        val tempLow = serviceData[10].toInt() and 0xFF
-        val tempHigh = serviceData[11].toInt()
+        // Temperature: Little Endian Int16
+        val tempLow = serviceData[Advertise.INDEX_TEMP_L].toInt() and 0xFF
+        val tempHigh = serviceData[Advertise.INDEX_TEMP_H].toInt()
         val tempRaw = (tempHigh shl 8) or tempLow
         val temp = tempRaw.toShort() / 10.0
 
-        // Humidity: indexes 12-13 (Little Endian UInt16)
-        val humidLow = serviceData[12].toInt() and 0xFF
-        val humidHigh = serviceData[13].toInt() and 0xFF
+        // Humidity: Little Endian UInt16
+        val humidLow = serviceData[Advertise.INDEX_HUMID_L].toInt() and 0xFF
+        val humidHigh = serviceData[Advertise.INDEX_HUMID_H].toInt() and 0xFF
         val humidRaw = (humidHigh shl 8) or humidLow
         val humid = humidRaw / 10.0
 
-        // Battery: Index 16
-        val battery = serviceData[16].toInt() and 0xFF
+        // Battery
+        val battery = serviceData[Advertise.INDEX_BATTERY].toInt() and 0xFF
 
         return SensorData(temp, humid, battery, rssi, name, macAddress)
     }

@@ -325,7 +325,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                     onValueChangeFinished = { saveSettings() },
                     onPreview = { previewValue ->
                         viewModel.qpController.enqueueCommand {
-                            viewModel.qpController.setDaytimeBrightnessImmediate(previewValue.toInt())
+                            viewModel.qpController.setImmediateBrightness(previewValue.toInt())
                         }
                     },
                     valueRange = 0f..100f,
@@ -376,7 +376,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         onValueChangeFinished = { saveSettings() },
                         onPreview = { previewValue ->
                             viewModel.qpController.enqueueCommand {
-                                viewModel.qpController.setNightBrightnessImmediate(previewValue.toInt())
+                                viewModel.qpController.setImmediateBrightness(previewValue.toInt())
                             }
                         },
                         valueRange = 0f..100f,

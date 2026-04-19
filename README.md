@@ -10,25 +10,29 @@ Android app for displaying data from the Qingping CGD1 - Bluetooth LE alarm cloc
 - [Screenshots](#screenshots)
 - [Protocol Specification](#protocol-specification)
   - [1. Service & Characteristics Profile](#1-service--characteristics-profile)
-  - [2. Authentication (Two-Step Token Protocol)](#2-authentication-two-step-token-protocol)
-    - [2.1. Time Synchronization](#21-time-synchronization)
+  - [2. Protocol Structure](#2-protocol-structure)
+    - [2.1. Known Headers](#21-known-headers)
+    - [2.2. Authentication (Two-Step Token Protocol)](#22-authentication-two-step-token-protocol)
+    - [2.3. Time Synchronization](#23-time-synchronization)
   - [3. Managing Alarms](#3-managing-alarms)
     - [3.1. Set Alarm](#31-set-alarm)
-    - [3.2. Delete Alarm](#32-delete-alarm)
-    - [3.3. Read Alarms](#33-read-alarms)
+    - [3.2. Alarm Payload (5 bytes)](#32-alarm-payload-5-bytes)
+    - [3.3. Delete Alarm](#33-delete-alarm)
+    - [3.4. Read Alarms](#34-read-alarms)
   - [4. Device Settings](#4-device-settings)
     - [4.1. Set Immediate Brightness (Preview)](#41-set-immediate-brightness-preview)
     - [4.2. Preview Ringtone](#42-preview-ringtone)
-  - [5. Real-Time Sensor Stream](#5-real-time-sensor-stream)
-  - [6. Battery Level](#6-battery-level)
-  - [7. Firmware Version](#7-firmware-version)
-  - [8. Audio Transfer Protocol (Ringtone Upload)](#8-audio-transfer-protocol-ringtone-upload)
+  - [5. Real-Time Sensor Stream (Connected)](#5-real-time-sensor-stream-connected)
+  - [6. Passive Sensor Stream (Advertising)](#6-passive-sensor-stream-advertising)
+  - [7. Battery Level (Connected)](#7-battery-level-connected)
+  - [8. Firmware Version](#8-firmware-version)
+  - [9. Audio Transfer Protocol (Ringtone Upload)](#9-audio-transfer-protocol-ringtone-upload)
     - [Known Ringtone Signatures](#known-ringtone-signatures)
     - [Custom Ringtone Slots](#custom-ringtone-slots)
     - [Custom Ringtone JSON Manifest](#custom-ringtone-json-manifest)
     - [Upload Protocol](#upload-protocol)
-  - [9. Known Command IDs Summary](#9-known-command-ids-summary)
-  - [10. GATT Disconnection Status Codes](#10-gatt-disconnection-status-codes)
+  - [10. Known Command IDs Summary](#10-known-command-ids-summary)
+  - [11. GATT Disconnection Status Codes](#11-gatt-disconnection-status-codes)
 
 ## Warning
 
@@ -96,7 +100,28 @@ characteristics in this specific firmware version.
 | Data Notify   | `0000000c-0000-1000-8000-00805f9b34fb` | Notify     |
 | Sensor Notify | `00000100-0000-1000-8000-00805f9b34fb` | Notify     |
 
-### 2. Authentication (Two-Step Token Protocol)
+### 2. Protocol Structure
+
+Most commands follow a simple **Header + Command + Payload** structure.
+
+**Request Format:** `[Header] [Command] [Payload...]`  
+**ACK Format (Notify):** `04 ff [Command] [Len] [Status]`
+
+#### 2.1. Known Headers
+
+| Value         | Constant                | Used for                                        |
+|---------------|-------------------------|-------------------------------------------------|
+| `0x11`        | `Header.AUTH`           | Authentication steps                            |
+| `0x05`        | `Header.TIME`           | Time synchronization                            |
+| `0x01`        | `Header.GET_DATA`       | Read-only requests (Settings, Alarms, Firmware) |
+| `0x07`        | `Header.SET_ALARM`      | Writing alarm data                              |
+| `0x02`        | `Header.BRIGHTNESS`     | Immediate brightness preview                    |
+| `0x01`/`0x02` | `Header.RINGTONE_V1/V2` | Ringtone preview                                |
+| `0x13`        | `Header.SET_SETTINGS`   | Writing device settings                         |
+| `0x08`        | `Header.AUDIO_INIT`     | Audio upload initialization                     |
+| `0x81`        | `Header.AUDIO_PACKET`   | Audio data stream packets                       |
+
+#### 2.2. Authentication (Two-Step Token Protocol)
 
 The device uses a two-step authentication protocol with a 16-byte random token. Once paired, the
 same token must be used for all future connections.
@@ -125,7 +150,7 @@ action and check if the device will close connection with you.
 - Status `01` = Failure
 - Status `02` = Continue (for Auth Init, proceed to step 5)
 
-#### 2.1. Time Synchronization
+#### 2.3. Time Synchronization
 
 After authentication, it is recommended to synchronize the time.
 
@@ -156,13 +181,25 @@ To create or modify an alarm:
   - `0x00` = Once
 - **Snooze:** `0x01` = On, `0x00` = Off
 
-#### 3.2. Delete Alarm
+#### 3.2. Alarm Payload (5 bytes)
+
+The 5-byte alarm entry structure used in both **Set Alarm** and **Read Alarms**:
+
+| Byte | Description   | Range / Values                            |
+|------|---------------|-------------------------------------------|
+| 0    | Enabled State | `0x01` (On), `0x00` (Off), `0xFF` (Empty) |
+| 1    | Hour          | `0-23`, `0xFF` (Empty)                    |
+| 2    | Minute        | `0-59`, `0xFF` (Empty)                    |
+| 3    | Repeat Days   | Bitmask (see above), `0xFF` (Empty)       |
+| 4    | Snooze        | `0x01` (On), `0x00` (Off), `0xFF` (Empty) |
+
+#### 3.3. Delete Alarm
 
 To delete an alarm, overwrite it with `FF` values (marking it as empty/unused).
 
 - **Command:** `07 05 [ID] FF FF FF FF FF`
 
-#### 3.3. Read Alarms
+#### 3.4. Read Alarms
 
 - **Command:** `01 06`
 - **Response:** `11 06 [Base Index] [Alarm Entry 1 (5B)] ...`
@@ -228,23 +265,41 @@ Plays a generic "beep" sound for testing volume level (not the user's selected r
 - **Command (Data Write):** `01 04` (Play at current volume) or `02 04 [Vol]` (Play at volume `1-5`)
 - **Response (Data Notify):** `04 ff 04 00 00` (Success)
 
-### 5. Real-Time Sensor Stream
+### 5. Real-Time Sensor Stream (Connected)
 
 - **Target:** `00000100-...` (Notify)
 - **Format:** `[00] [Temp L] [Temp H] [Hum L] [Hum H]`
 - **Values:** Little Endian Int16 / 100.0
 
-### 6. Battery Level
+### 6. Passive Sensor Stream (Advertising)
+
+The device also broadcasts sensor data in its BLE advertisement packets via Service Data.
+
+- **Service UUID:** `0000fdcd-0000-1000-8000-00805f9b34fb` (ClearGrass/Qingping Service)
+- **Format (Service Data):**
+
+| Byte  | Value       | Description                  |
+|-------|-------------|------------------------------|
+| 0     | `0x08`      | Packet Type (???)            |
+| 1     | `0x0c`      | Model ID (`0x0C` = CGD1)     |
+| 2-7   | MAC         | Device MAC Address (6 bytes) |
+| 8-9   | ???         | Unknown                      |
+| 10-11 | `Int16 LE`  | Temperature (Value / 10.0)   |
+| 12-13 | `UInt16 LE` | Humidity (Value / 10.0)      |
+| 14-15 | ???         | Unknown                      |
+| 16    | `UInt8`     | Battery Percentage (0-100)   |
+
+### 7. Battery Level (Connected)
 
 - **Service UUID:** `0x180f`, **Char UUID:** `0x2a19`
 - **Format:** 1 byte (percentage)
 
-### 7. Firmware Version
+### 8. Firmware Version
 
 - **Command (Auth Write):** `01 0d`
 - **Response (Auth Notify):** `0b [Length] [ASCII String]`
 
-### 8. Audio Transfer Protocol (Ringtone Upload)
+### 9. Audio Transfer Protocol (Ringtone Upload)
 
 #### Known Ringtone Signatures
 
@@ -363,7 +418,7 @@ app uses an additional `"pcm"` field, but this app takes the Wave and converts i
 
 After sending all audio data, the device will apply the new ringtone.
 
-### 9. Known Command IDs Summary
+### 10. Known Command IDs Summary
 
 | Cmd | Sub | Characteristic | Description                             |
 |-----|-----|----------------|-----------------------------------------|
@@ -382,7 +437,7 @@ After sending all audio data, the device will apply the new ringtone.
 
 **ACK Format (Notify characteristics):** `04 ff [CmdSub] [Len] [Status]`
 
-### 10. GATT Disconnection Status Codes
+### 11. GATT Disconnection Status Codes
 
 When the device disconnects, the GATT status indicates the reason:
 

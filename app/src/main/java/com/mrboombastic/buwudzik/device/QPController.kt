@@ -12,6 +12,10 @@ import android.bluetooth.BluetoothProfile
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.mrboombastic.buwudzik.data.TokenStorage
+import com.mrboombastic.buwudzik.device.BleConstants.Command
+import com.mrboombastic.buwudzik.device.BleConstants.Flags
+import com.mrboombastic.buwudzik.device.BleConstants.Header
+import com.mrboombastic.buwudzik.device.BleConstants.Status
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_WRITE
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_CLIENT_CHARACTERISTIC_CONFIG
@@ -116,12 +120,12 @@ class QPController(private val context: Context) {
     // Build auth packets dynamically from the current token
     private fun buildAuthInitPacket(): ByteArray {
         val token = currentToken ?: throw IllegalStateException("No token set")
-        return byteArrayOf(0x11.toByte(), 0x01.toByte()) + token
+        return byteArrayOf(Header.AUTH, Command.AUTH_INIT.toByte()) + token
     }
 
     private fun buildAuthConfirmPacket(): ByteArray {
         val token = currentToken ?: throw IllegalStateException("No token set")
-        return byteArrayOf(0x11.toByte(), 0x02.toByte()) + token
+        return byteArrayOf(Header.AUTH, Command.AUTH_CONFIRM.toByte()) + token
     }
 
     /**
@@ -271,7 +275,7 @@ class QPController(private val context: Context) {
     }
 
     private fun handleAckNotification(value: ByteArray, characteristicUuid: UUID) {
-        if (value.size < 4 || value[0] != 0x04.toByte() || value[1] != 0xff.toByte()) {
+        if (value.size < 4 || value[0] != Header.ACK[0] || value[1] != Header.ACK[1]) {
             AppLogger.d(TAG, "[$characteristicUuid] Unhandled notification: ${value.toHexString()}")
             return
         }
@@ -279,14 +283,14 @@ class QPController(private val context: Context) {
         val status = value[3].toInt() and 0xFF
 
         val cmdName = when (cmdId) {
-            0x01 -> "Auth Init"
-            0x02 -> "Auth Confirm"
-            0x03 -> "Brightness Preview"
-            0x04 -> "Preview Ringtone"
-            0x05 -> "Alarm"
-            0x08 -> "Audio Block"
-            0x09 -> "Time Sync"
-            0x10 -> "Audio Init"
+            Command.AUTH_INIT -> "Auth Init"
+            Command.AUTH_CONFIRM -> "Auth Confirm"
+            Command.PREVIEW_BRIGHTNESS -> "Brightness Preview"
+            Command.PREVIEW_RINGTONE -> "Preview Ringtone"
+            Command.SET_ALARM -> "Alarm"
+            Command.AUDIO_BLOCK -> "Audio Block"
+            Command.TIME_SYNC -> "Time Sync"
+            Command.AUDIO_INIT -> "Audio Init"
             else -> "Cmd $cmdId"
         }
         val authHint = context.getString(com.mrboombastic.buwudzik.R.string.auth_hint)
@@ -296,19 +300,19 @@ class QPController(private val context: Context) {
         )
 
         // Handle audio upload ACKs
-        if (cmdId == 0x08 || cmdId == 0x10) {
+        if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
             handleUploadAck(value)
         }
 
-        if (status == 0x00 || status == 0x09 || (cmdId == 0x01 && status == 0x02)) {
-            // cmdId 0x01 = Auth Init success, mark that we need to send Auth Confirm
-            if (cmdId == 0x01) {
+        if (status == Status.SUCCESS || status == Status.ALARM_STILL_SUCCESS || (cmdId == Command.AUTH_INIT && status == Status.AUTH_INIT_SUCCESS)) {
+            // CMD_AUTH_INIT success, mark that we need to send Auth Confirm
+            if (cmdId == Command.AUTH_INIT) {
                 AppLogger.d(
                     TAG, "Auth Init ACK received, will send Auth Confirm after write completes"
                 )
                 authInitAckReceived = true
                 // Don't write here - wait for onCharacteristicWrite callback
-            } else if (cmdId == 0x02) {
+            } else if (cmdId == Command.AUTH_CONFIRM) {
                 AppLogger.d(
                     TAG,
                     "Authentication seems successful, but syncing time will tell the truth"
@@ -328,7 +332,7 @@ class QPController(private val context: Context) {
             }
             pendingAckContinuations.remove(cmdId)?.resume(true)
         } else {
-            val errorSuffix = if (status == 0x02) {
+            val errorSuffix = if (status == Status.AUTH_INIT_SUCCESS) {
                 " $authHint"
             } else ""
             AppLogger.e(
@@ -380,7 +384,7 @@ class QPController(private val context: Context) {
 
             when (characteristic.uuid) {
                 UUID_AUTH_NOTIFY -> {
-                    if (value.isNotEmpty() && value[0] == 0x0b.toByte()) {
+                    if (value.isNotEmpty() && value[0] == Header.FIRMWARE_DATA) {
                         try {
                             val length = if (value.size > 1) value[1].toInt() and 0xFF else 0
                             val version = String(value, 2, minOf(length, value.size - 2))
@@ -399,25 +403,25 @@ class QPController(private val context: Context) {
 
                 UUID_DATA_NOTIFY -> {
                     // Check for audio upload ACKs first (04 ff 08/10 XX)
-                    if (value.size >= 3 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
+                    if (value.size >= 3 && value[0] == Header.ACK[0] && value[1] == Header.ACK[1]) {
                         val cmdId = value[2].toInt() and 0xFF
                         // Handle audio upload ACKs
-                        if (cmdId == 0x08 || cmdId == 0x10) {
+                        if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
                             handleUploadAck(value)
                         }
                         // Also handle as regular ACK if size >= 4
                         if (value.size >= 4) {
                             handleAckNotification(value, characteristic.uuid)
                         }
-                    } else if (value.size >= 3 && value[0] == 0x11.toByte() && value[1] == 0x06.toByte()) {
+                    } else if (value.size >= 3 && value[0] == Header.ALARM_DATA[0] && value[1] == Header.ALARM_DATA[1]) {
                         val baseIndex = value[2].toInt() and 0xFF
                         AppLogger.d(TAG, "Parsing alarms packet starting at index $baseIndex")
 
-                        var offset = 3
+                        var offset = BleConstants.Alarm.START_OFFSET
                         var currentIndex = baseIndex
                         var highestIndexSeen = currentIndex
 
-                        while (offset + 5 <= value.size) {
+                        while (offset + BleConstants.Alarm.ENTRY_LENGTH <= value.size) {
                             val enabled = value[offset].toInt() and 0xFF == 1
                             val hour = value[offset + 1].toInt() and 0xFF
                             val minute = value[offset + 2].toInt() and 0xFF
@@ -436,11 +440,11 @@ class QPController(private val context: Context) {
                             }
 
                             highestIndexSeen = currentIndex
-                            offset += 5
+                            offset += BleConstants.Alarm.ENTRY_LENGTH
                             currentIndex++
                         }
 
-                        if (highestIndexSeen >= 15) {
+                        if (highestIndexSeen >= BleConstants.Alarm.TOTAL_SLOTS - 1) {
                             AppLogger.d(
                                 TAG,
                                 "Received all 16 alarm slots (up to index 15), returning ${alarmBuffer.size} alarms"
@@ -463,23 +467,33 @@ class QPController(private val context: Context) {
                                 alarmBuffer.clear()
                             }
                         }
-                    } else if (value.size >= 15 && value[0] == 0x13.toByte() && (value[1] == 0x01.toByte() || value[1] == 0x02.toByte())) {
+                    } else if (value.size >= BleConstants.Settings.MIN_PAYLOAD_SIZE && value[0] == Header.SET_SETTINGS && (value[1] == Header.SETTINGS_DATA_V1[1] || value[1] == Header.SETTINGS_DATA_V2[1])) {
                         AppLogger.d(TAG, "Received device settings packet: ${value.toHexString()}")
                         lastSettingsPacket = value.copyOf()
                         try {
-                            val volume = value[2].toInt() and 0xFF
-                            val flags = value[5].toInt()
-                            val tzOffset = value[6].toInt() and 0xFF
-                            val duration = value[7].toInt() and 0xFF
-                            val packedBrightness = value[8].toInt() and 0xFF
+                            val volume = value[BleConstants.Settings.INDEX_VOLUME].toInt() and 0xFF
+                            val flags = value[BleConstants.Settings.INDEX_FLAGS].toInt()
+                            val tzOffset =
+                                value[BleConstants.Settings.INDEX_TZ_OFFSET].toInt() and 0xFF
+                            val duration =
+                                value[BleConstants.Settings.INDEX_BACKLIGHT_DUR].toInt() and 0xFF
+                            val packedBrightness =
+                                value[BleConstants.Settings.INDEX_PACKED_BRIGHTNESS].toInt() and 0xFF
                             val screenBri = (packedBrightness shr 4) * 10
                             val nightBri = (packedBrightness and 0x0F) * 10
-                            val tzSign = value[13].toInt() == 1
-                            val nightModeEnabled = value[14].toInt() == 1
+                            val tzSign = value[BleConstants.Settings.INDEX_TZ_SIGN].toInt() == 1
+                            val nightModeEnabled =
+                                value[BleConstants.Settings.INDEX_NIGHT_MODE_EN].toInt() == 1
 
                             // Parse ringtone signature from bytes 16-19
-                            val ringtoneSig = if (value.size >= 20) {
-                                byteArrayOf(value[16], value[17], value[18], value[19])
+                            val ringtoneSig =
+                                if (value.size >= BleConstants.Settings.INDEX_RINGTONE_SIG + 4) {
+                                    byteArrayOf(
+                                        value[BleConstants.Settings.INDEX_RINGTONE_SIG],
+                                        value[BleConstants.Settings.INDEX_RINGTONE_SIG + 1],
+                                        value[BleConstants.Settings.INDEX_RINGTONE_SIG + 2],
+                                        value[BleConstants.Settings.INDEX_RINGTONE_SIG + 3]
+                                    )
                             } else {
                                 byteArrayOf(
                                     0xba.toByte(), 0x2c.toByte(), 0x2c.toByte(), 0x8c.toByte()
@@ -487,20 +501,20 @@ class QPController(private val context: Context) {
                             }
 
                             val settings = DeviceSettings(
-                                tempUnit = if (flags and 0x04 != 0) TempUnit.Fahrenheit else TempUnit.Celsius,
-                                timeFormat = if (flags and 0x02 != 0) TimeFormat.H12 else TimeFormat.H24,
-                                language = if (flags and 0x01 != 0) Language.English else Language.Chinese,
+                                tempUnit = if (flags and Flags.TEMP_UNIT_F != 0) TempUnit.Fahrenheit else TempUnit.Celsius,
+                                timeFormat = if (flags and Flags.TIME_FORMAT_12H != 0) TimeFormat.H12 else TimeFormat.H24,
+                                language = if (flags and Flags.LANG_ENGLISH != 0) Language.English else Language.Chinese,
                                 volume = volume,
                                 timeZone = createTimeZone(tzOffset,tzSign),
                                 nightModeBrightness = nightBri,
                                 backlightDuration = duration,
                                 screenBrightness = screenBri,
-                                nightStartHour = value[9].toInt() and 0xFF,
-                                nightStartMinute = value[10].toInt() and 0xFF,
-                                nightEndHour = value[11].toInt() and 0xFF,
-                                nightEndMinute = value[12].toInt() and 0xFF,
+                                nightStartHour = value[BleConstants.Settings.INDEX_NIGHT_START_H].toInt() and 0xFF,
+                                nightStartMinute = value[BleConstants.Settings.INDEX_NIGHT_START_M].toInt() and 0xFF,
+                                nightEndHour = value[BleConstants.Settings.INDEX_NIGHT_END_H].toInt() and 0xFF,
+                                nightEndMinute = value[BleConstants.Settings.INDEX_NIGHT_END_M].toInt() and 0xFF,
                                 nightModeEnabled = nightModeEnabled,
-                                masterAlarmDisabled = (flags and 0x10) != 0,
+                                masterAlarmDisabled = (flags and Flags.MASTER_ALARM_DISABLE) != 0,
                                 ringtoneSignature = ringtoneSig
                             )
                             deviceSettingsReadContinuation?.resume(settings)
@@ -516,7 +530,7 @@ class QPController(private val context: Context) {
                 }
 
                 UUID_SENSOR_NOTIFY -> {
-                    if (value.size >= 5 && value[0] == 0x00.toByte()) {
+                    if (value.size >= 5 && value[0] == Header.SENSOR_DATA) {
                         val tempRaw =
                             (value[2].toInt() and 0xFF shl 8) or (value[1].toInt() and 0xFF)
                         val humRaw =
@@ -550,7 +564,7 @@ class QPController(private val context: Context) {
             }
             deferred?.complete(true)
 
-            // Check if we need to send Auth Confirm (11 02) after Auth Init write completes
+            // Check if we need to send Auth Confirm after Auth Init write completes
             if (authInitAckReceived && characteristic?.uuid == UUID_AUTH_WRITE) {
                 authInitAckReceived = false // Clear flag
                 AppLogger.d(
@@ -577,7 +591,7 @@ class QPController(private val context: Context) {
                 AppLogger.e(TAG, "Enable notification failed: $status")
                 when (descriptor?.characteristic?.uuid) {
                     UUID_AUTH_NOTIFY -> {
-                        pendingAckContinuations.remove(0x02)
+                        pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                             ?.resumeWithException(Exception("Enable auth notification failed: $status"))
                         pendingAuthWrite = null
                     }
@@ -720,7 +734,7 @@ class QPController(private val context: Context) {
                 }
 
                 AppLogger.d(TAG, "Starting authentication...")
-                pendingAckContinuations[0x02] = continuation
+                pendingAckContinuations[Command.AUTH_CONFIRM] = continuation
 
                 val authService =
                     currentGatt.services.find { it.getCharacteristic(UUID_AUTH_NOTIFY) != null }
@@ -728,7 +742,7 @@ class QPController(private val context: Context) {
                 val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
 
                 if (authNotifyChar == null || authWriteChar == null) {
-                    pendingAckContinuations.remove(0x02)
+                    pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                     continuation.resumeWithException(Exception("Auth characteristics not found"))
                     return@suspendCancellableCoroutine
                 }
@@ -744,18 +758,18 @@ class QPController(private val context: Context) {
                         it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        pendingAckContinuations.remove(0x02)
+                        pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                         continuation.resumeWithException(Exception("writeDescriptor failed for auth: $status"))
                         pendingAuthWrite = null
                     }
                 } ?: run {
-                    pendingAckContinuations.remove(0x02)
+                    pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                     continuation.resumeWithException(Exception("Auth descriptor not found"))
                     pendingAuthWrite = null
                 }
 
                 continuation.invokeOnCancellation {
-                    pendingAckContinuations.remove(0x02)
+                    pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                     pendingAuthWrite = null
                 }
             }
@@ -778,11 +792,11 @@ class QPController(private val context: Context) {
 
                     val date = java.util.Date(timestamp * 1000)
                     AppLogger.d(TAG, "Synchronizing time to: $date (Unix: $timestamp)")
-                    pendingAckContinuations[0x09] = continuation
+                    pendingAckContinuations[Command.TIME_SYNC] = continuation
 
                     val command = byteArrayOf(
-                        0x05.toByte(),
-                        0x09.toByte(),
+                        Header.TIME,
+                        Command.TIME_SYNC.toByte(),
                         (timestamp and 0xFF).toByte(),
                         ((timestamp shr 8) and 0xFF).toByte(),
                         ((timestamp shr 16) and 0xFF).toByte(),
@@ -794,7 +808,7 @@ class QPController(private val context: Context) {
                     val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
 
                     if (authWriteChar == null) {
-                        pendingAckContinuations.remove(0x09)
+                        pendingAckContinuations.remove(Command.TIME_SYNC)
                         continuation.resumeWithException(Exception("Auth write characteristic not found"))
                         return@suspendCancellableCoroutine
                     }
@@ -803,12 +817,12 @@ class QPController(private val context: Context) {
                         authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        pendingAckContinuations.remove(0x09)
+                        pendingAckContinuations.remove(Command.TIME_SYNC)
                         continuation.resumeWithException(Exception("writeCharacteristic failed for time sync: $status"))
                     }
 
                     continuation.invokeOnCancellation {
-                        pendingAckContinuations.remove(0x09)
+                        pendingAckContinuations.remove(Command.TIME_SYNC)
                     }
                 }
             }
@@ -838,7 +852,7 @@ class QPController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            val command = byteArrayOf(0x01, 0x02)
+            val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
 
             // Check if notifications already enabled
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
@@ -907,7 +921,7 @@ class QPController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            val command = byteArrayOf(0x01.toByte(), 0x0d.toByte())
+            val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
             val status = currentGatt.writeCharacteristic(
                 authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
             )
@@ -960,67 +974,79 @@ class QPController(private val context: Context) {
                         return@suspendCancellableCoroutine
                     }
 
-                    pendingAckContinuations[0x01] = continuation
+                    pendingAckContinuations[Command.SET_SETTINGS] = continuation
 
                     // Use the last packet as a template to preserve unknown/header bytes, fallback to defaults
                     val payload = lastSettingsPacket?.copyOf() ?: ByteArray(20).apply {
-                        this[0] = 0x13.toByte()
-                        this[3] = 0x58.toByte()
-                        this[4] = 0x02.toByte()
+                        this[0] = Header.SET_SETTINGS
+                        this[3] = Header.SETTINGS_FIXED_BYTE_3
+                        this[4] = Header.SETTINGS_FIXED_BYTE_4
                     }
 
-                    // Always ensure Command ID and Sub-command are correct for Set Settings
-                    payload[0] = 0x13.toByte()
-                    payload[1] = 0x01.toByte()
+                    // Always ensure Header and Sub-command are correct for Set Settings
+                    payload[0] = Header.SET_SETTINGS
+                    payload[1] = Command.SET_SETTINGS.toByte()
 
                     // Update Volume
-                    payload[2] = settings.volume.coerceIn(1, 5).toByte()
+                    payload[BleConstants.Settings.INDEX_VOLUME] =
+                        settings.volume.coerceIn(1, 5).toByte()
 
                     // Update Flags bit by bit to preserve unknown bits
-                    var flags = payload.getOrNull(5)?.toInt()?.and(0xFF) ?: 0
+                    var flags =
+                        payload.getOrNull(BleConstants.Settings.INDEX_FLAGS)?.toInt()?.and(0xFF)
+                            ?: 0
                     flags =
-                        if (settings.language == Language.English) flags or 0x01 else flags and 0x01.inv()
+                        if (settings.language == Language.English) flags or Flags.LANG_ENGLISH else flags and Flags.LANG_ENGLISH.inv()
                     flags =
-                        if (settings.timeFormat == TimeFormat.H12) flags or 0x02 else flags and 0x02.inv()
+                        if (settings.timeFormat == TimeFormat.H12) flags or Flags.TIME_FORMAT_12H else flags and Flags.TIME_FORMAT_12H.inv()
                     flags =
-                        if (settings.tempUnit == TempUnit.Fahrenheit) flags or 0x04 else flags and 0x04.inv()
+                        if (settings.tempUnit == TempUnit.Fahrenheit) flags or Flags.TEMP_UNIT_F else flags and Flags.TEMP_UNIT_F.inv()
                     flags =
-                        if (settings.masterAlarmDisabled) flags or 0x10 else flags and 0x10.inv()
-                    payload[5] = flags.toByte()
+                        if (settings.masterAlarmDisabled) flags or Flags.MASTER_ALARM_DISABLE else flags and Flags.MASTER_ALARM_DISABLE.inv()
+                    payload[BleConstants.Settings.INDEX_FLAGS] = flags.toByte()
 
                     // Update Timezone, Duration and Packed Brightness
-                    payload[6] = settings.timeZone.encodeOffset()
-                    payload[7] = settings.backlightDuration.toByte()
-                    payload[8] = (((settings.screenBrightness / 10).coerceIn(
+                    payload[BleConstants.Settings.INDEX_TZ_OFFSET] =
+                        settings.timeZone.encodeOffset()
+                    payload[BleConstants.Settings.INDEX_BACKLIGHT_DUR] =
+                        settings.backlightDuration.toByte()
+                    payload[BleConstants.Settings.INDEX_PACKED_BRIGHTNESS] =
+                        (((settings.screenBrightness / 10).coerceIn(
                         0, 15
                     ) shl 4) or (settings.nightModeBrightness / 10).coerceIn(0, 15)).toByte()
 
                     // Night Mode Schedule
                     if (settings.nightModeEnabled) {
-                        payload[9] = settings.nightStartHour.toByte()
-                        payload[10] = settings.nightStartMinute.toByte()
-                        payload[11] = settings.nightEndHour.toByte()
-                        payload[12] = settings.nightEndMinute.toByte()
+                        payload[BleConstants.Settings.INDEX_NIGHT_START_H] =
+                            settings.nightStartHour.toByte()
+                        payload[BleConstants.Settings.INDEX_NIGHT_START_M] =
+                            settings.nightStartMinute.toByte()
+                        payload[BleConstants.Settings.INDEX_NIGHT_END_H] =
+                            settings.nightEndHour.toByte()
+                        payload[BleConstants.Settings.INDEX_NIGHT_END_M] =
+                            settings.nightEndMinute.toByte()
                     } else {
                         // Fix: Hardware often ignores the enabled bit, so set a minimal 1-min window
                         AppLogger.d(TAG, "Night Mode disabled: forcing schedule to 00:00 - 00:01")
-                        payload[9] = 0
-                        payload[10] = 0
-                        payload[11] = 0
-                        payload[12] = 1
+                        payload[BleConstants.Settings.INDEX_NIGHT_START_H] = 0
+                        payload[BleConstants.Settings.INDEX_NIGHT_START_M] = 0
+                        payload[BleConstants.Settings.INDEX_NIGHT_END_H] = 0
+                        payload[BleConstants.Settings.INDEX_NIGHT_END_M] = 1
                     }
 
                     // Metadata bits
-                    payload[13] = settings.timeZone.encodeOffsetSign()
-                    payload[14] = (if (settings.nightModeEnabled) 1 else 0).toByte()
+                    payload[BleConstants.Settings.INDEX_TZ_SIGN] =
+                        settings.timeZone.encodeOffsetSign()
+                    payload[BleConstants.Settings.INDEX_NIGHT_MODE_EN] =
+                        (if (settings.nightModeEnabled) 1 else 0).toByte()
 
                     // Update Ringtone Signature
                     val sig = settings.ringtoneSignature
                     if (sig.size >= 4) {
-                        payload[16] = sig[0]
-                        payload[17] = sig[1]
-                        payload[18] = sig[2]
-                        payload[19] = sig[3]
+                        payload[BleConstants.Settings.INDEX_RINGTONE_SIG] = sig[0]
+                        payload[BleConstants.Settings.INDEX_RINGTONE_SIG + 1] = sig[1]
+                        payload[BleConstants.Settings.INDEX_RINGTONE_SIG + 2] = sig[2]
+                        payload[BleConstants.Settings.INDEX_RINGTONE_SIG + 3] = sig[3]
                     }
 
                     val dataService =
@@ -1028,7 +1054,7 @@ class QPController(private val context: Context) {
                     val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
 
                     if (dataWriteChar == null) {
-                        pendingAckContinuations.remove(0x01)
+                        pendingAckContinuations.remove(Command.SET_SETTINGS)
                         continuation.resumeWithException(Exception("Data write characteristic not found"))
                         return@suspendCancellableCoroutine
                     }
@@ -1038,7 +1064,7 @@ class QPController(private val context: Context) {
                     scope.launch {
                         val started = writeCharacteristicWithRetry(dataWriteChar, payload)
                         if (!started) {
-                            pendingAckContinuations.remove(0x01)
+                            pendingAckContinuations.remove(Command.SET_SETTINGS)
                             continuation.resumeWithException(Exception("writeCharacteristic failed for settings"))
                         }
                     }
@@ -1055,12 +1081,6 @@ class QPController(private val context: Context) {
         return true
     }
 
-    suspend fun setDaytimeBrightnessImmediate(percentage: Int): Boolean =
-        setImmediateBrightness(percentage)
-
-    suspend fun setNightBrightnessImmediate(percentage: Int): Boolean =
-        setImmediateBrightness(percentage)
-
     suspend fun setImmediateBrightness(percentage: Int): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
             suspendCancellableCoroutine { continuation ->
@@ -1074,7 +1094,8 @@ class QPController(private val context: Context) {
                 }
 
                 val value = (percentage / 10).coerceIn(0, 10).toByte()
-                val command = byteArrayOf(0x02.toByte(), 0x03.toByte(), value)
+                val command =
+                    byteArrayOf(Header.BRIGHTNESS, Command.PREVIEW_BRIGHTNESS.toByte(), value)
 
                 val dataService =
                     currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
@@ -1085,19 +1106,20 @@ class QPController(private val context: Context) {
                     return@suspendCancellableCoroutine
                 }
 
-                pendingAckContinuations[0x03] = continuation
+                pendingAckContinuations[Command.PREVIEW_BRIGHTNESS] = continuation
                 AppLogger.d(TAG, "Immediate brightness update: $percentage% (value: $value)")
 
                 scope.launch {
                     val started = writeCharacteristicWithRetry(dataWriteChar, command)
                     if (!started) {
-                        pendingAckContinuations.remove(0x03)
+                        pendingAckContinuations.remove(Command.PREVIEW_BRIGHTNESS)
                         continuation.resume(false)
                     }
                 }
             }
         }
     }
+
 
     suspend fun enableSensorNotifications(): Boolean = gattMutex.withLock {
         suspendCancellableCoroutine { continuation ->
@@ -1166,11 +1188,11 @@ class QPController(private val context: Context) {
                         return@suspendCancellableCoroutine
                     }
 
-                    pendingAckContinuations[0x05] = continuation
+                    pendingAckContinuations[Command.SET_ALARM] = continuation
 
                     val command = byteArrayOf(
-                        0x07.toByte(),
-                        0x05.toByte(),
+                        Header.SET_ALARM,
+                        Command.SET_ALARM.toByte(),
                         alarmId.toByte(),
                         if (enable) 0x01.toByte() else 0x00.toByte(),
                         hour.toByte(),
@@ -1185,7 +1207,7 @@ class QPController(private val context: Context) {
                     val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
 
                     if (dataWriteChar == null || dataNotifyChar == null) {
-                        pendingAckContinuations.remove(0x05)
+                        pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("Data characteristics not found"))
                         return@suspendCancellableCoroutine
                     }
@@ -1212,7 +1234,7 @@ class QPController(private val context: Context) {
                         dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        pendingAckContinuations.remove(0x05)
+                        pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("writeCharacteristic failed for alarm: $status"))
                     }
                 }
@@ -1234,11 +1256,11 @@ class QPController(private val context: Context) {
                         return@suspendCancellableCoroutine
                     }
 
-                    pendingAckContinuations[0x05] = continuation
+                    pendingAckContinuations[Command.SET_ALARM] = continuation
 
                     val command = byteArrayOf(
-                        0x07.toByte(),
-                        0x05.toByte(),
+                        Header.SET_ALARM,
+                        Command.SET_ALARM.toByte(),
                         alarmId.toByte(),
                         0xFF.toByte(),
                         0xFF.toByte(),
@@ -1253,7 +1275,7 @@ class QPController(private val context: Context) {
                     val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
 
                     if (dataWriteChar == null || dataNotifyChar == null) {
-                        pendingAckContinuations.remove(0x05)
+                        pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("Data characteristics not found"))
                         return@suspendCancellableCoroutine
                     }
@@ -1276,7 +1298,7 @@ class QPController(private val context: Context) {
                         dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        pendingAckContinuations.remove(0x05)
+                        pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("writeCharacteristic failed for alarm delete: $status"))
                     }
                 }
@@ -1311,7 +1333,7 @@ class QPController(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            val command = byteArrayOf(0x01, 0x06)
+            val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
 
             // Check if notifications already enabled
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
@@ -1385,16 +1407,16 @@ class QPController(private val context: Context) {
         val command = if (settings != null) {
             val vol = settings.volume.coerceIn(1, 5).toByte()
             AppLogger.d(TAG, "Previewing ringtone with volume $vol")
-            byteArrayOf(0x02, 0x04, vol)
+            byteArrayOf(Header.RINGTONE_V2, Command.PREVIEW_RINGTONE.toByte(), vol)
         } else {
             AppLogger.d(TAG, "Previewing ringtone with default/current volume")
-            byteArrayOf(0x01, 0x04)
+            byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
         }
-        writeToDataCharacteristic(command, 0x04)
+        writeToDataCharacteristic(command, Command.PREVIEW_RINGTONE)
     }
 
     private suspend fun writeToDataCharacteristic(
-        command: ByteArray, @Suppress("SameParameterValue") ackId: Int
+        command: ByteArray, ackId: Int
     ): Boolean = suspendCancellableCoroutine { continuation ->
         val currentGatt = gatt ?: run {
             continuation.resumeWithException(Exception("GATT not connected"))
@@ -1474,11 +1496,11 @@ class QPController(private val context: Context) {
         AppLogger.d(TAG, "Audio size: ${pcmData.size} bytes")
         AppLogger.d(TAG, "Target signature: ${targetSignature.toHexString()}")
 
-        // 1. Send Init: 08 10 + length(3B LE) + ringKey(4B)
+        // 1. Send Init
         val sizeBytes = pcmData.size
         val initPayload = byteArrayOf(
-            0x08,
-            0x10,
+            Header.AUDIO_INIT,
+            Command.AUDIO_INIT.toByte(),
             (sizeBytes and 0xFF).toByte(),
             ((sizeBytes shr 8) and 0xFF).toByte(),
             ((sizeBytes shr 16) and 0xFF).toByte(),
@@ -1498,7 +1520,7 @@ class QPController(private val context: Context) {
             return false
         }
 
-        // Wait for init response (04 ff 10 XX)
+        // Wait for init response
         repeat(AUDIO_INIT_ACK_WAIT_ITERATIONS) {
             if (uploadInitAckReceived) return@repeat
             delay(AUDIO_ACK_WAIT_DELAY)
@@ -1545,8 +1567,9 @@ class QPController(private val context: Context) {
                     audioChunk
                 }
 
-                // Packet format: 81 08 + 128 bytes audio
-                val packet = byteArrayOf(0x81.toByte(), 0x08.toByte()) + paddedAudio
+                // Packet format: Header + 128 bytes audio
+                val packet =
+                    byteArrayOf(Header.AUDIO_PACKET, Command.AUDIO_BLOCK.toByte()) + paddedAudio
                 val isLastInBlock =
                     (pktIdx == packetsPerBlock - 1) || (offset + audioLen >= pcmData.size)
 
@@ -1563,7 +1586,7 @@ class QPController(private val context: Context) {
                         AppLogger.w(TAG, "Write failed for block $blockNum last packet")
                     }
 
-                    // Wait for block ACK from a device (04 ff 08 XX)
+                    // Wait for block ACK from a device
                     repeat(AUDIO_ACK_WAIT_ITERATIONS) {
                         if (uploadAckReceived) return@repeat
                         delay(AUDIO_ACK_WAIT_DELAY)
@@ -1642,17 +1665,17 @@ class QPController(private val context: Context) {
 
     // Handle upload ACKs in the notification handler
     internal fun handleUploadAck(value: ByteArray) {
-        if (value.size >= 3 && value[0] == 0x04.toByte() && value[1] == 0xff.toByte()) {
+        if (value.size >= 3 && value[0] == Header.ACK[0] && value[1] == Header.ACK[1]) {
             val cmdId = value[2].toInt() and 0xFF
             val status = if (value.size >= 4) value[3].toInt() and 0xFF else 0
 
             when (cmdId) {
-                0x10 -> {
+                Command.AUDIO_INIT -> {
                     AppLogger.d(TAG, "Init ACK received (status: $status)")
                     uploadInitAckReceived = true
                 }
 
-                0x08 -> {
+                Command.AUDIO_BLOCK -> {
                     AppLogger.d(TAG, "Audio block ACK received (status: $status)")
                     uploadAckReceived = true
                 }
@@ -1660,5 +1683,3 @@ class QPController(private val context: Context) {
         }
     }
 }
-
-

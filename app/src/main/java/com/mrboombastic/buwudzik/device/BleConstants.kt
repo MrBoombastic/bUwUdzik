@@ -1,9 +1,10 @@
 package com.mrboombastic.buwudzik.device
 
+import android.os.ParcelUuid
 import java.util.UUID
 
 /**
- * BLE constants and ringtone signatures for the CGD1 alarm clock.
+ * BLE constants and protocol definitions for the Qingping CGD1 alarm clock.
  */
 object BleConstants {
     // UUIDs for QP CGD1
@@ -14,6 +15,102 @@ object BleConstants {
     val UUID_SENSOR_NOTIFY: UUID = UUID.fromString("00000100-0000-1000-8000-00805f9b34fb")
     val UUID_CLIENT_CHARACTERISTIC_CONFIG: UUID =
         UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+    // Passive advertising service
+    val UUID_SERVICE_ADVERTISING: ParcelUuid =
+        ParcelUuid.fromString("0000fdcd-0000-1000-8000-00805f9b34fb")
+
+    // Protocol Constants
+    object Command {
+        const val AUTH_INIT = 0x01
+        const val AUTH_CONFIRM = 0x02
+        const val GET_SETTINGS = 0x02
+        const val SET_SETTINGS = 0x01
+        const val GET_ALARMS = 0x06
+        const val SET_ALARM = 0x05
+        const val GET_FIRMWARE = 0x0d
+        const val PREVIEW_BRIGHTNESS = 0x03
+        const val PREVIEW_RINGTONE = 0x04
+        const val TIME_SYNC = 0x09
+        const val AUDIO_INIT = 0x10
+        const val AUDIO_BLOCK = 0x08
+    }
+
+    object Header {
+        const val AUTH = 0x11.toByte()
+        const val TIME = 0x05.toByte()
+        const val GET_DATA = 0x01.toByte()
+        const val SET_ALARM = 0x07.toByte()
+        const val BRIGHTNESS = 0x02.toByte()
+        const val RINGTONE_V1 = 0x01.toByte()
+        const val RINGTONE_V2 = 0x02.toByte()
+        const val SET_SETTINGS = 0x13.toByte()
+        const val AUDIO_INIT = 0x08.toByte()
+        const val AUDIO_PACKET = 0x81.toByte()
+
+        val ACK = byteArrayOf(0x04.toByte(), 0xFF.toByte())
+        val ALARM_DATA = byteArrayOf(0x11.toByte(), 0x06.toByte())
+        val SETTINGS_DATA_V1 = byteArrayOf(0x13.toByte(), 0x01.toByte())
+        val SETTINGS_DATA_V2 = byteArrayOf(0x13.toByte(), 0x02.toByte())
+        const val SENSOR_DATA = 0x00.toByte()
+        const val FIRMWARE_DATA = 0x0b.toByte()
+
+        // Fixed bytes in settings payload
+        const val SETTINGS_FIXED_BYTE_3 = 0x58.toByte()
+        const val SETTINGS_FIXED_BYTE_4 = 0x02.toByte()
+    }
+
+    object Flags {
+        const val LANG_ENGLISH = 0x01
+        const val TIME_FORMAT_12H = 0x02
+        const val TEMP_UNIT_F = 0x04
+        const val MASTER_ALARM_DISABLE = 0x10
+    }
+
+    object Status {
+        const val SUCCESS = 0x00
+        const val AUTH_INIT_SUCCESS = 0x02 // Status 0x02 on CMD_AUTH_INIT is also success
+        const val ALARM_STILL_SUCCESS = 0x09 // Status 0x09 on CMD_SET_ALARM is success
+    }
+
+    object Advertise {
+        const val DEVICE_ID_CGD1 = 0x0C
+
+        // Payload indices
+        const val INDEX_DEVICE_ID = 1
+        const val INDEX_TEMP_L = 10
+        const val INDEX_TEMP_H = 11
+        const val INDEX_HUMID_L = 12
+        const val INDEX_HUMID_H = 13
+        const val INDEX_BATTERY = 16
+
+        const val MIN_PAYLOAD_SIZE = 17
+    }
+
+    object Alarm {
+        const val ENTRY_LENGTH = 5
+        const val START_OFFSET = 3
+        const val TOTAL_SLOTS = 16
+        const val EMPTY_VALUE = 0xFF.toByte()
+    }
+
+    object Settings {
+        const val MIN_PAYLOAD_SIZE = 15
+
+        // Payload indices
+        const val INDEX_VOLUME = 2
+        const val INDEX_FLAGS = 5
+        const val INDEX_TZ_OFFSET = 6
+        const val INDEX_BACKLIGHT_DUR = 7
+        const val INDEX_PACKED_BRIGHTNESS = 8
+        const val INDEX_NIGHT_START_H = 9
+        const val INDEX_NIGHT_START_M = 10
+        const val INDEX_NIGHT_END_H = 11
+        const val INDEX_NIGHT_END_M = 12
+        const val INDEX_TZ_SIGN = 13
+        const val INDEX_NIGHT_MODE_EN = 14
+        const val INDEX_RINGTONE_SIG = 16
+    }
 
     // Known ringtone signatures from https://qingplus.cleargrass.com/raw/rings
     val RINGTONE_SIGNATURES = mapOf(
