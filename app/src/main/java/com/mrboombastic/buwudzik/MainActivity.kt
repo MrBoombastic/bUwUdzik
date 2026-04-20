@@ -38,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -74,6 +73,8 @@ import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import com.mrboombastic.buwudzik.widget.WidgetUpdateScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 
@@ -226,7 +227,6 @@ class MainActivity : AppCompatActivity() {
                         if (deviceProfileRepo.getActiveDeviceId() != null) "home" else "setup"
                     var startupUpdateResult by remember { mutableStateOf<UpdateCheckResult?>(null) }
                     var showStartupUpdateDialog by remember { mutableStateOf(false) }
-                    val scope = rememberCoroutineScope()
 
                     // Handle disconnection events
                     val disconnectionEvent by viewModel.disconnectionEvent.collectAsState()
@@ -387,8 +387,9 @@ class MainActivity : AppCompatActivity() {
                                 TextButton(
                                     onClick = {
                                         showStartupUpdateDialog = false
-                                        val downloadUrl = startupUpdateResult?.downloadUrl ?: return@TextButton
-                                        scope.launch {
+                                        val downloadUrl =
+                                            startupUpdateResult?.downloadUrl ?: return@TextButton
+                                        CoroutineScope(Dispatchers.IO).launch {
                                             val updateChecker = UpdateChecker(applicationContext)
                                             updateChecker.downloadAndInstall(downloadUrl)
                                             updateChecker.close()
