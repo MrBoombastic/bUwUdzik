@@ -154,7 +154,7 @@ class BluetoothScanner(
         awaitClose {
             AppLogger.d("BluetoothScanner", "Flow closing/cancelled. Stopping scan.")
             try {
-                if (adapter.isEnabled) {
+                if (adapter?.isEnabled == true) {
                     leScanner.stopScan(callback)
                 }
             } catch (e: Exception) {
