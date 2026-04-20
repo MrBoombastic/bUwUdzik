@@ -170,10 +170,6 @@
     <string name="pairing_step3_title">Połącz</string>
     <string name="pairing_step3_desc">Stuknij przycisk poniżej, aby sparować.</string>
     <string name="pair_and_connect">Sparuj i połącz</string>
-    <string name="unpair_device">Zapomnij</string>
-    <string name="unpair_confirm_title">Zapomnieć urządzenie?</string>
-    <string name="unpair_confirm_message">Przed ponownym połączeniem będziesz musiał znowu sparować urządzenie.</string>
-    <string name="unpair_confirm">Zapomnij</string>
     <string name="local_settings_header">Ustawienia lokalne</string>
     <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zewnętrznym urządzeniu.</string>
     <string name="share_device_title">Udostępnij urządzenie</string>
@@ -231,7 +227,6 @@
     <string name="auth_token_label">Token uwierzytelniania</string>
     <string name="auth_token_hint">Możesz użyć tego tokenu w integracjach zewnętrznych, np. Home Assistant.</string>
     <string name="copy_token_label">Kopiuj token</string>
-    <string name="token_copied">Token skopiowany do schowka</string>
     <string name="no_token_for_device">Brak zapisanego tokenu dla tego urządzenia.\nNajpierw sparuj je, aby wyeksportować.</string>
     <string name="manage_devices_label">Zarządzaj urządzeniami</string>
     <string name="active_device_label">%1$s</string>

@@ -177,10 +177,6 @@
     <string name="pairing_step3_title">Connetti</string>
     <string name="pairing_step3_desc">Tocca il pulsante qui sotto per accoppiare.</string>
     <string name="pair_and_connect">Accoppia e connetti</string>
-    <string name="unpair_device">Dimentica</string>
-    <string name="unpair_confirm_title">Dimenticare il dispositivo?</string>
-    <string name="unpair_confirm_message">Dovrai accoppiare nuovamente il dispositivo prima di riconnetterti.</string>
-    <string name="unpair_confirm">Dimentica</string>
     <string name="local_settings_header">Impostazioni locali</string>
     <string name="local_settings_description">Queste impostazioni sono salvate su questo telefono, non sul dispositivo remoto.</string>
     <string name="share_device_title">Condividi dispositivo</string>
@@ -231,7 +227,6 @@
     <string name="auth_token_label">Token di autenticazione</string>
     <string name="auth_token_hint">Puoi usare questo token in integrazioni di terze parti come Home Assistant.</string>
     <string name="copy_token_label">Copia token</string>
-    <string name="token_copied">Token copiato negli appunti</string>
     <string name="no_token_for_device">Nessun token salvato per questo dispositivo.\nAbbinalo prima per esportarlo.</string>
     <string name="manage_devices_label">Gestisci dispositivi</string>
     <string name="active_device_label">%1$s</string>

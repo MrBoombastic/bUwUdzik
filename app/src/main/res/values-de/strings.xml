@@ -177,10 +177,6 @@
     <string name="pairing_step3_title">Verbinden</string>
     <string name="pairing_step3_desc">Tippen Sie auf die Schaltfläche unten zum Koppeln.</string>
     <string name="pair_and_connect">Koppeln und verbinden</string>
-    <string name="unpair_device">Vergessen</string>
-    <string name="unpair_confirm_title">Gerät vergessen?</string>
-    <string name="unpair_confirm_message">Sie müssen das Gerät erneut koppeln, bevor Sie sich wieder verbinden.</string>
-    <string name="unpair_confirm">Vergessen</string>
     <string name="local_settings_header">Lokale Einstellungen</string>
     <string name="local_settings_description">Diese Einstellungen werden auf diesem Telefon gespeichert, nicht auf dem Gerät.</string>
     <string name="share_device_title">Gerät teilen</string>
@@ -231,7 +227,6 @@
     <string name="auth_token_label">Authentifizierungs-Token</string>
     <string name="auth_token_hint">Sie können dieses Token in Drittanbieter-Integrationen wie Home Assistant verwenden.</string>
     <string name="copy_token_label">Token kopieren</string>
-    <string name="token_copied">Token in die Zwischenablage kopiert</string>
     <string name="no_token_for_device">Kein Token für dieses Gerät gespeichert.\nZuerst koppeln, um es zu exportieren.</string>
     <string name="manage_devices_label">Geräte verwalten</string>
     <string name="active_device_label">%1$s</string>

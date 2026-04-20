@@ -177,10 +177,6 @@
     <string name="pairing_step3_title">连接</string>
     <string name="pairing_step3_desc">点击下方按钮进行配对。</string>
     <string name="pair_and_connect">配对并连接</string>
-    <string name="unpair_device">忘记</string>
-    <string name="unpair_confirm_title">忘记设备？</string>
-    <string name="unpair_confirm_message">再次连接前需要重新配对设备。</string>
-    <string name="unpair_confirm">忘记</string>
     <string name="local_settings_header">本地设置</string>
     <string name="local_settings_description">这些设置保存在此手机上，而不是远程设备上。</string>
     <string name="share_device_title">分享设备</string>
@@ -231,7 +227,6 @@
     <string name="auth_token_label">身份验证令牌</string>
     <string name="auth_token_hint">您可在 Home Assistant 等第三方集成中使用此令牌。</string>
     <string name="copy_token_label">复制令牌</string>
-    <string name="token_copied">令牌已复制到剪贴板</string>
     <string name="no_token_for_device">此设备未保存令牌。\n请先配对后再导出。</string>
     <string name="manage_devices_label">管理设备</string>
     <string name="active_device_label">%1$s</string>

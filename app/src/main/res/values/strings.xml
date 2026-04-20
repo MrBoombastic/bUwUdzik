@@ -192,10 +192,7 @@
     <string name="pairing_step3_title">Connect</string>
     <string name="pairing_step3_desc">Tap the button below to pair.</string>
     <string name="pair_and_connect">Pair and connect</string>
-    <string name="unpair_device">Forget</string>
-    <string name="unpair_confirm_title">Forget device?</string>
-    <string name="unpair_confirm_message">You will need to re-pair the device before connecting again.</string>
-    <string name="unpair_confirm">Forget</string>
+
     <string name="local_settings_header">Local settings</string>
     <string name="local_settings_description">These settings are saved on this phone, not the remote device.</string>
     <string name="share_device_title">Share Device</string>
@@ -248,7 +245,6 @@
     <string name="auth_token_label">Authentication token</string>
     <string name="auth_token_hint">You can use this token in third-party integrations like Home Assistant.</string>
     <string name="copy_token_label">Copy token</string>
-    <string name="token_copied">Token copied to clipboard</string>
     <string name="no_token_for_device">No token saved for this device.\nPair it first to export.</string>
     <string name="manage_devices_label">Manage devices</string>
     <string name="active_device_label">%1$s</string>

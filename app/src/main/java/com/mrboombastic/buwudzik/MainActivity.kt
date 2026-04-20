@@ -162,10 +162,13 @@ class MainActivity : AppCompatActivity() {
             if (settingsRepository.lastVersionCode != currentVersionCode) {
                 AppLogger.i(
                     "MainActivity",
-                    "App updated from ${settingsRepository.lastVersionCode} to $currentVersionCode. Clearing cache..."
+                    "App updated from ${settingsRepository.lastVersionCode} to $currentVersionCode. Clearing update cache..."
                 )
 
-                applicationContext.cacheDir?.listFiles()?.forEach { it.deleteRecursively() }
+                val updateApk = java.io.File(applicationContext.cacheDir, "clowock-update.apk")
+                if (updateApk.exists()) {
+                    updateApk.delete()
+                }
                 settingsRepository.lastVersionCode = currentVersionCode
             }
         } catch (e: Exception) {

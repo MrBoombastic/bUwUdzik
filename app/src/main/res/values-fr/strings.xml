@@ -177,10 +177,6 @@
     <string name="pairing_step3_title">Connecter</string>
     <string name="pairing_step3_desc">Appuyez sur le bouton ci-dessous pour jumeler.</string>
     <string name="pair_and_connect">Jumeler et connecter</string>
-    <string name="unpair_device">Oublier</string>
-    <string name="unpair_confirm_title">Oublier l\'appareil ?</string>
-    <string name="unpair_confirm_message">Vous devrez jumeler à nouveau l\'appareil avant de vous reconnecter.</string>
-    <string name="unpair_confirm">Oublier</string>
     <string name="local_settings_header">Paramètres locaux</string>
     <string name="local_settings_description">Ces paramètres sont enregistrés sur ce téléphone, pas sur l\'appareil distant.</string>
     <string name="share_device_title">Partager l\'appareil</string>
@@ -231,7 +227,6 @@
     <string name="auth_token_label">Jeton d\'authentification</string>
     <string name="auth_token_hint">Vous pouvez utiliser ce jeton dans des intégrations tierces comme Home Assistant.</string>
     <string name="copy_token_label">Copier le jeton</string>
-    <string name="token_copied">Jeton copié dans le presse-papiers</string>
     <string name="no_token_for_device">Aucun jeton enregistré pour cet appareil.\nAssociez-le d\'abord pour l\'exporter.</string>
     <string name="manage_devices_label">Gérer les appareils</string>
     <string name="active_device_label">%1$s</string>
