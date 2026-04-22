@@ -1,8 +1,13 @@
+<div align="center">
+  <img src="website/media/logo-dark.svg" width="100" alt="clOwOck Logo">
+</div>
+
 # clOwOck
 
-Android app for displaying data from the Qingping CGD1 - Bluetooth LE alarm clock with sensors.
+Android app for the Qingping Cleargrass CGD1 (`cgllc.clock.dove`) - Bluetooth LE alarm clock with sensors.
 
-## Table of Contents
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
 - [Warning](#warning)
 - [Features](#features)
@@ -35,6 +40,8 @@ Android app for displaying data from the Qingping CGD1 - Bluetooth LE alarm cloc
     - [10. Known Command IDs Summary](#10-known-command-ids-summary)
     - [11. GATT Disconnection Status Codes](#11-gatt-disconnection-status-codes)
 
+</details>
+
 ## Warning
 
 App was largely created using LLMs. I still have reviewed the code,
@@ -47,13 +54,29 @@ so it's only semi-slop, but you have been warned, etc., etc.
 - Share a saved device with others using QR code
 - Parses and displays sensor data
 - Management of up to 16 device alarms
-- **Custom ringtones uploading**
+- **Custom ringtones support**
 - Global alarm switch to enable or disable all device alarms at once
 - Bluetooth state monitoring with automatic prompts to enable it
 - Interactive real-time previews for brightness and volume settings
 - Widget for displaying sensor data on the home screen
 - Configurable background updates to fetch data periodically
 - Settings to customize the device's MAC address, theme (light/dark/system), and language
+
+## Screenshots
+
+<img src="website/media/setup.png" width="23%" alt="Setup screenshot"></img>
+<img src="website/media/pair.png" width="23%" alt="Pairing screenshot"></img>
+<img src="website/media/settings.png" width="23%" alt="Settings screenshot"></img>
+<img src="website/media/s1.png" width="23%" alt="Home page screenshot"></img>
+<img src="website/media/s2.png" width="23%" alt="Alarms page screenshot"></img>
+<img src="website/media/s3.png" width="23%" alt="Alarm settings screenshot"></img>
+<img src="website/media/s4.png" width="23%" alt="Device settings screenshot"></img>
+<img src="website/media/s5.png" width="23%" alt="Ringtone page screenshot"></img>
+<img src="website/media/s6.png" width="23%" alt="Trimming audio screenshot"></img>
+<img src="website/media/import.png" width="23%" alt="Import device screenshot"></img>
+<img src="website/media/export.png" width="23%" alt="Export device screenshot"></img>
+<img src="website/media/widget.png" width="23%" alt="Multiple widgets screenshot"></img>
+
 
 ## Technical Details
 
@@ -66,20 +89,6 @@ versions.
 - **Background Processing:** `WorkManager` and `AlarmManager` for scheduling periodic data fetches,
   ensuring the widget is always up to date
 
-## Screenshots
-
-<img src="docs/setup.png" width="23%" alt="Setup screenshot"></img>
-<img src="docs/pair.png" width="23%" alt="Pairing screenshot"></img>
-<img src="docs/settings.png" width="23%" alt="Settings screenshot"></img>
-<img src="docs/s1.png" width="23%" alt="Home page screenshot"></img>
-<img src="docs/s2.png" width="23%" alt="Alarms page screenshot"></img>
-<img src="docs/s3.png" width="23%" alt="Alarm settings screenshot"></img>
-<img src="docs/s4.png" width="23%" alt="Device settings screenshot"></img>
-<img src="docs/s5.png" width="23%" alt="Device settings screenshot continued"></img>
-<img src="docs/s6.png" width="23%" alt="Ringtone page screenshot"></img>
-<img src="docs/s7.png" width="23%" alt="Trimming audio screenshot"></img>
-<img src="docs/import.png" width="23%" alt="Import device screenshot"></img>
-<img src="docs/widget.png" width="23%" alt="Multiple widgets screenshot"></img>
 
 ### Firmware Compatibility
 
