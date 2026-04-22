@@ -48,6 +48,7 @@ import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
 @Suppress("AssignedValueIsNeverRead")
@@ -161,6 +162,7 @@ fun DeviceListScreen(navController: NavController, viewModel: MainViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .adaptiveContentWidth()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {

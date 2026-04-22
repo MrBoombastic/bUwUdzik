@@ -183,6 +183,8 @@ h3 {
     min-height: calc(100vh - 80px);
     padding: 2rem 5%;
     gap: 4rem;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 .hero-content {
@@ -283,18 +285,18 @@ h3 {
 /* Screenshots Carousel */
 .screenshots-section {
     padding: 5rem 0;
-    overflow: hidden;
+    overflow-x: clip; /* prevent horizontal overflow without clipping vertical shadows */
 }
 
 .carousel-container {
     width: 100%;
-    padding: 2rem 0;
+    padding: 1.5rem 0;
 }
 
 .carousel-track {
     display: flex;
     gap: 2rem;
-    padding: 0 5%;
+    padding: 1rem 5%;  /* vertical padding so box-shadow isn't clipped */
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
@@ -403,12 +405,38 @@ h3 {
     font-size: 0.9rem;
 }
 
-/* Responsive */
+@media (max-width: 1024px) {
+    .hero {
+        gap: 2rem;
+        padding: 2rem 4%;
+    }
+
+    .hero-title {
+        font-size: 3.2rem;
+    }
+
+    .phone-mockup {
+        width: 240px;
+    }
+
+    .carousel-img {
+        height: 400px;
+    }
+
+    .features-section {
+        padding: 4rem 4%;
+    }
+}
+
+/* Responsive — Mobile */
 @media (max-width: 768px) {
     .hero {
         flex-direction: column;
         text-align: center;
-        padding-top: 4rem;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        min-height: unset;
+        gap: 2rem;
     }
 
     .hero-actions {
@@ -416,7 +444,16 @@ h3 {
     }
 
     .hero-title {
-        font-size: 3rem;
+        font-size: 2.4rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .phone-mockup {
+        width: 200px;
     }
 
     .nav-links {

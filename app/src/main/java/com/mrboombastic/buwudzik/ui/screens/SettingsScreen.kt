@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +46,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -215,10 +218,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
         })
     }) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+        AdaptiveScreen(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            columnModifier = Modifier
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -581,6 +583,13 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.debug_saved_data_nav))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { navController.navigate("fake-clock") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Fake Clock (Debug)")
                 }
             }
 

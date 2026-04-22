@@ -80,6 +80,7 @@ import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.ui.components.ContentCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
 import com.mrboombastic.buwudzik.utils.AppLogger
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
 private val qrReader = MultiFormatReader().apply {
@@ -130,15 +131,19 @@ fun DeviceImportScreen(
                 title = stringResource(R.string.import_device_title), navController = navController
             )
         }) { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .imePadding(),
+            columnModifier = Modifier
+                .padding(16.dp)
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             when {
                 !hasCameraPermission -> {
                     Box(
@@ -356,6 +361,7 @@ fun DeviceImportScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

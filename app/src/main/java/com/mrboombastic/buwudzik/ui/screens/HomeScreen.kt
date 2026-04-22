@@ -84,6 +84,7 @@ import com.mrboombastic.buwudzik.ui.components.NumberedStep
 import com.mrboombastic.buwudzik.ui.components.SmallButton
 import com.mrboombastic.buwudzik.ui.home.rememberDeviceSheetOverscrollConnection
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
@@ -519,6 +520,7 @@ fun Dashboard(
     Column(
         modifier = modifier
             .padding(16.dp)
+            .adaptiveContentWidth()
             .let { m ->
                 if (openSheetNestedScroll != null) m.nestedScroll(openSheetNestedScroll)
                 else m

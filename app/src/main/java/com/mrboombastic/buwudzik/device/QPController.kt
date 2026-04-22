@@ -33,6 +33,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -108,10 +109,26 @@ class QPController(private val context: Context) {
         private const val AUDIO_ACK_WAIT_ITERATIONS = 50
         private const val AUDIO_INIT_ACK_WAIT_ITERATIONS = 20
         private const val AUDIO_ACK_WAIT_DELAY = 100L
+
+        const val MOCK_MAC = "11:22:33:44:55:66"
     }
 
     // Token storage for persistence
     private val tokenStorage = TokenStorage(context)
+
+    // Mock state for demo device (only used if currentDeviceMac == MOCK_MAC)
+    private val mockAlarms = mutableListOf<Alarm>().apply {
+        add(Alarm(0, true, 7, 30, 0x1F, false))
+        add(Alarm(1, false, 9, 0, 0x60, true))
+    }
+    private var mockSettings = DeviceSettings(
+        volume = 3,
+        backlightDuration = 10,
+        screenBrightness = 50,
+        nightModeBrightness = 10,
+        nightModeEnabled = true,
+        firmwareVersion = "1.0.0-DEMO"
+    )
 
     // Current device being connected to
     private var currentDeviceMac: String? = null
@@ -132,13 +149,15 @@ class QPController(private val context: Context) {
      * True when this app has completed auth with the clock (stored token). These devices are not
      * Android-bonded; the pairing state is app-local only.
      */
-    fun isDevicePaired(macAddress: String): Boolean = tokenStorage.isPaired(macAddress)
+    fun isDevicePaired(macAddress: String): Boolean = 
+        macAddress == MOCK_MAC || tokenStorage.isPaired(macAddress)
 
     /**
      * Prepare token for connection. If a device is already paired, use a stored token.
      * Otherwise, generate a new random token for pairing (without storing yet).
      */
     private fun prepareTokenForDevice(macAddress: String): ByteArray {
+        if (macAddress == MOCK_MAC) return byteArrayOf(0, 1, 2, 3, 4, 5, 6, 7)
         val existingToken = tokenStorage.getToken(macAddress)
         return if (existingToken != null) {
             AppLogger.d(TAG, "Using stored token for $macAddress")
@@ -667,6 +686,15 @@ class QPController(private val context: Context) {
         // Prepare a token for this device (generate new if fresh pairing, use stored if already paired)
         val macAddress = device.address
         currentDeviceMac = macAddress
+
+        if (macAddress == MOCK_MAC) {
+            AppLogger.d(TAG, "Mocking connection to demo device...")
+            delay(1000) // Simulate connection delay
+            isConnected = true
+            isAuthenticated = true
+            return true
+        }
+
         currentToken = prepareTokenForDevice(macAddress)
         AppLogger.d(TAG, "Token prepared for $macAddress: ${currentToken?.toHexString()}")
 
@@ -704,6 +732,10 @@ class QPController(private val context: Context) {
     }
 
     fun readRssi() {
+        if (currentDeviceMac == MOCK_MAC) {
+            onRssiUpdate?.invoke(-40 - (0..10).random())
+            return
+        }
         try {
             if (gatt?.readRemoteRssi() == false) {
                 AppLogger.w(TAG, "Failed to start RSSI read")
@@ -776,8 +808,9 @@ class QPController(private val context: Context) {
         }
     }
 
-    suspend fun synchronizeTime(timestamp: Long = System.currentTimeMillis() / 1000): Boolean =
-        gattMutex.withLock {
+    suspend fun synchronizeTime(timestamp: Long = System.currentTimeMillis() / 1000): Boolean {
+        if (currentDeviceMac == MOCK_MAC) return true
+        return gattMutex.withLock {
             withContext(NonCancellable) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
@@ -827,111 +860,118 @@ class QPController(private val context: Context) {
                 }
             }
         }
+    }
 
-    suspend fun readDeviceSettings(): DeviceSettings = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-
-            AppLogger.d(TAG, "Reading device settings...")
-            deviceSettingsReadContinuation = continuation
-
-            val dataService =
-                currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-            val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
-
-            if (dataWriteChar == null || dataNotifyChar == null) {
-                continuation.resumeWithException(Exception("Data characteristics not found"))
-                return@suspendCancellableCoroutine
-            }
-
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
-
-            // Check if notifications already enabled
-            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
-                val status = currentGatt.writeCharacteristic(
-                    dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                )
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    deviceSettingsReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for settings: $status"))
-                    deviceSettingsReadContinuation = null
+    suspend fun readDeviceSettings(): DeviceSettings {
+        if (currentDeviceMac == MOCK_MAC) return mockSettings
+        return gattMutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
                 }
-            } else {
-                // Need to enable notifications first
-                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
 
-                pendingDataCommand = command
-                AppLogger.d(TAG, "Enabling data notifications for settings...")
+                AppLogger.d(TAG, "Reading device settings...")
+                deviceSettingsReadContinuation = continuation
 
-                descriptor?.let {
-                    val status = currentGatt.writeDescriptor(
-                        it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                val dataService =
+                    currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
+                val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+                val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+
+                if (dataWriteChar == null || dataNotifyChar == null) {
+                    continuation.resumeWithException(Exception("Data characteristics not found"))
+                    return@suspendCancellableCoroutine
+                }
+
+                val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
+
+                // Check if notifications already enabled
+                if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+                    AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
+                    val status = currentGatt.writeCharacteristic(
+                        dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        deviceSettingsReadContinuation?.resumeWithException(Exception("writeDescriptor failed for settings: $status"))
+                        deviceSettingsReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for settings: $status"))
+                        deviceSettingsReadContinuation = null
+                    }
+                } else {
+                    // Need to enable notifications first
+                    currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+                    val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+
+                    pendingDataCommand = command
+                    AppLogger.d(TAG, "Enabling data notifications for settings...")
+
+                    descriptor?.let {
+                        val status = currentGatt.writeDescriptor(
+                            it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        )
+                        if (status != BluetoothGatt.GATT_SUCCESS) {
+                            deviceSettingsReadContinuation?.resumeWithException(Exception("writeDescriptor failed for settings: $status"))
+                            deviceSettingsReadContinuation = null
+                            pendingDataCommand = null
+                        } else {
+                            enabledNotifications.add(UUID_DATA_NOTIFY)
+                        }
+                    } ?: run {
+                        deviceSettingsReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
                         deviceSettingsReadContinuation = null
                         pendingDataCommand = null
-                    } else {
-                        enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                } ?: run {
-                    deviceSettingsReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
+                }
+
+                continuation.invokeOnCancellation {
                     deviceSettingsReadContinuation = null
                     pendingDataCommand = null
                 }
             }
-
-            continuation.invokeOnCancellation {
-                deviceSettingsReadContinuation = null
-                pendingDataCommand = null
-            }
         }
     }
 
-    suspend fun readFirmwareVersion(): String = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
+    suspend fun readFirmwareVersion(): String {
+        if (currentDeviceMac == MOCK_MAC) return "1.0.0-DEMO"
+        return gattMutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
+                }
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
 
-            AppLogger.d(TAG, "Reading firmware version...")
-            firmwareVersionReadContinuation = continuation
+                AppLogger.d(TAG, "Reading firmware version...")
+                firmwareVersionReadContinuation = continuation
 
-            val authService =
-                currentGatt.services.find { it.getCharacteristic(UUID_AUTH_WRITE) != null }
-            val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
+                val authService =
+                    currentGatt.services.find { it.getCharacteristic(UUID_AUTH_WRITE) != null }
+                val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
 
-            if (authWriteChar == null) {
-                firmwareVersionReadContinuation = null
-                continuation.resumeWithException(Exception("Auth write characteristic not found"))
-                return@suspendCancellableCoroutine
-            }
+                if (authWriteChar == null) {
+                    firmwareVersionReadContinuation = null
+                    continuation.resumeWithException(Exception("Auth write characteristic not found"))
+                    return@suspendCancellableCoroutine
+                }
 
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
-            val status = currentGatt.writeCharacteristic(
-                authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            )
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                firmwareVersionReadContinuation = null
-                continuation.resumeWithException(Exception("writeCharacteristic failed for firmware read: $status"))
-            }
+                val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
+                val status = currentGatt.writeCharacteristic(
+                    authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                )
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    firmwareVersionReadContinuation = null
+                    continuation.resumeWithException(Exception("writeCharacteristic failed for firmware read: $status"))
+                }
 
-            continuation.invokeOnCancellation {
-                firmwareVersionReadContinuation = null
+                continuation.invokeOnCancellation {
+                    firmwareVersionReadContinuation = null
+                }
             }
         }
     }
@@ -963,6 +1003,10 @@ class QPController(private val context: Context) {
 
     private suspend fun writeDeviceSettingsInternal(settings: DeviceSettings): Boolean =
         withContext(NonCancellable) {
+            if (currentDeviceMac == MOCK_MAC) {
+                mockSettings = settings
+                return@withContext true
+            }
             withTimeout(TIMEOUT_OPERATION) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
@@ -1082,6 +1126,7 @@ class QPController(private val context: Context) {
     }
 
     suspend fun setImmediateBrightness(percentage: Int): Boolean = gattMutex.withLock {
+        if (currentDeviceMac == MOCK_MAC) return true
         withContext(NonCancellable) {
             suspendCancellableCoroutine { continuation ->
                 val currentGatt = gatt ?: run {
@@ -1121,48 +1166,73 @@ class QPController(private val context: Context) {
     }
 
 
-    suspend fun enableSensorNotifications(): Boolean = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
+    suspend fun enableSensorNotifications(): Boolean {
+        if (currentDeviceMac == MOCK_MAC) {
+            startMockSensorLoop()
+            return true
+        }
+        return gattMutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
+                }
 
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
 
-            AppLogger.d(TAG, "Enabling sensor notifications...")
-            sensorNotificationContinuation = continuation
+                AppLogger.d(TAG, "Enabling sensor notifications...")
+                sensorNotificationContinuation = continuation
 
-            val sensorService =
-                currentGatt.services.find { it.getCharacteristic(UUID_SENSOR_NOTIFY) != null }
-            val sensorNotifyChar = sensorService?.getCharacteristic(UUID_SENSOR_NOTIFY)
+                val sensorService =
+                    currentGatt.services.find { it.getCharacteristic(UUID_SENSOR_NOTIFY) != null }
+                val sensorNotifyChar = sensorService?.getCharacteristic(UUID_SENSOR_NOTIFY)
 
-            if (sensorNotifyChar == null) {
-                sensorNotificationContinuation?.resumeWithException(Exception("Sensor characteristic not found"))
-                sensorNotificationContinuation = null
-                return@suspendCancellableCoroutine
-            }
+                if (sensorNotifyChar == null) {
+                    sensorNotificationContinuation?.resumeWithException(Exception("Sensor characteristic not found"))
+                    sensorNotificationContinuation = null
+                    return@suspendCancellableCoroutine
+                }
 
-            currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
-            val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
+                val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
 
-            descriptor?.let {
-                val status = currentGatt.writeDescriptor(
-                    it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                )
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    sensorNotificationContinuation?.resumeWithException(Exception("writeDescriptor failed for sensor: $status"))
+                descriptor?.let {
+                    val status = currentGatt.writeDescriptor(
+                        it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        sensorNotificationContinuation?.resumeWithException(Exception("writeDescriptor failed for sensor: $status"))
+                        sensorNotificationContinuation = null
+                    }
+                } ?: run {
                     sensorNotificationContinuation = null
                 }
-            } ?: run {
-                sensorNotificationContinuation = null
-            }
 
-            continuation.invokeOnCancellation {
-                sensorNotificationContinuation = null
+                continuation.invokeOnCancellation {
+                    sensorNotificationContinuation = null
+                }
+            }
+        }
+    }
+
+    private var mockSensorJob: kotlinx.coroutines.Job? = null
+
+    private fun startMockSensorLoop() {
+        mockSensorJob?.cancel()
+        mockSensorJob = scope.launch {
+            var temp = 22.0
+            var hum = 45.0
+            while (isActive) {
+                temp += (-5..5).random() / 10.0
+                hum += (-10..10).random() / 10.0
+                temp = temp.coerceIn(15.0, 30.0)
+                hum = hum.coerceIn(20.0, 80.0)
+                
+                onSensorData?.invoke(temp.toFloat(), hum.toFloat())
+                delay(5000)
             }
         }
     }
@@ -1174,8 +1244,16 @@ class QPController(private val context: Context) {
         enable: Boolean = true,
         days: Int = 0,
         snooze: Boolean = false
-    ): Boolean = gattMutex.withLock {
-        withContext(NonCancellable) {
+    ): Boolean {
+        if (currentDeviceMac == MOCK_MAC) {
+            val existing = mockAlarms.indexOfFirst { it.id == alarmId }
+            val newAlarm = Alarm(alarmId, enable, hour, minute, days, snooze)
+            if (existing >= 0) mockAlarms[existing] = newAlarm
+            else mockAlarms.add(newAlarm)
+            return true
+        }
+        return gattMutex.withLock {
+            withContext(NonCancellable) {
             withTimeout(TIMEOUT_OPERATION) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
@@ -1240,141 +1318,151 @@ class QPController(private val context: Context) {
                 }
             }
         }
+        }
     }
 
-    suspend fun deleteAlarm(alarmId: Int): Boolean = gattMutex.withLock {
-        withContext(NonCancellable) {
-            withTimeout(TIMEOUT_OPERATION) {
-                suspendCancellableCoroutine { continuation ->
-                    val currentGatt = gatt ?: run {
-                        continuation.resumeWithException(Exception("GATT not connected"))
-                        return@suspendCancellableCoroutine
-                    }
-
-                    if (!isAuthenticated) {
-                        continuation.resumeWithException(Exception("Not authenticated"))
-                        return@suspendCancellableCoroutine
-                    }
-
-                    pendingAckContinuations[Command.SET_ALARM] = continuation
-
-                    val command = byteArrayOf(
-                        Header.SET_ALARM,
-                        Command.SET_ALARM.toByte(),
-                        alarmId.toByte(),
-                        0xFF.toByte(),
-                        0xFF.toByte(),
-                        0xFF.toByte(),
-                        0xFF.toByte(),
-                        0xFF.toByte()
-                    )
-
-                    val dataService =
-                        currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                    val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-                    val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
-
-                    if (dataWriteChar == null || dataNotifyChar == null) {
-                        pendingAckContinuations.remove(Command.SET_ALARM)
-                        continuation.resumeWithException(Exception("Data characteristics not found"))
-                        return@suspendCancellableCoroutine
-                    }
-
-                    // Ensure data notifications are enabled to receive ACK
-                    if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                        currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                        val descriptor =
-                            dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                        descriptor?.let {
-                            currentGatt.writeDescriptor(
-                                it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            )
+    suspend fun deleteAlarm(alarmId: Int): Boolean {
+        if (currentDeviceMac == MOCK_MAC) {
+            mockAlarms.removeAll { it.id == alarmId }
+            return true
+        }
+        return gattMutex.withLock {
+            withContext(NonCancellable) {
+                withTimeout(TIMEOUT_OPERATION) {
+                    suspendCancellableCoroutine { continuation ->
+                        val currentGatt = gatt ?: run {
+                            continuation.resumeWithException(Exception("GATT not connected"))
+                            return@suspendCancellableCoroutine
                         }
-                        enabledNotifications.add(UUID_DATA_NOTIFY)
-                    }
 
-                    AppLogger.d(TAG, "Deleting alarm #$alarmId")
-                    val status = currentGatt.writeCharacteristic(
-                        dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                    )
-                    if (status != BluetoothGatt.GATT_SUCCESS) {
-                        pendingAckContinuations.remove(Command.SET_ALARM)
-                        continuation.resumeWithException(Exception("writeCharacteristic failed for alarm delete: $status"))
+                        if (!isAuthenticated) {
+                            continuation.resumeWithException(Exception("Not authenticated"))
+                            return@suspendCancellableCoroutine
+                        }
+
+                        pendingAckContinuations[Command.SET_ALARM] = continuation
+
+                        val command = byteArrayOf(
+                            Header.SET_ALARM,
+                            Command.SET_ALARM.toByte(),
+                            alarmId.toByte(),
+                            0xFF.toByte(),
+                            0xFF.toByte(),
+                            0xFF.toByte(),
+                            0xFF.toByte(),
+                            0xFF.toByte()
+                        )
+
+                        val dataService =
+                            currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
+                        val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+                        val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+
+                        if (dataWriteChar == null || dataNotifyChar == null) {
+                            pendingAckContinuations.remove(Command.SET_ALARM)
+                            continuation.resumeWithException(Exception("Data characteristics not found"))
+                            return@suspendCancellableCoroutine
+                        }
+
+                        // Ensure data notifications are enabled to receive ACK
+                        if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+                            currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+                            val descriptor =
+                                dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                            descriptor?.let {
+                                currentGatt.writeDescriptor(
+                                    it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                )
+                            }
+                            enabledNotifications.add(UUID_DATA_NOTIFY)
+                        }
+
+                        AppLogger.d(TAG, "Deleting alarm #$alarmId")
+                        val status = currentGatt.writeCharacteristic(
+                            dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                        )
+                        if (status != BluetoothGatt.GATT_SUCCESS) {
+                            pendingAckContinuations.remove(Command.SET_ALARM)
+                            continuation.resumeWithException(Exception("writeCharacteristic failed for alarm delete: $status"))
+                        }
                     }
                 }
             }
         }
     }
 
-    suspend fun readAlarms(): List<Alarm> = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-
-            AppLogger.d(TAG, "Reading alarms...")
-            alarmReadContinuation = continuation
-            alarmBuffer.clear()
-
-            val dataService =
-                currentGatt.services.find { it.getCharacteristic(UUID_DATA_NOTIFY) != null }
-            val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
-            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-
-            if (dataNotifyChar == null || dataWriteChar == null) {
-                alarmReadContinuation?.resumeWithException(Exception("Data characteristics not found"))
-                alarmReadContinuation = null
-                return@suspendCancellableCoroutine
-            }
-
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
-
-            // Check if notifications already enabled
-            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
-                val status = currentGatt.writeCharacteristic(
-                    dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                )
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    alarmReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for alarms: $status"))
-                    alarmReadContinuation = null
+    suspend fun readAlarms(): List<Alarm> {
+        if (currentDeviceMac == MOCK_MAC) return mockAlarms.toList()
+        return gattMutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
                 }
-            } else {
-                // Need to enable notifications first
-                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
 
-                pendingDataCommand = command
-                AppLogger.d(TAG, "Enabling data notifications for alarms...")
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
 
-                descriptor?.let {
-                    val status = currentGatt.writeDescriptor(
-                        it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                AppLogger.d(TAG, "Reading alarms...")
+                alarmReadContinuation = continuation
+                alarmBuffer.clear()
+
+                val dataService =
+                    currentGatt.services.find { it.getCharacteristic(UUID_DATA_NOTIFY) != null }
+                val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+                val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+
+                if (dataNotifyChar == null || dataWriteChar == null) {
+                    alarmReadContinuation?.resumeWithException(Exception("Data characteristics not found"))
+                    alarmReadContinuation = null
+                    return@suspendCancellableCoroutine
+                }
+
+                val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
+
+                // Check if notifications already enabled
+                if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+                    AppLogger.d(TAG, "Data notifications already enabled, sending command directly...")
+                    val status = currentGatt.writeCharacteristic(
+                        dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
                     )
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        alarmReadContinuation?.resumeWithException(Exception("writeDescriptor failed for alarms: $status"))
+                        alarmReadContinuation?.resumeWithException(Exception("writeCharacteristic failed for alarms: $status"))
+                        alarmReadContinuation = null
+                    }
+                } else {
+                    // Need to enable notifications first
+                    currentGatt.setCharacteristicNotification(dataNotifyChar, true)
+                    val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+
+                    pendingDataCommand = command
+                    AppLogger.d(TAG, "Enabling data notifications for alarms...")
+
+                    descriptor?.let {
+                        val status = currentGatt.writeDescriptor(
+                            it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        )
+                        if (status != BluetoothGatt.GATT_SUCCESS) {
+                            alarmReadContinuation?.resumeWithException(Exception("writeDescriptor failed for alarms: $status"))
+                            alarmReadContinuation = null
+                            pendingDataCommand = null
+                        } else {
+                            enabledNotifications.add(UUID_DATA_NOTIFY)
+                        }
+                    } ?: run {
+                        alarmReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
                         alarmReadContinuation = null
                         pendingDataCommand = null
-                    } else {
-                        enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                } ?: run {
-                    alarmReadContinuation?.resumeWithException(Exception("Data descriptor not found"))
+                }
+
+                continuation.invokeOnCancellation {
                     alarmReadContinuation = null
+                    alarmBuffer.clear()
                     pendingDataCommand = null
                 }
-            }
-
-            continuation.invokeOnCancellation {
-                alarmReadContinuation = null
-                alarmBuffer.clear()
-                pendingDataCommand = null
             }
         }
     }
@@ -1403,43 +1491,46 @@ class QPController(private val context: Context) {
 
 
 
-    suspend fun previewRingtone(settings: DeviceSettings? = null): Boolean = gattMutex.withLock {
-        val command = if (settings != null) {
-            val vol = settings.volume.coerceIn(1, 5).toByte()
-            AppLogger.d(TAG, "Previewing ringtone with volume $vol")
-            byteArrayOf(Header.RINGTONE_V2, Command.PREVIEW_RINGTONE.toByte(), vol)
-        } else {
-            AppLogger.d(TAG, "Previewing ringtone with default/current volume")
-            byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
-        }
-
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
+    suspend fun previewRingtone(settings: DeviceSettings? = null): Boolean {
+        if (currentDeviceMac == MOCK_MAC) return true
+        return gattMutex.withLock {
+            val command = if (settings != null) {
+                val vol = settings.volume.coerceIn(1, 5).toByte()
+                AppLogger.d(TAG, "Previewing ringtone with volume $vol")
+                byteArrayOf(Header.RINGTONE_V2, Command.PREVIEW_RINGTONE.toByte(), vol)
+            } else {
+                AppLogger.d(TAG, "Previewing ringtone with default/current volume")
+                byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
             }
 
-            pendingAckContinuations[Command.PREVIEW_RINGTONE] = continuation
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
+                }
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
 
-            val dataService =
-                currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+                pendingAckContinuations[Command.PREVIEW_RINGTONE] = continuation
 
-            if (dataWriteChar == null) {
-                pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
-                continuation.resumeWithException(Exception("Data write characteristic not found"))
-                return@suspendCancellableCoroutine
-            }
+                val dataService =
+                    currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
+                val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
 
-            scope.launch {
-                val started = writeCharacteristicWithRetry(dataWriteChar, command)
-                if (!started) {
+                if (dataWriteChar == null) {
                     pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
-                    continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+                    continuation.resumeWithException(Exception("Data write characteristic not found"))
+                    return@suspendCancellableCoroutine
+                }
+
+                scope.launch {
+                    val started = writeCharacteristicWithRetry(dataWriteChar, command)
+                    if (!started) {
+                        pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
+                        continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+                    }
                 }
             }
         }

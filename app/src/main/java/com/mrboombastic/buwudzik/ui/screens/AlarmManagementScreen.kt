@@ -54,6 +54,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.SimpleTimePickerDialog
@@ -192,13 +194,18 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                 }
             }
         }, snackbarHost = { CustomSnackbarHost(snackbarHostState) }) { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            columnModifier = Modifier
                 .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            maxWidth = 720.dp
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             when {
                 !isBluetoothEnabled -> {
                     Text(
@@ -342,6 +349,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                         }
                     }
                 }
+            }
             }
         }
     }

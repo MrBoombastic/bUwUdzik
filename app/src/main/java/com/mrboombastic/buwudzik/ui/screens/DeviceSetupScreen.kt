@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,6 +59,8 @@ import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.StatusCard
 import com.mrboombastic.buwudzik.ui.components.StatusType
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -213,12 +216,12 @@ fun DeviceSetupScreen(
     }
 
     Scaffold { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(padding),
+            columnModifier = Modifier
+                .padding(horizontal = 24.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -265,6 +268,24 @@ fun DeviceSetupScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+
+                if (com.mrboombastic.buwudzik.BuildConfig.DEBUG) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = {
+                            onDeviceSelected(
+                                DiscoveredDevice(
+                                    name = "Demo Fake Device",
+                                    address = "11:22:33:44:55:66",
+                                    rssi = -42
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Add Demo Fake Device (Debug)")
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -341,6 +362,7 @@ fun DeviceSetupScreen(
         }
     }
 }
+
 
 @Composable
 fun DeviceCard(

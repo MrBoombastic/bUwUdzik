@@ -474,6 +474,74 @@ class MainViewModel(
         startScanning()
     }
 
+    // -------------------------------------------------------------------------
+    // Debug / fake-device injection (debug builds only)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Injects a fully fake clock device into the UI, bypassing BLE entirely.
+     * Useful for testing layouts, sensor display, alarms, and settings screens
+     * without physical hardware.
+     *
+     * Call [clearFakeDevice] to tear down the fake state.
+     */
+    fun injectFakeDevice(
+        name: String = "Fake clOwOck",
+        mac: String = "DE:AD:BE:EF:CA:FE",
+        temperature: Double = 21.5,
+        humidity: Double = 55.0,
+        battery: Int = 72,
+        rssi: Int = -65,
+        alarmCount: Int = 3,
+    ) {
+        scanJob?.cancel()
+        scanJob = null
+        stopActiveConnection()
+
+        _sensorData.value = SensorData(
+            name = name,
+            macAddress = mac,
+            temperature = temperature,
+            humidity = humidity,
+            battery = battery,
+            rssi = rssi,
+            timestamp = System.currentTimeMillis()
+        )
+        _deviceConnected.value = true
+        _isPaired.value = true
+        _deviceConnecting.value = false
+
+        _alarms.value = List(alarmCount) { idx ->
+            Alarm(
+                id = idx,
+                enabled = idx % 2 == 0,
+                hour = 6 + idx * 2,
+                minute = idx * 15 % 60,
+                days = if (idx == 0) 0 else 0x1F, // once / weekdays
+                snooze = idx == 1,
+                title = if (idx == 0) "Wake up" else ""
+            )
+        }
+        _deviceSettings.value = DeviceSettings(
+            masterAlarmDisabled = false,
+            firmwareVersion = "FAKE-1.0.0"
+        )
+        AppLogger.d(TAG, "Fake device injected: $name @ $mac")
+    }
+
+    /**
+     * Removes the fake device state and resumes normal BLE scanning.
+     */
+    fun clearFakeDevice() {
+        _sensorData.value = null
+        _deviceConnected.value = false
+        _isPaired.value = false
+        _alarms.value = emptyList()
+        _deviceSettings.value = null
+        AppLogger.d(TAG, "Fake device cleared, restarting scan")
+        startScanning()
+    }
+
     override fun onCleared() {
         super.onCleared()
         qpController.close()

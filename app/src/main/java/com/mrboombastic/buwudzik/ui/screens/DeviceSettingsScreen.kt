@@ -40,6 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.SettingsRepository
@@ -109,10 +111,11 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
             )
         }
     ) { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            columnModifier = Modifier
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {

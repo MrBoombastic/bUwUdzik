@@ -58,6 +58,7 @@ import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
 import com.mrboombastic.buwudzik.ui.screens.DebugSavedDataScreen
+import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
@@ -439,7 +440,7 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 SettingsScreen(navController, viewModel)
                             }
-                            if (BuildConfig.DEBUG) {
+                            if (BuildConfig.DEBUG && BuildConfig.FLAVOR.contains("canary", ignoreCase = true)) {
                                 composable("debug-saved-data") {
                                     BackHandler {
                                         if (!navController.popBackStack()) {
@@ -449,6 +450,16 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     DebugSavedDataScreen(navController, viewModel)
+                                }
+                                composable("fake-clock") {
+                                    BackHandler {
+                                        if (!navController.popBackStack()) {
+                                            navController.navigate("home") {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                    FakeClockScreen(navController, viewModel)
                                 }
                             }
                             composable("alarms") {
