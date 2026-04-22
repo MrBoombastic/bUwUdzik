@@ -574,7 +574,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
 
 
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEBUG || BuildConfig.FLAVOR == "canary") {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
@@ -589,7 +589,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     onClick = { navController.navigate("fake-clock") },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Fake Clock (Debug)")
+                    Text("Fake Clock (Debug & Canary)")
                 }
             }
 

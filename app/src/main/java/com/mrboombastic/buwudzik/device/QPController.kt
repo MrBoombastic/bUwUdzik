@@ -110,7 +110,7 @@ class QPController(private val context: Context) {
         private const val AUDIO_INIT_ACK_WAIT_ITERATIONS = 20
         private const val AUDIO_ACK_WAIT_DELAY = 100L
 
-        const val MOCK_MAC = "11:22:33:44:55:66"
+        const val MOCK_MAC = "DE:AD:BE:EF:CA:FE"
     }
 
     // Token storage for persistence
@@ -129,6 +129,30 @@ class QPController(private val context: Context) {
         nightModeEnabled = true,
         firmwareVersion = "1.0.0-DEMO"
     )
+
+    fun setupMockState(
+        temperature: Double,
+        humidity: Double,
+        alarmCount: Int
+    ) {
+        mockAlarms.clear()
+        mockAlarms.addAll(List(alarmCount) { idx ->
+            Alarm(
+                id = idx,
+                enabled = idx % 2 == 0,
+                hour = 6 + idx * 2,
+                minute = idx * 15 % 60,
+                days = if (idx == 0) 0 else 0x1F, // once / weekdays
+                snooze = idx == 1,
+                title = if (idx == 0) "Wake up" else ""
+            )
+        })
+        mockSensorTemp = temperature
+        mockSensorHum = humidity
+    }
+    
+    private var mockSensorTemp = 22.0
+    private var mockSensorHum = 45.0
 
     // Current device being connected to
     private var currentDeviceMac: String? = null
@@ -681,6 +705,13 @@ class QPController(private val context: Context) {
         }
     }
 
+    suspend fun connectMockDevice(mac: String): Boolean {
+        currentDeviceMac = mac
+        isAuthenticated = true
+        startMockSensorLoop()
+        return true
+    }
+
     @Suppress("SameReturnValue")
     suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
         // Prepare a token for this device (generate new if fresh pairing, use stored if already paired)
@@ -809,7 +840,11 @@ class QPController(private val context: Context) {
     }
 
     suspend fun synchronizeTime(timestamp: Long = System.currentTimeMillis() / 1000): Boolean {
-        if (currentDeviceMac == MOCK_MAC) return true
+        if (currentDeviceMac == MOCK_MAC) {
+            val date = java.util.Date(timestamp * 1000)
+            AppLogger.d(TAG, "[MOCK] Synchronizing time to: $date (Unix: $timestamp)")
+            return true
+        }
         return gattMutex.withLock {
             withContext(NonCancellable) {
                 suspendCancellableCoroutine { continuation ->
@@ -1223,15 +1258,13 @@ class QPController(private val context: Context) {
     private fun startMockSensorLoop() {
         mockSensorJob?.cancel()
         mockSensorJob = scope.launch {
-            var temp = 22.0
-            var hum = 45.0
             while (isActive) {
-                temp += (-5..5).random() / 10.0
-                hum += (-10..10).random() / 10.0
-                temp = temp.coerceIn(15.0, 30.0)
-                hum = hum.coerceIn(20.0, 80.0)
+                mockSensorTemp += (-5..5).random() / 10.0
+                mockSensorHum += (-10..10).random() / 10.0
+                mockSensorTemp = mockSensorTemp.coerceIn(15.0, 30.0)
+                mockSensorHum = mockSensorHum.coerceIn(20.0, 80.0)
                 
-                onSensorData?.invoke(temp.toFloat(), hum.toFloat())
+                onSensorData?.invoke(mockSensorTemp.toFloat(), mockSensorHum.toFloat())
                 delay(5000)
             }
         }

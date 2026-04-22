@@ -498,34 +498,31 @@ class MainViewModel(
         scanJob = null
         stopActiveConnection()
 
-        _sensorData.value = SensorData(
-            name = name,
-            macAddress = mac,
-            temperature = temperature,
-            humidity = humidity,
-            battery = battery,
-            rssi = rssi,
-            timestamp = System.currentTimeMillis()
-        )
-        _deviceConnected.value = true
-        _isPaired.value = true
-        _deviceConnecting.value = false
+        val profile = DeviceProfile(mac, name)
+        addDevice(profile, makeActive = true)
 
-        _alarms.value = List(alarmCount) { idx ->
-            Alarm(
-                id = idx,
-                enabled = idx % 2 == 0,
-                hour = 6 + idx * 2,
-                minute = idx * 15 % 60,
-                days = if (idx == 0) 0 else 0x1F, // once / weekdays
-                snooze = idx == 1,
-                title = if (idx == 0) "Wake up" else ""
-            )
+        viewModelScope.launch {
+            _deviceConnecting.value = true
+            qpController.setupMockState(temperature, humidity, alarmCount)
+            val success = qpController.connectMockDevice(mac)
+            if (success) {
+                _deviceConnected.value = true
+                _connectionError.value = null
+                checkPairingStatus()
+
+                attachLiveSensorCallbacks()
+
+                // Trigger manual callback for the initial values
+                qpController.onSensorData?.invoke(temperature.toFloat(), humidity.toFloat())
+                _sensorData.value = _sensorData.value?.copy(battery = battery, rssi = rssi)
+
+                launch { loadDeviceMetadataAfterConnect() }
+            } else {
+                _deviceConnected.value = false
+                _connectionError.value = "Failed to connect mock device"
+            }
+            _deviceConnecting.value = false
         }
-        _deviceSettings.value = DeviceSettings(
-            masterAlarmDisabled = false,
-            firmwareVersion = "FAKE-1.0.0"
-        )
         AppLogger.d(TAG, "Fake device injected: $name @ $mac")
     }
 
