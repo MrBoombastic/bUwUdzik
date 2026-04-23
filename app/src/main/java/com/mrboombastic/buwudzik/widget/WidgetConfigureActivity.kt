@@ -29,18 +29,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
+import androidx.work.BackoffPolicy
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
+import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 private const val TAG = "WidgetConfigureActivity"
+val MAC_KEY = stringPreferencesKey("device_mac")
 
 /**
  * Activity shown when a user adds a new widget to the home screen.
@@ -91,7 +103,30 @@ class WidgetConfigureActivity : AppCompatActivity() {
             try {
                 val glanceManager = GlanceAppWidgetManager(context)
                 val glanceId = glanceManager.getGlanceIdBy(appWidgetId)
-                SensorGlanceWidget().update(context, glanceId)
+
+                // Save MAC to Glance Preferences for a reliable lookup in provideGlance
+                updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs ->
+                    prefs.toMutablePreferences().apply {
+                        set(MAC_KEY, profile.mac)
+                    }
+                }
+
+                // Set loading=true so the user sees the spinner immediately
+                SensorRepository(context, profile.mac).setLoading(true)
+                SensorWidgetRefresher.updateDeviceData(context, profile.mac)
+
+                // Trigger the background worker to fetch real data
+                val workRequest = OneTimeWorkRequestBuilder<SensorUpdateWorker>()
+                    .setInputData(Data.Builder().putBoolean("force_refresh", true).build())
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .setBackoffCriteria(BackoffPolicy.LINEAR, 3, TimeUnit.SECONDS)
+                    .build()
+
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    "SensorWidgetRefresh_${profile.mac}",
+                    ExistingWorkPolicy.REPLACE,
+                    workRequest
+                )
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to trigger initial widget update", e)
             }

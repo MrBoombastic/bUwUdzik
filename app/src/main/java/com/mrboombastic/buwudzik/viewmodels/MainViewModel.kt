@@ -94,7 +94,10 @@ class MainViewModel(
     fun removeDevice(mac: String) {
         DeviceLocalDataCleaner.wipeAllLocalStateForDevice(applicationContext, mac)
         deviceProfileRepository.remove(mac)
-        viewModelScope.launch { SensorWidgetRefresher.updateAll(applicationContext) }
+        viewModelScope.launch {
+            SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
+            SensorWidgetRefresher.updateAll(applicationContext)
+        }
     }
 
     fun updateDeviceAlias(mac: String, alias: String) {
@@ -293,7 +296,7 @@ class MainViewModel(
                         _sensorData.value = correctedData
                     }
 
-                    SensorWidgetRefresher.updateAll(applicationContext)
+                    SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
                 }
             }
         }

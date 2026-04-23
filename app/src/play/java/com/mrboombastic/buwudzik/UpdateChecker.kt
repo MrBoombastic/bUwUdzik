@@ -1,5 +1,7 @@
 package com.mrboombastic.buwudzik
 
+import android.content.Context
+
 /**
  * No-op implementation for Google Play Store compliance.
  * This version does not contain any code for contacting GitHub or installing APKs.
@@ -22,6 +24,6 @@ class UpdateChecker : UpdateManager {
     }
 }
 
-fun UpdateManager.Companion.create(): UpdateManager {
+fun UpdateManager.Companion.create(context: Context): UpdateManager {
     return UpdateChecker()
 }

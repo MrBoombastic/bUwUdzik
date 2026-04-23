@@ -35,42 +35,40 @@ class SensorUpdateWorker(
         val forceRefresh = inputData.getBoolean("force_refresh", false)
 
         val widgetPrefs = WidgetPreferencesRepository(applicationContext)
-        val uniqueMacs = widgetPrefs.getAllWidgetMacs().values
-            .filter { !it.equals(MainViewModel.FAKE_MAC, ignoreCase = true) }
-            .toSet()
+        val uniqueMacs = widgetPrefs.getAllWidgetMacs().values.toSet()
         val profileRepo = DeviceProfileRepository(applicationContext)
         val activeMac = profileRepo.getActiveDeviceId()
 
-        val macsToClearLoading = when {
+        val macsToProcess = when {
             uniqueMacs.isNotEmpty() -> uniqueMacs
             activeMac != null -> setOf(activeMac)
             else -> emptySet()
         }
 
         return try {
-            if (uniqueMacs.isEmpty()) {
-                if (activeMac != null) {
-                    val result = scanDevice(activeMac, forceRefresh, profileRepo)
-                    updateWidget(result != Result.success(), intervalMinutes)
-                    result
-                } else {
-                    AppLogger.d(TAG, "No widgets or active device configured, skipping scan")
-                    updateWidget(hasError = false, intervalMinutes = intervalMinutes)
-                    Result.success()
-                }
+            if (macsToProcess.isEmpty()) {
+                AppLogger.d(TAG, "No widgets or active device configured, skipping scan")
+                WidgetUpdateScheduler.scheduleUpdates(applicationContext, intervalMinutes)
+                Result.success()
             } else {
                 var anyError = false
-                for (mac in uniqueMacs) {
+                for (mac in macsToProcess) {
                     val r = scanDevice(mac, forceRefresh, profileRepo)
                     if (r != Result.success()) anyError = true
+
+                    // Push the results (or errors) to Glance widgets
+                    SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
                 }
-                updateWidget(hasError = anyError, intervalMinutes = intervalMinutes)
+
+                WidgetUpdateScheduler.scheduleUpdates(applicationContext, intervalMinutes)
+
                 if (anyError && runAttemptCount < MAX_RETRY_ATTEMPTS) Result.retry()
                 else Result.success()
             }
         } finally {
-            macsToClearLoading.forEach { mac ->
+            macsToProcess.forEach { mac ->
                 SensorRepository(applicationContext, mac, profileRepo).setLoading(false)
+                SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
             }
         }
     }
@@ -80,12 +78,29 @@ class SensorUpdateWorker(
         forceRefresh: Boolean,
         profileRepo: DeviceProfileRepository
     ): Result {
+        val repository = SensorRepository(applicationContext, mac, profileRepo)
+
         if (mac.equals(MainViewModel.FAKE_MAC, ignoreCase = true)) {
-            AppLogger.d(TAG, "[$mac] Fake device active, skipping background scan")
+            AppLogger.d(TAG, "[$mac] Fake device active, using last data from app")
+            if (forceRefresh) {
+                // Generate a tiny random variation so the user sees something changed
+                val lastData = repository.getSensorData()
+                val newTemp = (lastData?.temperature ?: 22.0) + (-2..2).random() / 10.0
+                val newHum = (lastData?.humidity ?: 45.0) + (-5..5).random() / 10.0
+                repository.saveSensorData(
+                    com.mrboombastic.buwudzik.device.SensorData(
+                        temperature = newTemp.coerceIn(15.0, 30.0),
+                        humidity = newHum.coerceIn(20.0, 80.0),
+                        battery = 100,
+                        rssi = -50,
+                        name = "Fake clOwOck",
+                        macAddress = mac,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
             return Result.success()
         }
-
-        val repository = SensorRepository(applicationContext, mac, profileRepo)
 
         val lastUpdate = repository.getLastUpdateTimestamp()
         val dataAge = System.currentTimeMillis() - lastUpdate
@@ -138,15 +153,6 @@ class SensorUpdateWorker(
                 repository.setUpdateError(true)
                 Result.success()
             }
-        }
-    }
-
-    private suspend fun updateWidget(hasError: Boolean, intervalMinutes: Long) {
-        try {
-            AppLogger.d(TAG, "Updating all Glance widgets, hasError=$hasError")
-            SensorWidgetRefresher.updateAll(applicationContext)
-        } finally {
-            WidgetUpdateScheduler.scheduleUpdates(applicationContext, intervalMinutes)
         }
     }
 }

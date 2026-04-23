@@ -15,9 +15,9 @@ Android app for the Qingping Cleargrass CGD1 (`cgllc.clock.dove`) - Bluetooth LE
 
 - [Warning](#warning)
 - [Features](#features)
-- [Technical Details](#technical-details)
 - [Screenshots](#screenshots)
-- [Firmware Compatibility](#firmware-compatibility)
+- [Technical Details](#technical-details)
+    - [Firmware Compatibility](#firmware-compatibility)
 - [Protocol Specification](#protocol-specification)
     - [1. Service & Characteristics Profile](#1-service--characteristics-profile)
     - [2. Protocol Structure](#2-protocol-structure)

@@ -7,6 +7,12 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
@@ -37,6 +43,7 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.state.GlanceStateDefinition
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -44,56 +51,79 @@ import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.utils.TimeFormatUtils.formatAbsoluteTime
 import java.util.Locale
-import androidx.compose.ui.platform.LocalLocale
 
 class SensorGlanceWidget : GlanceAppWidget() {
 
+    companion object {
+        val KEY_MAC = stringPreferencesKey("device_mac")
+        val KEY_TEMP = doublePreferencesKey("temp")
+        val KEY_HUMIDITY = doublePreferencesKey("humidity")
+        val KEY_BATTERY = intPreferencesKey("battery")
+        val KEY_LAST_UPDATE = longPreferencesKey("last_update")
+        val KEY_HAS_ERROR = booleanPreferencesKey("has_error")
+        val KEY_IS_LOADING = booleanPreferencesKey("is_loading")
+        val KEY_DEVICE_ALIAS = stringPreferencesKey("device_alias")
+    }
+
     override val sizeMode: SizeMode = SizeMode.Exact
 
-    override val stateDefinition: GlanceStateDefinition<WidgetState> = WidgetStateDefinition
+    override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
             GlanceTheme {
-                val state = currentState<WidgetState>()
+                val prefs = currentState<Preferences>()
+                val mac = prefs[KEY_MAC] ?: ""
 
-                val locale = if (state.language == "system") {
-                    LocalLocale.current.platformLocale
+                val sensorRepo = com.mrboombastic.buwudzik.data.SensorRepository(context, mac)
+                val settingsRepo = com.mrboombastic.buwudzik.data.SettingsRepository(context)
+
+                // Fallback to repo if prefs are empty (e.g. first run or migration)
+                val temp = prefs[KEY_TEMP] ?: sensorRepo.getSensorData()?.temperature
+                val humidity = prefs[KEY_HUMIDITY] ?: sensorRepo.getSensorData()?.humidity
+                val battery = prefs[KEY_BATTERY] ?: sensorRepo.getSensorData()?.battery ?: 0
+                val lastUpdate = prefs[KEY_LAST_UPDATE] ?: sensorRepo.getLastUpdateTimestamp()
+                val hasError = prefs[KEY_HAS_ERROR] ?: sensorRepo.hasUpdateError()
+                val isLoading = prefs[KEY_IS_LOADING] ?: sensorRepo.isLoading()
+
+                val language = settingsRepo.language
+                val showWidgetError = settingsRepo.showWidgetError
+
+                val ctx = LocalContext.current
+                val locale = if (language == "system") {
+                    ctx.resources.configuration.locales[0]
                 } else {
-                    Locale.forLanguageTag(state.language)
+                    Locale.forLanguageTag(language)
                 }
 
-                val tempText =
-                    state.sensorData?.let { "%.1f°C".format(locale, it.temperature) } ?: "—"
-                val humidityText =
-                    state.sensorData?.let { "💧%.0f%%".format(locale, it.humidity) } ?: ""
-                val batteryText = state.sensorData?.let { "🔋${it.battery}%" } ?: ""
-                val lastUpdateText = if (state.lastUpdate > 0) {
-                    formatAbsoluteTime(state.lastUpdate, locale)
+                val tempText = temp?.let { "%.1f°C".format(locale, it) } ?: "—"
+                val humidityText = humidity?.let { "💧%.0f%%".format(locale, it) } ?: ""
+                val batteryText = if (battery > 0) "🔋$battery%" else ""
+                val lastUpdateText = if (lastUpdate > 0) {
+                    formatAbsoluteTime(lastUpdate, locale)
                 } else ""
-                val hasData = state.sensorData != null
 
-                // Optional footer label: profile alias only (never replaces last-updated line)
-                val deviceProfileRepo =
-                    com.mrboombastic.buwudzik.data.DeviceProfileRepository(context)
-                val deviceAlias = if (state.mac.isEmpty()) {
+                // Alias from prefs or repo
+                val deviceAlias = prefs[KEY_DEVICE_ALIAS] ?: if (mac.isEmpty()) {
                     ""
                 } else {
-                    deviceProfileRepo.getByMac(state.mac)?.alias?.trim().orEmpty()
+                    com.mrboombastic.buwudzik.data.DeviceProfileRepository(context)
+                        .getByMac(mac)?.alias?.trim().orEmpty()
                 }
 
                 val size = LocalSize.current
                 WidgetContent(
-                    mac = state.mac,
+                    mac = mac,
                     tempText = tempText,
                     humidityText = humidityText,
                     batteryText = batteryText,
                     lastUpdateText = lastUpdateText,
-                    hasError = state.hasError && state.showWidgetError,
-                    isLoading = state.isLoading,
-                    hasData = hasData,
+                    hasError = hasError && showWidgetError,
+                    isLoading = isLoading,
+                    hasData = temp != null,
                     deviceName = deviceAlias,
-                    size = size
+                    size = size,
+                    isOutdated = mac.isEmpty()
                 )
             }
         }
@@ -110,26 +140,22 @@ class SensorGlanceWidget : GlanceAppWidget() {
         isLoading: Boolean,
         hasData: Boolean,
         deviceName: String,
-        size: DpSize
+        size: DpSize,
+        isOutdated: Boolean = false
     ) {
         val width = size.width
         val height = size.height
         val context = LocalContext.current
 
         val minDimension = minOf(width.value, height.value)
-        // Single-row / near-min-height widgets: tighter layout (spacers, gaps).
         val isCompact = height.value < 100f
-        // Footer device alias only when clearly multi-row; many launchers report ~100dp+ for 1 row,
-        // which wrongly satisfied the old "!isCompact" check and showed the alias at minimum height.
-        val showFooterDeviceAlias =
-            deviceName.isNotEmpty() && height.value >= 132f
+        val showFooterDeviceAlias = deviceName.isNotEmpty() && height.value >= 132f
 
         // Dynamic font sizing
         val tempSizeVal = (minDimension * 0.25f).coerceIn(14f, 96f)
         val subSizeVal = (tempSizeVal * 0.48f).coerceIn(12f, 44f)
         val footerSizeVal = (subSizeVal * 0.7f).coerceIn(8f, 18f)
 
-        // Material You colors from GlanceTheme (public API, no restricted access)
         val primaryText = GlanceTheme.colors.onSurface
         val humidityColor = GlanceTheme.colors.primary
         val secondaryText = GlanceTheme.colors.onSurfaceVariant
@@ -138,7 +164,6 @@ class SensorGlanceWidget : GlanceAppWidget() {
         val loadingColor = GlanceTheme.colors.tertiary
         val iconTint = GlanceTheme.colors.onSurfaceVariant
 
-        // Dynamic padding that scales with widget size
         val hPadding = (width.value * 0.06f).dp.coerceIn(8.dp, 16.dp)
         val vPadding = (height.value * 0.06f).dp.coerceIn(4.dp, 12.dp)
 
@@ -146,7 +171,6 @@ class SensorGlanceWidget : GlanceAppWidget() {
             actionStartActivity(
                 Intent(context, MainActivity::class.java).apply {
                     putExtra("mac", mac)
-                    // Set unique data URI to prevent Intent merging by the system
                     data = "buwudzik://device/$mac".toUri()
                 }
             )
@@ -162,16 +186,24 @@ class SensorGlanceWidget : GlanceAppWidget() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top spacer — pushes content toward center on tall widgets
             if (!isCompact) {
                 Spacer(modifier = GlanceModifier.defaultWeight())
             }
 
-            // Temperature — main hero element
             Box(
                 modifier = GlanceModifier.fillMaxWidth(), contentAlignment = Alignment.Center
             ) {
-                if (hasData || isLoading) {
+                if (isOutdated) {
+                    Text(
+                        text = LocalContext.current.getString(R.string.widget_outdated),
+                        style = TextStyle(
+                            color = errorColor,
+                            fontSize = (subSizeVal * 0.8f).sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = GlanceModifier.padding(4.dp)
+                    )
+                } else if (hasData || isLoading) {
                     Text(
                         text = if (isLoading && !hasData) "…" else tempText, style = TextStyle(
                             color = primaryText,
@@ -180,7 +212,6 @@ class SensorGlanceWidget : GlanceAppWidget() {
                         )
                     )
                 } else {
-                    // No data state
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -194,13 +225,13 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 }
             }
 
-            // Gap between temp and secondary info
             val tempToSensorsGap =
                 if (isCompact) 2.dp else (height.value * 0.03f).dp.coerceIn(4.dp, 12.dp)
-            Spacer(modifier = GlanceModifier.height(tempToSensorsGap))
+            if (!isOutdated) {
+                Spacer(modifier = GlanceModifier.height(tempToSensorsGap))
+            }
 
-            // Humidity & Battery Row — tightly grouped below temperature
-            if (hasData) {
+            if (hasData && !isOutdated) {
                 Row(
                     modifier = GlanceModifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -222,87 +253,86 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 }
             }
 
-            // Bottom spacer — balances against top spacer
             if (!isCompact) {
                 Spacer(modifier = GlanceModifier.defaultWeight())
             }
 
-            // Footer — optional device name (line 1) always coexists with last-updated / status (line 2)
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.Start,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = GlanceModifier.defaultWeight(),
-                    horizontalAlignment = Alignment.Start
+            if (!isOutdated) {
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (showFooterDeviceAlias) {
-                        Text(
-                            text = deviceName,
-                            style = TextStyle(
-                                color = dimText,
-                                fontSize = (footerSizeVal * 0.85f).sp
-                            )
-                        )
-                        Spacer(modifier = GlanceModifier.height(2.dp))
-                    }
-                    when {
-                        isLoading -> Text(
-                            text = LocalContext.current.getString(R.string.updating_label),
-                            style = TextStyle(
-                                color = loadingColor, fontSize = footerSizeVal.sp
-                            )
-                        )
-
-                        hasError -> Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Column(
+                        modifier = GlanceModifier.defaultWeight(),
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        if (showFooterDeviceAlias) {
                             Text(
-                                text = "⚠ ", style = TextStyle(
-                                    color = errorColor, fontSize = footerSizeVal.sp
+                                text = deviceName,
+                                style = TextStyle(
+                                    color = dimText,
+                                    fontSize = (footerSizeVal * 0.85f).sp
                                 )
                             )
-                            Text(
-                                text = lastUpdateText.ifEmpty { LocalContext.current.getString(R.string.update_error) },
+                            Spacer(modifier = GlanceModifier.height(2.dp))
+                        }
+                        when {
+                            isLoading -> Text(
+                                text = LocalContext.current.getString(R.string.updating_label),
                                 style = TextStyle(
-                                    color = errorColor, fontSize = footerSizeVal.sp
+                                    color = loadingColor, fontSize = footerSizeVal.sp
+                                )
+                            )
+
+                            hasError -> Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "⚠ ", style = TextStyle(
+                                        color = errorColor, fontSize = footerSizeVal.sp
+                                    )
+                                )
+                                Text(
+                                    text = lastUpdateText.ifEmpty { LocalContext.current.getString(R.string.update_error) },
+                                    style = TextStyle(
+                                        color = errorColor, fontSize = footerSizeVal.sp
+                                    )
+                                )
+                            }
+
+                            lastUpdateText.isNotEmpty() -> Text(
+                                text = lastUpdateText, style = TextStyle(
+                                    color = secondaryText, fontSize = footerSizeVal.sp
+                                )
+                            )
+
+                            else -> Text(
+                                text = "—", style = TextStyle(
+                                    color = dimText, fontSize = footerSizeVal.sp
                                 )
                             )
                         }
+                    }
 
-                        lastUpdateText.isNotEmpty() -> Text(
-                            text = lastUpdateText, style = TextStyle(
-                                color = secondaryText, fontSize = footerSizeVal.sp
-                            )
-                        )
+                    val refreshTint = when {
+                        isLoading -> loadingColor
+                        hasError -> errorColor
+                        else -> iconTint
+                    }
 
-                        else -> Text(
-                            text = "—", style = TextStyle(
-                                color = dimText, fontSize = footerSizeVal.sp
-                            )
+                    Box(
+                        modifier = GlanceModifier.size(maxOf((footerSizeVal * 2f).dp, 32.dp))
+                            .clickable(actionRunCallback<RefreshAction>()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_refresh),
+                            contentDescription = LocalContext.current.getString(R.string.widget_refresh_description),
+                            colorFilter = ColorFilter.tint(refreshTint),
+                            modifier = GlanceModifier.size((footerSizeVal * 1.3f).dp)
                         )
                     }
-                }
-
-                // Refresh button
-                val refreshTint = when {
-                    isLoading -> loadingColor
-                    hasError -> errorColor
-                    else -> iconTint
-                }
-
-                Box(
-                    modifier = GlanceModifier.size(maxOf((footerSizeVal * 2f).dp, 32.dp))
-                        .clickable(actionRunCallback<RefreshAction>()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_refresh),
-                        contentDescription = LocalContext.current.getString(R.string.widget_refresh_description),
-                        colorFilter = ColorFilter.tint(refreshTint),
-                        modifier = GlanceModifier.size((footerSizeVal * 1.3f).dp)
-                    )
                 }
             }
         }

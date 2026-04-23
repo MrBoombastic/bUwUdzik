@@ -234,6 +234,7 @@
     <string name="device_sheet_swipe_hint_got_it">Compris</string>
     <string name="widget_configure_title">Choisir l\'appareil pour le widget</string>
     <string name="widget_configure_subtitle">Sélectionnez l\'appareil affiché par ce widget :</string>
+    <string name="widget_outdated">Widget obsolète. Veuillez le supprimer et le rajouter.</string>
     <string name="try_demo_mode">Essayer le mode démo</string>
     <string name="demo_device_name">Appareil de démonstration</string>
 </resources>

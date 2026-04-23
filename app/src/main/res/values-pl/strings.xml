@@ -234,6 +234,7 @@
     <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>
     <string name="widget_configure_title">Wybierz urządzenie dla widżetu</string>
     <string name="widget_configure_subtitle">Wybierz urządzenie wyświetlane przez ten widżet:</string>
+    <string name="widget_outdated">Widżet jest nieaktualny. Usuń go i dodaj ponownie.</string>
     <string name="try_demo_mode">Wypróbuj tryb demo</string>
     <string name="demo_device_name">Urządzenie demonstracyjne</string>
 </resources>

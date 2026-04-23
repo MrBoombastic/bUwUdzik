@@ -47,14 +47,15 @@ class RefreshAction : ActionCallback {
         }
 
         if (!mac.isNullOrEmpty()) {
-            SensorRepository(context, mac).setLoading(true)
+            val sensorRepo = SensorRepository(context, mac)
+            sensorRepo.setLoading(true)
             AppLogger.d(TAG, "Set loading=true for widget device $mac")
+
+            // Push loading state immediately to all widgets for this MAC
+            SensorWidgetRefresher.updateDeviceData(context, mac)
         } else {
             AppLogger.w(TAG, "No MAC mapped for widget $appWidgetId; worker will still run")
         }
-
-        SensorGlanceWidget().update(context, glanceId)
-        SensorWidgetRefresher.updateAll(context)
 
         val workRequest = OneTimeWorkRequestBuilder<SensorUpdateWorker>()
             .setInputData(
