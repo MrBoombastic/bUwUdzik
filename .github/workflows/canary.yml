@@ -9,7 +9,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Check versionCode change
+        id: check
+        run: |
+          CURR_VERSION=$(grep "versionCode =" app/build.gradle.kts | sed 's/.*versionCode = //')
+          
+          # Check if there is a parent commit
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            PREV_VERSION=$(git show HEAD^:app/build.gradle.kts | grep "versionCode =" | sed 's/.*versionCode = //')
+          else
+            PREV_VERSION="none"
+          fi
+          
+          echo "Current versionCode: $CURR_VERSION"
+          echo "Previous versionCode: $PREV_VERSION"
+          
+          if [ "$CURR_VERSION" = "$PREV_VERSION" ]; then
+            echo "versionCode didn't change. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "versionCode changed. Proceeding."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
   canary:
+    needs: check-version
+    if: needs.check-version.outputs.skip != 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
