@@ -375,16 +375,14 @@ class MainViewModel(
         }
     }
 
-    fun reloadAlarms() {
-        viewModelScope.launch {
-            try {
-                delay(BleDeviceController.DELAY_ALARM_RELOAD)
-                AppLogger.d(TAG, "Reloading alarms...")
-                _alarms.value = fetchAlarmsWithTitles()
-                AppLogger.d(TAG, "Reloaded ${_alarms.value.size} alarms")
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Error reloading alarms", e)
-            }
+    suspend fun reloadAlarms() {
+        try {
+            delay(BleDeviceController.DELAY_ALARM_RELOAD)
+            AppLogger.d(TAG, "Reloading alarms...")
+            _alarms.value = fetchAlarmsWithTitles()
+            AppLogger.d(TAG, "Reloaded ${_alarms.value.size} alarms")
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error reloading alarms", e)
         }
     }
 

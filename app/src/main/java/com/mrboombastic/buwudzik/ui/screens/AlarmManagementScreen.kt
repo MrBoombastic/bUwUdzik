@@ -91,6 +91,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
             alarm = alarm,
             onDismiss = { selectedAlarm = null },
             onSave = { updatedAlarm ->
+                selectedAlarm = null
                 coroutineScope.launch {
                     isUpdating = true
 
@@ -101,7 +102,6 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                                     String.format(alarmUpdatedMsg, updatedAlarm.id + 1)
                                 )
                             }
-                            selectedAlarm = null
                         } else {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
@@ -117,6 +117,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                 }
             },
             onDelete = {
+                selectedAlarm = null
                 coroutineScope.launch {
                     isUpdating = true
 
@@ -127,7 +128,6 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                                     String.format(alarmDeletedMsg, alarm.id + 1)
                                 )
                             }
-                            selectedAlarm = null
                         } else {
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
