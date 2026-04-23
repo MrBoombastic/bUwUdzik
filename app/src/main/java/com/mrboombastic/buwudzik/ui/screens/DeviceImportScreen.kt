@@ -176,6 +176,19 @@ fun DeviceImportScreen(
 
                 isScanning -> {
                     fun applyManualToken() {
+                        val tokenText = manualToken.trim()
+
+                        // Validate token: must be 32 hex characters (16 bytes)
+                        val hexRegex = Regex("^[0-9a-fA-F]{32}$")
+                        if (!hexRegex.matches(tokenText)) {
+                            Toast.makeText(
+                                context,
+                                importTokenInvalidMsg,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return
+                        }
+
                         val current = activeDevice
                         if (current == null) {
                             Toast.makeText(
@@ -187,7 +200,7 @@ fun DeviceImportScreen(
                         }
                         try {
                             val tokenStorage = TokenStorage(context)
-                            val token = tokenStorage.hexToBytes(manualToken.trim())
+                            val token = tokenStorage.hexToBytes(tokenText)
                             tokenStorage.storeToken(current.mac, token)
                             viewModel.checkPairingStatus()
                             Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT).show()
