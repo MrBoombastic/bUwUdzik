@@ -1,9 +1,11 @@
 package com.mrboombastic.buwudzik.ui.utils
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
@@ -41,6 +43,8 @@ fun Modifier.adaptiveContentWidth(maxWidth: Dp = MAX_CONTENT_WIDTH): Modifier =
  * @param modifier Applied to the outer [Box] (usually .fillMaxSize() is already included).
  * @param columnModifier Applied to the inner content [Column].
  * @param maxWidth Maximum width of the content column.
+ * @param contentAlignment Alignment of the content column within the box (defaults to [Alignment.Center]).
+ * @param verticalArrangement Vertical arrangement of the content within the column (defaults to [Arrangement.Top]).
  * @param content The screen content.
  */
 @Composable
@@ -48,16 +52,20 @@ fun AdaptiveScreen(
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier.fillMaxSize(),
     columnModifier: Modifier = Modifier,
     maxWidth: Dp = MAX_CONTENT_WIDTH,
+    contentAlignment: Alignment = Alignment.Center,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = contentAlignment
     ) {
         Column(
             modifier = columnModifier
                 .widthIn(max = maxWidth)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .fillMaxHeight(),
+            verticalArrangement = verticalArrangement,
             content = content
         )
     }

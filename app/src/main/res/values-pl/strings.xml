@@ -176,7 +176,6 @@
     <string name="import_device_title">Importuj urządzenie</string>
     <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia.</string>
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
-    <string name="import_token_instruction">Lub wklej token uwierzytelniania</string>
     <string name="import_token_label">Token uwierzytelniania</string>
     <string name="import_token_button">Importuj token</string>
     <string name="import_token_show">Wklej token uwierzytelniania</string>

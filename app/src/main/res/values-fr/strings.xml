@@ -183,7 +183,6 @@
     <string name="import_device_title">Importer l\'appareil</string>
     <string name="share_qr_instruction">Scannez ce code QR sur un autre appareil pour importer les paramètres.</string>
     <string name="import_qr_instruction">Pointez la caméra vers le code QR</string>
-    <string name="import_token_instruction">Ou collez le jeton d\'authentification</string>
     <string name="import_token_label">Jeton d\'authentification</string>
     <string name="import_token_button">Importer le jeton</string>
     <string name="import_token_show">Coller le jeton d\'authentification</string>

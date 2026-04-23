@@ -88,7 +88,6 @@ import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 private const val TAG = "HomeScreen"
 
@@ -185,6 +184,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             }) { padding ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (activeDevice != null) {
@@ -501,6 +501,7 @@ fun Dashboard(
     Column(
         modifier = modifier
             .padding(16.dp)
+            .fillMaxHeight()
             .adaptiveContentWidth()
             .let { m ->
                 if (openSheetNestedScroll != null) m.nestedScroll(openSheetNestedScroll)
@@ -508,7 +509,7 @@ fun Dashboard(
             }
             .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
+        verticalArrangement = Arrangement.Center
     ) {
         if (!isBluetoothEnabled) {
             Text(
@@ -628,7 +629,7 @@ fun Dashboard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
-            val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            val dateFormat = SimpleDateFormat("HH:mm:ss", LocalLocale.current.platformLocale)
             val timeString = dateFormat.format(Date(sensorData.timestamp))
             Text(
                 text = stringResource(R.string.last_update_label, timeString),

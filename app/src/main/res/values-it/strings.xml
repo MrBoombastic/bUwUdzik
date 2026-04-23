@@ -183,7 +183,6 @@
     <string name="import_device_title">Importa dispositivo</string>
     <string name="share_qr_instruction">Scansiona questo codice QR su un altro dispositivo per importare le impostazioni.</string>
     <string name="import_qr_instruction">Punta la fotocamera verso il codice QR</string>
-    <string name="import_token_instruction">Oppure incolla il token di autenticazione</string>
     <string name="import_token_label">Token di autenticazione</string>
     <string name="import_token_button">Importa token</string>
     <string name="import_token_show">Incolla token di autenticazione</string>

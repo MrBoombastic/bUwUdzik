@@ -79,8 +79,8 @@ import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.ui.components.ContentCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
-import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
+import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
 private val qrReader = MultiFormatReader().apply {
@@ -333,11 +333,6 @@ fun DeviceImportScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = stringResource(R.string.import_token_instruction),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                             OutlinedTextField(
                                 value = manualToken,
                                 onValueChange = { manualToken = it },

@@ -183,7 +183,6 @@
     <string name="import_device_title">导入设备</string>
     <string name="share_qr_instruction">在另一台设备上扫描此二维码以导入设置。</string>
     <string name="import_qr_instruction">将相机对准二维码。</string>
-    <string name="import_token_instruction">或粘贴认证令牌</string>
     <string name="import_token_label">认证令牌</string>
     <string name="import_token_button">导入令牌</string>
     <string name="import_token_show">粘贴认证令牌</string>

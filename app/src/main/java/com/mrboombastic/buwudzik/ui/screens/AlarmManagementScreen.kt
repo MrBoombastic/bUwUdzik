@@ -205,11 +205,14 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                 .padding(padding),
             columnModifier = Modifier
                 .padding(horizontal = 16.dp),
-            maxWidth = 720.dp
+            maxWidth = 720.dp,
+            contentAlignment = Alignment.TopCenter,
+            verticalArrangement = Arrangement.Top
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Top
             ) {
             when {
                 !isBluetoothEnabled -> {
