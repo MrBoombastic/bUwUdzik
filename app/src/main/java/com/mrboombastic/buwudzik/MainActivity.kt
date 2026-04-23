@@ -339,14 +339,9 @@ class MainActivity : AppCompatActivity() {
                         // Enforce at-most-once-per-day attempts even if the request fails.
                         settingsRepository.lastAutoUpdateCheckMs = now
                         try {
-                            val updateManager = UpdateManager.create(applicationContext)
+                            val updateManager = UpdateManager.create()
                             val result = try {
-                                updateManager.checkForUpdates(
-                                    includePrerelease = BuildConfig.FLAVOR.contains(
-                                        "canary",
-                                        ignoreCase = true
-                                    )
-                                )
+                                updateManager.checkForUpdates()
                             } finally {
                                 updateManager.close()
                             }
@@ -401,7 +396,7 @@ class MainActivity : AppCompatActivity() {
                                             startupUpdateResult?.downloadUrl ?: return@TextButton
                                         CoroutineScope(Dispatchers.IO).launch {
                                             val updateManager =
-                                                UpdateManager.create(applicationContext)
+                                                UpdateManager.create()
                                             updateManager.downloadAndInstall(downloadUrl)
                                             updateManager.close()
                                         }

@@ -1,23 +1,22 @@
 package com.mrboombastic.buwudzik
 
-import android.content.Context
-
-data class UpdateCheckResult(
-    val updateAvailable: Boolean,
-    val latestVersion: String,
-    val currentVersion: String,
-    val downloadUrl: String? = null,
-    val changelog: String? = null
-)
-
 interface UpdateManager {
-    suspend fun checkForUpdates(includePrerelease: Boolean): UpdateCheckResult
+    /**
+     * Check for updates from GitHub (Stable or Canary depending on flavor).
+     * Returns information about available updates.
+     */
+    suspend fun checkForUpdates(): UpdateCheckResult
+
+    /**
+     * Download and install an update from the given URL.
+     * Shows a notification with download progress.
+     */
     suspend fun downloadAndInstall(url: String): Boolean
+
+    /**
+     * Close any resources (like HTTP clients) when done.
+     */
     fun close()
 
-    companion object {
-        fun create(context: Context): UpdateManager {
-            return UpdateChecker(context)
-        }
-    }
+    companion object
 }

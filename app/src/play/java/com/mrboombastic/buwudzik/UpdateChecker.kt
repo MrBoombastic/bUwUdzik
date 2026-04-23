@@ -1,13 +1,11 @@
 package com.mrboombastic.buwudzik
 
-import android.content.Context
-
 /**
  * No-op implementation for Google Play Store compliance.
- * This version does not contain any code for contacting GitHub.
+ * This version does not contain any code for contacting GitHub or installing APKs.
  */
-class UpdateChecker(private val context: Context) : UpdateManager {
-    override suspend fun checkForUpdates(includePrerelease: Boolean): UpdateCheckResult {
+class UpdateChecker : UpdateManager {
+    override suspend fun checkForUpdates(): UpdateCheckResult {
         return UpdateCheckResult(
             updateAvailable = false,
             latestVersion = "0.0.0",
@@ -22,4 +20,8 @@ class UpdateChecker(private val context: Context) : UpdateManager {
     override fun close() {
         // No-op
     }
+}
+
+fun UpdateManager.Companion.create(): UpdateManager {
+    return UpdateChecker()
 }

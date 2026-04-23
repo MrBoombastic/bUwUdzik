@@ -67,10 +67,15 @@ configure<ApplicationExtension> {
 
     sourceSets {
         getByName("stable") {
-            java.srcDirs("src/full/java")
+            kotlin.directories.add("src/stable/java")
+            kotlin.directories.add("src/full/java")
         }
         getByName("canary") {
-            java.srcDirs("src/full/java")
+            kotlin.directories.add("src/canary/java")
+            kotlin.directories.add("src/full/java")
+        }
+        getByName("play") {
+            kotlin.directories.add("src/play/java")
         }
     }
 

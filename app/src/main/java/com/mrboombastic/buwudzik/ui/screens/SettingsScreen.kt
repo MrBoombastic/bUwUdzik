@@ -56,6 +56,7 @@ import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.UpdateCheckResult
 import com.mrboombastic.buwudzik.UpdateManager
+import com.mrboombastic.buwudzik.create
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
@@ -464,7 +465,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             val downloadUrl = updateResult?.downloadUrl
                             if (downloadUrl != null) {
                                 coroutineScope.launch {
-                                    val updateManager = UpdateManager.create(appContext)
+                                    val updateManager = UpdateManager.create()
                                     updateManager.downloadAndInstall(downloadUrl)
                                     updateManager.close()
                                 }
@@ -533,14 +534,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                         isCheckingUpdates = true
                         coroutineScope.launch {
                             try {
-                                val updateManager = UpdateManager.create(appContext)
+                                val updateManager = UpdateManager.create()
                                 val result = try {
-                                    updateManager.checkForUpdates(
-                                        includePrerelease = BuildConfig.FLAVOR.contains(
-                                            "canary",
-                                            ignoreCase = true
-                                        )
-                                    )
+                                    updateManager.checkForUpdates()
                                 } finally {
                                     updateManager.close()
                                 }
@@ -583,7 +579,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
 
 
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEBUG && BuildConfig.FLAVOR.contains("canary", ignoreCase = true)) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
