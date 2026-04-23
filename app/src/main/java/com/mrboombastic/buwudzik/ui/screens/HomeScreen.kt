@@ -497,6 +497,9 @@ fun Dashboard(
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
+    val activeDevice by viewModel.activeDevice.collectAsState()
+
+    val isFakeDevice = activeDevice?.mac?.equals(MainViewModel.FAKE_MAC, ignoreCase = true) == true
 
     Column(
         modifier = modifier
@@ -536,9 +539,8 @@ fun Dashboard(
                 modifier = Modifier.fillMaxWidth(0.9f),
                 arrangementH = Arrangement.Center
             )
-        } else if (!isPaired && hasActiveDevice) {
-            // New profile selected but not bonded yet — ignore advertising-only sensorData so we
-            // don't show temperature/humidity/RSSI as if the device were fully set up.
+        } else if (!isPaired && hasActiveDevice && !isFakeDevice) {
+            // Real device selected but not paired: ALWAYS show pairing instructions
             if (deviceConnecting) {
                 CircularProgressIndicator()
                 Spacer(modifier = Modifier.height(16.dp))
@@ -581,8 +583,7 @@ fun Dashboard(
                 )
             }
         } else if (deviceConnecting && hasActiveDevice) {
-            // Paired device: GATT connect in progress — avoid the generic "scanning" branch (empty-looking
-            // when BLE scan is paused for connection).
+            // Paired device (or fake): GATT connect in progress
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -590,10 +591,12 @@ fun Dashboard(
                 style = MaterialTheme.typography.bodyMedium
             )
         } else if (sensorData == null) {
+            // We have a paired device but no broadcast data yet
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text(stringResource(R.string.scanning_status))
         } else {
+            // Main Dashboard for paired (or fake) device with sensor data
             if (!sensorData.name.isNullOrEmpty()) {
                 Text(
                     text = sensorData.name,
@@ -639,65 +642,23 @@ fun Dashboard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (deviceConnecting) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.connecting_to_device),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else if (!deviceConnected) {
-                if (!isPaired) {
-                    InstructionCard(
-                        icon = Icons.Default.PhonelinkSetup,
-                        title = stringResource(R.string.setup_new_device),
-                        subtitle = stringResource(R.string.pairing_subtitle),
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    ) {
-                        NumberedStep(
-                            number = "1",
-                            title = stringResource(R.string.pairing_step1_title),
-                            description = stringResource(R.string.pairing_step1_desc)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        NumberedStep(
-                            number = "2",
-                            title = stringResource(R.string.pairing_step2_title),
-                            description = stringResource(R.string.pairing_step2_desc)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        NumberedStep(
-                            number = "3",
-                            title = stringResource(R.string.pairing_step3_title),
-                            description = stringResource(R.string.pairing_step3_desc)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+            if (!deviceConnected) {
+                // Not connected via GATT
                 MenuTile(
-                    title = if (isPaired) stringResource(R.string.connect_to_device) else stringResource(
-                        R.string.pair_and_connect
-                    ),
+                    title = stringResource(R.string.connect_to_device),
                     icon = Icons.Default.PhonelinkSetup,
                     onClick = { viewModel.connectToDevice() },
                     modifier = Modifier.fillMaxWidth(0.9f),
                     arrangementH = Arrangement.Center
                 )
 
-                if (isPaired) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ShareDeviceButton(
-                        navController = navController,
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ShareDeviceButton(
+                    navController = navController,
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                )
             } else {
+                // Connected via GATT
                 Spacer(modifier = Modifier.height(16.dp))
                 Column(
                     modifier = Modifier.fillMaxWidth(0.9f),
@@ -720,13 +681,11 @@ fun Dashboard(
                     )
                 }
 
-                if (isPaired) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ShareDeviceButton(
-                        navController = navController,
-                        modifier = Modifier.fillMaxWidth(0.9f)
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                ShareDeviceButton(
+                    navController = navController,
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                )
             }
         }
     }
