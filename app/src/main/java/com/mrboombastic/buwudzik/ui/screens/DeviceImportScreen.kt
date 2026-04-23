@@ -79,6 +79,7 @@ import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.ui.components.ContentCard
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
@@ -130,15 +131,19 @@ fun DeviceImportScreen(
                 title = stringResource(R.string.import_device_title), navController = navController
             )
         }) { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .imePadding(),
+            columnModifier = Modifier
+                .padding(16.dp)
         ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
             when {
                 !hasCameraPermission -> {
                     Box(
@@ -171,6 +176,19 @@ fun DeviceImportScreen(
 
                 isScanning -> {
                     fun applyManualToken() {
+                        val tokenText = manualToken.trim()
+
+                        // Validate token: must be 32 hex characters (16 bytes)
+                        val hexRegex = Regex("^[0-9a-fA-F]{32}$")
+                        if (!hexRegex.matches(tokenText)) {
+                            Toast.makeText(
+                                context,
+                                importTokenInvalidMsg,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return
+                        }
+
                         val current = activeDevice
                         if (current == null) {
                             Toast.makeText(
@@ -182,7 +200,7 @@ fun DeviceImportScreen(
                         }
                         try {
                             val tokenStorage = TokenStorage(context)
-                            val token = tokenStorage.hexToBytes(manualToken.trim())
+                            val token = tokenStorage.hexToBytes(tokenText)
                             tokenStorage.storeToken(current.mac, token)
                             viewModel.checkPairingStatus()
                             Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT).show()
@@ -328,11 +346,6 @@ fun DeviceImportScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = stringResource(R.string.import_token_instruction),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                             OutlinedTextField(
                                 value = manualToken,
                                 onValueChange = { manualToken = it },
@@ -356,6 +369,7 @@ fun DeviceImportScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

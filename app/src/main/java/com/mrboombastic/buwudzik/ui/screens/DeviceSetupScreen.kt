@@ -57,6 +57,7 @@ import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.StatusCard
 import com.mrboombastic.buwudzik.ui.components.StatusType
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
@@ -213,12 +214,12 @@ fun DeviceSetupScreen(
     }
 
     Scaffold { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(padding),
+            columnModifier = Modifier
+                .padding(horizontal = 24.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -265,6 +266,28 @@ fun DeviceSetupScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = {
+                        val demoMac = MainViewModel.FAKE_MAC
+                        // Immediately inject fake data so the UI works without real BLE
+                        viewModel?.injectFakeDevice(
+                            name = context.getString(R.string.demo_device_name),
+                            mac = demoMac
+                        )
+                        onDeviceSelected(
+                            DiscoveredDevice(
+                                name = context.getString(R.string.demo_device_name),
+                                address = demoMac,
+                                rssi = -42
+                            )
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.try_demo_mode))
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -341,6 +364,7 @@ fun DeviceSetupScreen(
         }
     }
 }
+
 
 @Composable
 fun DeviceCard(

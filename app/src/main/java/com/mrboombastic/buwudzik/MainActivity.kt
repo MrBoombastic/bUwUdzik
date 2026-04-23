@@ -63,6 +63,7 @@ import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
+import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.HomeScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
@@ -329,6 +330,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     LaunchedEffect(Unit) {
+                        if (!BuildConfig.ALLOW_CUSTOM_UPDATES) return@LaunchedEffect
                         if (!settingsRepository.autoUpdateCheckEnabled) return@LaunchedEffect
                         val now = System.currentTimeMillis()
                         if (now - settingsRepository.lastAutoUpdateCheckMs < AUTO_UPDATE_CHECK_INTERVAL_MS) {
@@ -337,11 +339,11 @@ class MainActivity : AppCompatActivity() {
                         // Enforce at-most-once-per-day attempts even if the request fails.
                         settingsRepository.lastAutoUpdateCheckMs = now
                         try {
-                            val updateChecker = UpdateChecker(applicationContext)
+                            val updateManager = UpdateManager.create()
                             val result = try {
-                                updateChecker.checkForUpdates()
+                                updateManager.checkForUpdates()
                             } finally {
-                                updateChecker.close()
+                                updateManager.close()
                             }
                             if (result.updateAvailable) {
                                 startupUpdateResult = result
@@ -393,9 +395,10 @@ class MainActivity : AppCompatActivity() {
                                         val downloadUrl =
                                             startupUpdateResult?.downloadUrl ?: return@TextButton
                                         CoroutineScope(Dispatchers.IO).launch {
-                                            val updateChecker = UpdateChecker(applicationContext)
-                                            updateChecker.downloadAndInstall(downloadUrl)
-                                            updateChecker.close()
+                                            val updateManager =
+                                                UpdateManager.create()
+                                            updateManager.downloadAndInstall(downloadUrl)
+                                            updateManager.close()
                                         }
                                     }
                                 ) {
@@ -439,7 +442,7 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 SettingsScreen(navController, viewModel)
                             }
-                            if (BuildConfig.DEBUG) {
+                            if (BuildConfig.DEBUG && BuildConfig.FLAVOR.contains("canary", ignoreCase = true)) {
                                 composable("debug-saved-data") {
                                     BackHandler {
                                         if (!navController.popBackStack()) {
@@ -449,6 +452,16 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     DebugSavedDataScreen(navController, viewModel)
+                                }
+                                composable("fake-clock") {
+                                    BackHandler {
+                                        if (!navController.popBackStack()) {
+                                            navController.navigate("home") {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                    FakeClockScreen(navController, viewModel)
                                 }
                             }
                             composable("alarms") {

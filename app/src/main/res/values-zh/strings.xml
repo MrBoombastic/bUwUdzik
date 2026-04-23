@@ -183,7 +183,6 @@
     <string name="import_device_title">导入设备</string>
     <string name="share_qr_instruction">在另一台设备上扫描此二维码以导入设置。</string>
     <string name="import_qr_instruction">将相机对准二维码。</string>
-    <string name="import_token_instruction">或粘贴认证令牌</string>
     <string name="import_token_label">认证令牌</string>
     <string name="import_token_button">导入令牌</string>
     <string name="import_token_show">粘贴认证令牌</string>
@@ -235,5 +234,7 @@
     <string name="device_sheet_swipe_hint_got_it">知道了</string>
     <string name="widget_configure_title">选择小组件显示的设备</string>
     <string name="widget_configure_subtitle">选择此小组件显示的设备：</string>
+    <string name="try_demo_mode">尝试演示模式</string>
+    <string name="demo_device_name">演示虚拟设备</string>
 </resources>
 

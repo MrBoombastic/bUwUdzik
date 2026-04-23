@@ -176,7 +176,6 @@
     <string name="import_device_title">Importuj urządzenie</string>
     <string name="share_qr_instruction">Zeskanuj ten kod QR na innym urządzeniu, aby zaimportować ustawienia.</string>
     <string name="import_qr_instruction">Skieruj aparat na kod QR</string>
-    <string name="import_token_instruction">Lub wklej token uwierzytelniania</string>
     <string name="import_token_label">Token uwierzytelniania</string>
     <string name="import_token_button">Importuj token</string>
     <string name="import_token_show">Wklej token uwierzytelniania</string>
@@ -235,4 +234,6 @@
     <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>
     <string name="widget_configure_title">Wybierz urządzenie dla widżetu</string>
     <string name="widget_configure_subtitle">Wybierz urządzenie wyświetlane przez ten widżet:</string>
+    <string name="try_demo_mode">Wypróbuj tryb demo</string>
+    <string name="demo_device_name">Urządzenie demonstracyjne</string>
 </resources>

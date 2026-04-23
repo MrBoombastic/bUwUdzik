@@ -17,7 +17,7 @@ import java.util.Locale
  * Battery: [saveSensorData] applies [BluetoothUtils.correctBatteryLevel] using the profile’s
  * [DeviceProfile.batteryType]. Raw advertising values often omit battery (e.g. 0xFF); those are
  * ignored so a previous valid reading is kept. While **connected**, GATT notifications carry only
- * temperature and humidity ([QPController.onSensorData]); battery continues to come from the
+ * temperature and humidity ([BleDeviceController.onSensorData]); battery continues to come from the
  * last scan/advertisement stored here.
  *
  * @param mac Device MAC address (used to namespace keys).

@@ -14,15 +14,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -70,6 +67,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -84,12 +82,12 @@ import com.mrboombastic.buwudzik.ui.components.NumberedStep
 import com.mrboombastic.buwudzik.ui.components.SmallButton
 import com.mrboombastic.buwudzik.ui.home.rememberDeviceSheetOverscrollConnection
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
+import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 private const val TAG = "HomeScreen"
 
@@ -114,6 +112,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
     }
     val dashboardOpenSheetNested = rememberDeviceSheetOverscrollConnection(
         activeDevice = activeDevice,
+        devices = devices,
         dashboardScroll = dashboardScroll,
         sheetOverscrollThresholdPx = sheetOverscrollThresholdPx,
         onOpenDeviceSheet = { deviceSwitcherOpen = true }
@@ -185,6 +184,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
             }) { padding ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (activeDevice != null) {
@@ -275,40 +275,22 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .let { if (activeDevice != null) it else it.padding(padding) },
+                        .let { m ->
+                            if (activeDevice != null) {
+                                // Top padding is manually applied to the chip above; we still need
+                                // the bottom padding so scrollable content doesn't hide under the FAB.
+                                m.padding(bottom = padding.calculateBottomPadding())
+                            } else {
+                                m.padding(padding)
+                            }
+                        },
                     scrollState = dashboardScroll,
                     openSheetNestedScroll = dashboardOpenSheetNested
                 )
             }
         }
 
-        if (activeDevice != null) {
-            val densityForSwipe = LocalDensity.current
-            val homeSwipeOpenPx = remember(densityForSwipe) {
-                with(densityForSwipe) { 56.dp.toPx() }
-            }
-            var homeSwipeAccum by remember { mutableFloatStateOf(0f) }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(0.55f)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 8.dp)
-                    .height(88.dp)
-                    .pointerInput(homeSwipeOpenPx) {
-                        detectVerticalDragGestures(
-                            onDragStart = { homeSwipeAccum = 0f },
-                            onVerticalDrag = { _, dragAmount ->
-                                homeSwipeAccum += dragAmount
-                                if (homeSwipeAccum <= -homeSwipeOpenPx) {
-                                    homeSwipeAccum = 0f
-                                    deviceSwitcherOpen = true
-                                }
-                            }
-                        )
-                    }
-            )
-        }
+
 
         if (deviceSwitcherOpen) {
             ModalBottomSheet(
@@ -519,6 +501,8 @@ fun Dashboard(
     Column(
         modifier = modifier
             .padding(16.dp)
+            .fillMaxHeight()
+            .adaptiveContentWidth()
             .let { m ->
                 if (openSheetNestedScroll != null) m.nestedScroll(openSheetNestedScroll)
                 else m
@@ -618,14 +602,14 @@ fun Dashboard(
                 )
             }
             Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.temperature)}°C",
+                text = "${String.format(LocalLocale.current.platformLocale, "%.1f", sensorData.temperature)}°C",
                 fontSize = 64.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.humidity)}%",
+                text = "${String.format(LocalLocale.current.platformLocale, "%.1f", sensorData.humidity)}%",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary
@@ -645,7 +629,7 @@ fun Dashboard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
-            val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+            val dateFormat = SimpleDateFormat("HH:mm:ss", LocalLocale.current.platformLocale)
             val timeString = dateFormat.format(Date(sensorData.timestamp))
             Text(
                 text = stringResource(R.string.last_update_label, timeString),

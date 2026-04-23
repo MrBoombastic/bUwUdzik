@@ -183,7 +183,6 @@
     <string name="import_device_title">Importa dispositivo</string>
     <string name="share_qr_instruction">Scansiona questo codice QR su un altro dispositivo per importare le impostazioni.</string>
     <string name="import_qr_instruction">Punta la fotocamera verso il codice QR</string>
-    <string name="import_token_instruction">Oppure incolla il token di autenticazione</string>
     <string name="import_token_label">Token di autenticazione</string>
     <string name="import_token_button">Importa token</string>
     <string name="import_token_show">Incolla token di autenticazione</string>
@@ -235,5 +234,7 @@
     <string name="device_sheet_swipe_hint_got_it">Ho capito</string>
     <string name="widget_configure_title">Scegli il dispositivo per il widget</string>
     <string name="widget_configure_subtitle">Seleziona il dispositivo mostrato da questo widget:</string>
+    <string name="try_demo_mode">Prova la modalità demo</string>
+    <string name="demo_device_name">Dispositivo demo</string>
 </resources>
 

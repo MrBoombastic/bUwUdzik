@@ -199,7 +199,6 @@
     <string name="import_device_title">Import Device</string>
     <string name="share_qr_instruction">Scan this QR code on another device to import settings.</string>
     <string name="import_qr_instruction">Point camera at QR code</string>
-    <string name="import_token_instruction">Or paste authentication token</string>
     <string name="import_token_label">Authentication token</string>
     <string name="import_token_button">Import token</string>
     <string name="import_token_show">Paste auth token</string>
@@ -253,4 +252,6 @@
     <string name="device_sheet_swipe_hint_got_it">Got it</string>
     <string name="widget_configure_title">Choose device for widget</string>
     <string name="widget_configure_subtitle">Select which device this widget will display:</string>
+    <string name="try_demo_mode">Try Demo Mode</string>
+    <string name="demo_device_name">Demo Fake Device</string>
 </resources>

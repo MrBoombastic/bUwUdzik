@@ -63,6 +63,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.set
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import androidx.navigation.NavController
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
@@ -109,14 +110,18 @@ fun DeviceSharingScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+                .padding(padding),
+            columnModifier = Modifier
+                .padding(horizontal = 16.dp)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)
+            ) {
             item {
                 InstructionCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -202,6 +207,7 @@ fun DeviceSharingScreen(
             }
         }
     }
+}
 }
 
 @Composable

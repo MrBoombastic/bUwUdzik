@@ -39,24 +39,19 @@ data class GitHubAsset(
     @SerialName("browser_download_url") val browserDownloadURL: String
 )
 
-data class UpdateCheckResult(
-    val updateAvailable: Boolean,
-    val latestVersion: String,
-    val currentVersion: String,
-    val downloadUrl: String? = null,
-    val changelog: String? = null
-)
-
-class UpdateChecker(private val context: Context) {
+abstract class GitHubUpdateChecker(
+    protected val context: Context,
+    private val includePrerelease: Boolean,
+    private val apkNameHint: String
+) : UpdateManager {
 
     companion object {
-        private const val TAG = "UpdateChecker"
+        private const val TAG = "GitHubUpdateChecker"
         private const val GITHUB_API_LATEST_STABLE_URL =
-            "https://api.github.com/repos/MrBoombastic/bUwUdzik/releases/latest"
+            "https://api.github.com/repos/MrBoombastic/clOwOck/releases/latest"
         private const val GITHUB_API_RELEASES_URL =
-            "https://api.github.com/repos/MrBoombastic/bUwUdzik/releases?per_page=100"
+            "https://api.github.com/repos/MrBoombastic/clOwOck/releases?per_page=100"
 
-        /** v3: DEFAULT importance so progress appears in the status bar / shade. */
         private const val NOTIFICATION_CHANNEL_ID = "update_download_channel_v3"
         private const val NOTIFICATION_ID = 1001
         private const val INDETERMINATE_NOTIFY_INTERVAL_MS = 750L
@@ -72,13 +67,7 @@ class UpdateChecker(private val context: Context) {
         }
     }
 
-    /**
-     * Check for updates without downloading.
-     * Returns information about available updates.
-     */
-    suspend fun checkForUpdates(
-        includePrerelease: Boolean = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
-    ): UpdateCheckResult = withContext(Dispatchers.IO) {
+    override suspend fun checkForUpdates(): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
             val release = if (includePrerelease) {
                 client.get(GITHUB_API_RELEASES_URL).body<List<GitHubRelease>>()
@@ -89,7 +78,7 @@ class UpdateChecker(private val context: Context) {
             }
             AppLogger.d(
                 TAG,
-                "Latest ${if (includePrerelease) "stable/canary" else "stable"} release: ${release.tagName} (prerelease=${release.prerelease})"
+                "Latest ${if (includePrerelease) "canary" else "stable"} release: ${release.tagName} (prerelease=${release.prerelease})"
             )
 
             val latestVersion = release.tagName.removePrefix("v")
@@ -100,27 +89,16 @@ class UpdateChecker(private val context: Context) {
             val fakeCurrent = BuildConfig.UPDATE_CHECK_DEBUG_FAKE_VERSION
             val currentVersion =
                 if (fakeCurrent.isNotEmpty()) {
-                    AppLogger.d(
-                        TAG,
-                        "Debug: update check uses fake current version $fakeCurrent (installed $packageVersion)"
-                    )
                     fakeCurrent
                 } else {
                     packageVersion
                 }
 
             val updateAvailable = isNewerVersion(latestVersion, currentVersion)
-            val isCanaryFlavor = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
-            val preferredNameHints = if (isCanaryFlavor) {
-                listOf("canary-release")
-            } else {
-                listOf("clowock-release")
-            }
-            val downloadUrl = preferredNameHints.firstNotNullOfOrNull { hint ->
-                release.assets.firstOrNull { asset ->
-                    asset.name.endsWith(".apk") && asset.name.contains(hint, ignoreCase = true)
-                }?.browserDownloadURL
-            }
+
+            val downloadUrl = release.assets.firstOrNull { asset ->
+                asset.name.endsWith(".apk") && asset.name.contains(apkNameHint, ignoreCase = true)
+            }?.browserDownloadURL
                 ?: release.assets.firstOrNull { it.name.endsWith(".apk") }?.browserDownloadURL
 
             UpdateCheckResult(
@@ -136,11 +114,7 @@ class UpdateChecker(private val context: Context) {
         }
     }
 
-    /**
-     * Download and install an update from the given URL.
-     * Shows a notification with download progress.
-     */
-    suspend fun downloadAndInstall(url: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun downloadAndInstall(url: String): Boolean = withContext(Dispatchers.IO) {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -149,12 +123,9 @@ class UpdateChecker(private val context: Context) {
 
             val file = File(context.cacheDir, "clowock-update.apk")
 
-            // Delete old APK if exists
             if (file.exists()) {
                 file.delete()
             }
-
-            AppLogger.d(TAG, "Starting download from: $url")
 
             showDownloadStartingNotification(notificationManager)
 
@@ -205,7 +176,6 @@ class UpdateChecker(private val context: Context) {
                 }
             }
 
-            AppLogger.d(TAG, "Download complete, launching installer")
             showCompletionNotification(notificationManager)
             launchInstaller(file)
             true
@@ -274,7 +244,6 @@ class UpdateChecker(private val context: Context) {
         if (contentLength <= 0) return
         val safeDownloaded = downloadedBytes.coerceIn(0L, contentLength)
         val totalBytes = contentLength.coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
-        // Notification APIs need Int progress; Long.toInt() truncates past Int.MAX_VALUE (wrong / negative).
         val progressForBar = if (contentLength <= Int.MAX_VALUE.toLong()) {
             safeDownloaded.toInt().coerceIn(0, totalBytes)
         } else {
@@ -300,7 +269,6 @@ class UpdateChecker(private val context: Context) {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
 
-        // ProgressStyle is API 36 (BAKLAVA). minSdk 34 still includes 34–35 → classic progress.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
             builder.style = Notification.ProgressStyle()
                 .setStyledByProgress(true)
@@ -333,11 +301,6 @@ class UpdateChecker(private val context: Context) {
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
-    /**
-     * Creates a base notification builder with a common configuration.
-     * This consolidates the channel ID and provides a single point
-     * to add common notification properties in the future.
-     */
     private fun createBaseNotificationBuilder(): Notification.Builder {
         return Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
     }
@@ -364,31 +327,22 @@ class UpdateChecker(private val context: Context) {
                 if (latestPart < currentPart) return false
             }
         } catch (e: Exception) {
-            AppLogger.e(
-                TAG,
-                "Failed to parse version names: latest=$latestVersion, current=$currentVersion",
-                e
-            )
             return false
         }
         return false
     }
 
     private fun parseVersion(version: String): List<Int> {
-        // Accept forms like "1.8.0", "1.8.0-canary", "v1.8.0-rc.1".
         val parts = Regex("\\d+").findAll(version).map { it.value.toIntOrNull() ?: 0 }.toList()
         return parts.ifEmpty { listOf(0) }
     }
 
-    /**
-     * If a Markdown heading containing "changelog" exists, returns only that section
-     * until the next heading. Otherwise, returns the full body as a fallback.
-     */
     private fun extractChangelogForDisplay(body: String?): String? {
         val normalized = body?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
         val lines = normalized.lines()
         val headingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*$", RegexOption.IGNORE_CASE)
-        val changelogHeadingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*changelog.*$", RegexOption.IGNORE_CASE)
+        val changelogHeadingRegex =
+            Regex("^\\s{0,3}#{1,6}\\s+.*changelog.*$", RegexOption.IGNORE_CASE)
 
         val startIndex = lines.indexOfFirst { changelogHeadingRegex.matches(it) }
         if (startIndex < 0) return normalized
@@ -405,14 +359,7 @@ class UpdateChecker(private val context: Context) {
         return section.ifEmpty { normalized }
     }
 
-    /**
-     * Close the HTTP client when done.
-     * Call this when the UpdateChecker is no longer needed.
-     */
-    fun close() {
+    override fun close() {
         client.close()
     }
 }
-
-
-

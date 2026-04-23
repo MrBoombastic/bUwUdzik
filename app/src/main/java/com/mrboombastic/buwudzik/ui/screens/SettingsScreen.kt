@@ -55,12 +55,14 @@ import com.mrboombastic.buwudzik.BuildConfig
 import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.UpdateCheckResult
-import com.mrboombastic.buwudzik.UpdateChecker
+import com.mrboombastic.buwudzik.UpdateManager
+import com.mrboombastic.buwudzik.create
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
@@ -215,10 +217,11 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
         })
     }) { padding ->
-        Column(
+        AdaptiveScreen(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            columnModifier = Modifier
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -319,30 +322,32 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
+            if (BuildConfig.ALLOW_CUSTOM_UPDATES) {
+                Spacer(Modifier.height(16.dp))
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.auto_update_check_label),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = stringResource(R.string.auto_update_check_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.auto_update_check_label),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = stringResource(R.string.auto_update_check_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = autoUpdateCheckEnabled,
+                        onCheckedChange = {
+                            autoUpdateCheckEnabled = it
+                            repository.autoUpdateCheckEnabled = it
+                        }
                     )
                 }
-                Switch(
-                    checked = autoUpdateCheckEnabled,
-                    onCheckedChange = {
-                        autoUpdateCheckEnabled = it
-                        repository.autoUpdateCheckEnabled = it
-                    }
-                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -460,9 +465,9 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             val downloadUrl = updateResult?.downloadUrl
                             if (downloadUrl != null) {
                                 coroutineScope.launch {
-                                    val updateChecker = UpdateChecker(appContext)
-                                    updateChecker.downloadAndInstall(downloadUrl)
-                                    updateChecker.close()
+                                    val updateManager = UpdateManager.create()
+                                    updateManager.downloadAndInstall(downloadUrl)
+                                    updateManager.close()
                                 }
                             }
                         }) {
@@ -521,58 +526,60 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 Text(stringResource(R.string.github_label))
             }
 
-            // Check for Updates
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    isCheckingUpdates = true
-                    coroutineScope.launch {
-                        try {
-                            val updateChecker = UpdateChecker(appContext)
-                            val result = try {
-                                updateChecker.checkForUpdates()
-                            } finally {
-                                updateChecker.close()
-                            }
+            if (BuildConfig.ALLOW_CUSTOM_UPDATES) {
+                // Check for Updates
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        isCheckingUpdates = true
+                        coroutineScope.launch {
+                            try {
+                                val updateManager = UpdateManager.create()
+                                val result = try {
+                                    updateManager.checkForUpdates()
+                                } finally {
+                                    updateManager.close()
+                                }
 
-                            withContext(Dispatchers.Main) {
-                                isCheckingUpdates = false
-                                if (result.updateAvailable) {
-                                    updateResult = result
-                                    showUpdateDialog = true
-                                } else {
-                                    snackbarHostState.showSnackbar(
-                                        appContext.getString(R.string.no_updates_available),
-                                        duration = SnackbarDuration.Long
-                                    )
+                                withContext(Dispatchers.Main) {
+                                    isCheckingUpdates = false
+                                    if (result.updateAvailable) {
+                                        updateResult = result
+                                        showUpdateDialog = true
+                                    } else {
+                                        snackbarHostState.showSnackbar(
+                                            appContext.getString(R.string.no_updates_available),
+                                            duration = SnackbarDuration.Long
+                                        )
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                AppLogger.e("SettingsScreen", "Error checking for updates", e)
+                                withContext(Dispatchers.Main) {
+                                    isCheckingUpdates = false
+                                    snackbarHostState.showSnackbar(appContext.getString(R.string.update_error))
                                 }
                             }
-                        } catch (e: Exception) {
-                            AppLogger.e("SettingsScreen", "Error checking for updates", e)
-                            withContext(Dispatchers.Main) {
-                                isCheckingUpdates = false
-                                snackbarHostState.showSnackbar(appContext.getString(R.string.update_error))
-                            }
                         }
+                    }, enabled = !isCheckingUpdates, modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isCheckingUpdates) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
                     }
-                }, enabled = !isCheckingUpdates, modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isCheckingUpdates) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                    Text(
+                        text = if (isCheckingUpdates) stringResource(R.string.checking_updates)
+                        else stringResource(R.string.check_updates_label)
                     )
                 }
-                Text(
-                    text = if (isCheckingUpdates) stringResource(R.string.checking_updates)
-                    else stringResource(R.string.check_updates_label)
-                )
             }
 
 
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEBUG && BuildConfig.FLAVOR.contains("canary", ignoreCase = true)) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
@@ -581,6 +588,13 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(stringResource(R.string.debug_saved_data_nav))
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { navController.navigate("fake-clock") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Fake Clock (Debug & Canary)")
                 }
             }
 
@@ -602,7 +616,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 cal.set(java.util.Calendar.MINUTE, 37)
                                 cal.set(java.util.Calendar.SECOND, 0)
                                 val timestamp = cal.timeInMillis / 1000
-                                val success = viewModel.qpController.synchronizeTime(timestamp)
+                                val success = viewModel.deviceController.synchronizeTime(timestamp)
                                 if (success) {
                                     snackbarHostState.showSnackbar(successMsg)
                                 } else {

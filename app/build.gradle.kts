@@ -8,6 +8,14 @@ plugins {
 }
 
 
+configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
+    beforeVariants { variant ->
+        if (variant.name == "canaryRelease") {
+            variant.enable = false
+        }
+    }
+}
+
 configure<ApplicationExtension> {
     val canaryBuild = providers.gradleProperty("CANARY_BUILD").orNull
     namespace = "com.mrboombastic.buwudzik"
@@ -19,8 +27,8 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.8.1"
+        versionCode = 30
+        versionName = "1.9.0"
         buildConfigField(
             "String",
             "WIDGET_UPDATE_ACTION",
@@ -35,12 +43,18 @@ configure<ApplicationExtension> {
         create("stable") {
             dimension = "distribution"
             isDefault = true
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "false")
         }
         create("canary") {
             dimension = "distribution"
             applicationIdSuffix = ".canary"
             versionNameSuffix =
                 if (canaryBuild.isNullOrBlank()) "-canary" else "-canary.$canaryBuild"
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "true")
             buildConfigField(
                 "String",
                 "WIDGET_UPDATE_ACTION",
@@ -48,6 +62,20 @@ configure<ApplicationExtension> {
             )
             manifestPlaceholders["widgetUpdateAction"] =
                 "com.mrboombastic.buwudzik.canary.ACTION_UPDATE_WIDGET"
+        }
+    }
+
+    sourceSets {
+        getByName("stable") {
+            kotlin.directories.add("src/stable/java")
+            kotlin.directories.add("src/full/java")
+        }
+        getByName("canary") {
+            kotlin.directories.add("src/canary/java")
+            kotlin.directories.add("src/full/java")
+        }
+        getByName("play") {
+            kotlin.directories.add("src/play/java")
         }
     }
 
@@ -63,6 +91,7 @@ configure<ApplicationExtension> {
         }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             buildConfigField(
                 "String",
                 "UPDATE_CHECK_DEBUG_FAKE_VERSION",
@@ -74,6 +103,7 @@ configure<ApplicationExtension> {
             )
         }
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
