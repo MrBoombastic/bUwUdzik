@@ -43,12 +43,18 @@ configure<ApplicationExtension> {
         create("stable") {
             dimension = "distribution"
             isDefault = true
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "false")
         }
         create("canary") {
             dimension = "distribution"
             applicationIdSuffix = ".canary"
             versionNameSuffix =
                 if (canaryBuild.isNullOrBlank()) "-canary" else "-canary.$canaryBuild"
+            buildConfigField("Boolean", "ALLOW_CUSTOM_UPDATES", "true")
             buildConfigField(
                 "String",
                 "WIDGET_UPDATE_ACTION",
@@ -56,6 +62,15 @@ configure<ApplicationExtension> {
             )
             manifestPlaceholders["widgetUpdateAction"] =
                 "com.mrboombastic.buwudzik.canary.ACTION_UPDATE_WIDGET"
+        }
+    }
+
+    sourceSets {
+        getByName("stable") {
+            java.srcDirs("src/full/java")
+        }
+        getByName("canary") {
+            java.srcDirs("src/full/java")
         }
     }
 

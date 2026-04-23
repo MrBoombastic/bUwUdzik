@@ -39,15 +39,7 @@ data class GitHubAsset(
     @SerialName("browser_download_url") val browserDownloadURL: String
 )
 
-data class UpdateCheckResult(
-    val updateAvailable: Boolean,
-    val latestVersion: String,
-    val currentVersion: String,
-    val downloadUrl: String? = null,
-    val changelog: String? = null
-)
-
-class UpdateChecker(private val context: Context) {
+class UpdateChecker(private val context: Context) : UpdateManager {
 
     companion object {
         private const val TAG = "UpdateChecker"
@@ -76,8 +68,8 @@ class UpdateChecker(private val context: Context) {
      * Check for updates without downloading.
      * Returns information about available updates.
      */
-    suspend fun checkForUpdates(
-        includePrerelease: Boolean = BuildConfig.FLAVOR.contains("canary", ignoreCase = true)
+    override suspend fun checkForUpdates(
+        includePrerelease: Boolean
     ): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
             val release = if (includePrerelease) {
@@ -140,7 +132,7 @@ class UpdateChecker(private val context: Context) {
      * Download and install an update from the given URL.
      * Shows a notification with download progress.
      */
-    suspend fun downloadAndInstall(url: String): Boolean = withContext(Dispatchers.IO) {
+    override suspend fun downloadAndInstall(url: String): Boolean = withContext(Dispatchers.IO) {
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -388,7 +380,8 @@ class UpdateChecker(private val context: Context) {
         val normalized = body?.trim().takeUnless { it.isNullOrEmpty() } ?: return null
         val lines = normalized.lines()
         val headingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*$", RegexOption.IGNORE_CASE)
-        val changelogHeadingRegex = Regex("^\\s{0,3}#{1,6}\\s+.*changelog.*$", RegexOption.IGNORE_CASE)
+        val changelogHeadingRegex =
+            Regex("^\\s{0,3}#{1,6}\\s+.*changelog.*$", RegexOption.IGNORE_CASE)
 
         val startIndex = lines.indexOfFirst { changelogHeadingRegex.matches(it) }
         if (startIndex < 0) return normalized
@@ -409,10 +402,7 @@ class UpdateChecker(private val context: Context) {
      * Close the HTTP client when done.
      * Call this when the UpdateChecker is no longer needed.
      */
-    fun close() {
+    override fun close() {
         client.close()
     }
 }
-
-
-

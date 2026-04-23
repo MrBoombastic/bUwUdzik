@@ -58,12 +58,12 @@ import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.screens.AlarmManagementScreen
 import com.mrboombastic.buwudzik.ui.screens.DebugSavedDataScreen
-import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceImportScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
+import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.HomeScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
@@ -330,6 +330,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     LaunchedEffect(Unit) {
+                        if (!BuildConfig.ALLOW_CUSTOM_UPDATES) return@LaunchedEffect
                         if (!settingsRepository.autoUpdateCheckEnabled) return@LaunchedEffect
                         val now = System.currentTimeMillis()
                         if (now - settingsRepository.lastAutoUpdateCheckMs < AUTO_UPDATE_CHECK_INTERVAL_MS) {
@@ -338,11 +339,16 @@ class MainActivity : AppCompatActivity() {
                         // Enforce at-most-once-per-day attempts even if the request fails.
                         settingsRepository.lastAutoUpdateCheckMs = now
                         try {
-                            val updateChecker = UpdateChecker(applicationContext)
+                            val updateManager = UpdateManager.create(applicationContext)
                             val result = try {
-                                updateChecker.checkForUpdates()
+                                updateManager.checkForUpdates(
+                                    includePrerelease = BuildConfig.FLAVOR.contains(
+                                        "canary",
+                                        ignoreCase = true
+                                    )
+                                )
                             } finally {
-                                updateChecker.close()
+                                updateManager.close()
                             }
                             if (result.updateAvailable) {
                                 startupUpdateResult = result
@@ -394,9 +400,10 @@ class MainActivity : AppCompatActivity() {
                                         val downloadUrl =
                                             startupUpdateResult?.downloadUrl ?: return@TextButton
                                         CoroutineScope(Dispatchers.IO).launch {
-                                            val updateChecker = UpdateChecker(applicationContext)
-                                            updateChecker.downloadAndInstall(downloadUrl)
-                                            updateChecker.close()
+                                            val updateManager =
+                                                UpdateManager.create(applicationContext)
+                                            updateManager.downloadAndInstall(downloadUrl)
+                                            updateManager.close()
                                         }
                                     }
                                 ) {
