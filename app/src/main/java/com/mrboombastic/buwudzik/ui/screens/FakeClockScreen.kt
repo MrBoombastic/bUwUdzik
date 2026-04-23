@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -29,6 +28,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -39,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
@@ -58,7 +57,7 @@ import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 fun FakeClockScreen(navController: NavController, viewModel: MainViewModel) {
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val sensorData by viewModel.sensorData.collectAsState()
-    val isFakeActive = deviceConnected && sensorData?.macAddress == "DE:AD:BE:EF:CA:FE"
+    val isFakeActive = deviceConnected && sensorData?.macAddress == MainViewModel.FAKE_MAC
 
     // Configurable fake values
     var fakeName by remember { mutableStateOf("Fake clOwOck") }
@@ -67,6 +66,20 @@ fun FakeClockScreen(navController: NavController, viewModel: MainViewModel) {
     var battery by remember { mutableIntStateOf(72) }
     var rssi by remember { mutableIntStateOf(-65) }
     var alarmCount by remember { mutableIntStateOf(3) }
+
+    // Inject immediately if not active
+    LaunchedEffect(isFakeActive) {
+        if (!isFakeActive) {
+            viewModel.injectFakeDevice(
+                name = fakeName.ifBlank { "Fake clOwOck" },
+                temperature = temperature.toDouble(),
+                humidity = humidity.toDouble(),
+                battery = battery,
+                rssi = rssi,
+                alarmCount = alarmCount,
+            )
+        }
+    }
 
     Scaffold(
         topBar = {

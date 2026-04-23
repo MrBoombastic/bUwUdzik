@@ -14,15 +14,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -276,40 +273,22 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .let { if (activeDevice != null) it else it.padding(padding) },
+                        .let { m ->
+                            if (activeDevice != null) {
+                                // Top padding is manually applied to the chip above; we still need
+                                // the bottom padding so scrollable content doesn't hide under the FAB.
+                                m.padding(bottom = padding.calculateBottomPadding())
+                            } else {
+                                m.padding(padding)
+                            }
+                        },
                     scrollState = dashboardScroll,
                     openSheetNestedScroll = dashboardOpenSheetNested
                 )
             }
         }
 
-        if (activeDevice != null) {
-            val densityForSwipe = LocalDensity.current
-            val homeSwipeOpenPx = remember(densityForSwipe) {
-                with(densityForSwipe) { 56.dp.toPx() }
-            }
-            var homeSwipeAccum by remember { mutableFloatStateOf(0f) }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(0.55f)
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(bottom = 8.dp)
-                    .height(88.dp)
-                    .pointerInput(homeSwipeOpenPx) {
-                        detectVerticalDragGestures(
-                            onDragStart = { homeSwipeAccum = 0f },
-                            onVerticalDrag = { _, dragAmount ->
-                                homeSwipeAccum += dragAmount
-                                if (homeSwipeAccum <= -homeSwipeOpenPx) {
-                                    homeSwipeAccum = 0f
-                                    deviceSwitcherOpen = true
-                                }
-                            }
-                        )
-                    }
-            )
-        }
+
 
         if (deviceSwitcherOpen) {
             ModalBottomSheet(
@@ -527,7 +506,7 @@ fun Dashboard(
             }
             .verticalScroll(scroll),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
         if (!isBluetoothEnabled) {
             Text(

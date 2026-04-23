@@ -116,11 +116,8 @@ class QPController(private val context: Context) {
     // Token storage for persistence
     private val tokenStorage = TokenStorage(context)
 
-    // Mock state for demo device (only used if currentDeviceMac == MOCK_MAC)
-    private val mockAlarms = mutableListOf<Alarm>().apply {
-        add(Alarm(0, true, 7, 30, 0x1F, false))
-        add(Alarm(1, false, 9, 0, 0x60, true))
-    }
+    // Mock state for demo device
+    private val mockAlarms = mutableListOf<Alarm>()
     private var mockSettings = DeviceSettings(
         volume = 3,
         backlightDuration = 10,
@@ -129,12 +126,28 @@ class QPController(private val context: Context) {
         nightModeEnabled = true,
         firmwareVersion = "1.0.0-DEMO"
     )
+    private var mockSensorTemp = 22.0
+    private var mockSensorHum = 45.0
 
-    fun setupMockState(
-        temperature: Double,
-        humidity: Double,
-        alarmCount: Int
+    /**
+     * Transitions the controller into a mock state for the demo device.
+     * Bypasses real BLE connections and authentication.
+     * Also ensures a fake token is stored so the export / sharing screen can
+     * generate a QR code without showing "no token for device".
+     */
+    fun setupMockDevice(
+        mac: String = MOCK_MAC,
+        temperature: Double = 22.0,
+        humidity: Double = 45.0,
+        alarmCount: Int = 3
     ) {
+        currentDeviceMac = mac
+        isConnected = true
+        isAuthenticated = true
+
+        mockSensorTemp = temperature
+        mockSensorHum = humidity
+        
         mockAlarms.clear()
         mockAlarms.addAll(List(alarmCount) { idx ->
             Alarm(
@@ -142,17 +155,27 @@ class QPController(private val context: Context) {
                 enabled = idx % 2 == 0,
                 hour = 6 + idx * 2,
                 minute = idx * 15 % 60,
-                days = if (idx == 0) 0 else 0x1F, // once / weekdays
+                days = if (idx == 0) 0 else 0x1F,
                 snooze = idx == 1,
                 title = if (idx == 0) "Wake up" else ""
             )
         })
-        mockSensorTemp = temperature
-        mockSensorHum = humidity
+
+        // Persist a fixed demo token so TokenStorage.getTokenHex() never returns null
+        // for the fake device. Only written once; subsequent calls are no-ops.
+        if (!tokenStorage.isPaired(mac)) {
+            val fakeToken = byteArrayOf(
+                0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte(),
+                0xCA.toByte(), 0xFE.toByte(), 0xBA.toByte(), 0xBE.toByte(),
+                0x00.toByte(), 0x11.toByte(), 0x22.toByte(), 0x33.toByte(),
+                0x44.toByte(), 0x55.toByte(), 0x66.toByte(), 0x77.toByte()
+            )
+            tokenStorage.storeToken(mac, fakeToken)
+            AppLogger.d(TAG, "Stored fake demo token for $mac")
+        }
+        AppLogger.d(TAG, "Controller set to mock mode for $mac")
     }
-    
-    private var mockSensorTemp = 22.0
-    private var mockSensorHum = 45.0
+
 
     // Current device being connected to
     private var currentDeviceMac: String? = null
@@ -705,13 +728,6 @@ class QPController(private val context: Context) {
         }
     }
 
-    suspend fun connectMockDevice(mac: String): Boolean {
-        currentDeviceMac = mac
-        isAuthenticated = true
-        startMockSensorLoop()
-        return true
-    }
-
     @Suppress("SameReturnValue")
     suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
         // Prepare a token for this device (generate new if fresh pairing, use stored if already paired)
@@ -840,11 +856,7 @@ class QPController(private val context: Context) {
     }
 
     suspend fun synchronizeTime(timestamp: Long = System.currentTimeMillis() / 1000): Boolean {
-        if (currentDeviceMac == MOCK_MAC) {
-            val date = java.util.Date(timestamp * 1000)
-            AppLogger.d(TAG, "[MOCK] Synchronizing time to: $date (Unix: $timestamp)")
-            return true
-        }
+        if (currentDeviceMac == MOCK_MAC) return true
         return gattMutex.withLock {
             withContext(NonCancellable) {
                 suspendCancellableCoroutine { continuation ->
@@ -1258,13 +1270,15 @@ class QPController(private val context: Context) {
     private fun startMockSensorLoop() {
         mockSensorJob?.cancel()
         mockSensorJob = scope.launch {
+            var temp = 22.0
+            var hum = 45.0
             while (isActive) {
-                mockSensorTemp += (-5..5).random() / 10.0
-                mockSensorHum += (-10..10).random() / 10.0
-                mockSensorTemp = mockSensorTemp.coerceIn(15.0, 30.0)
-                mockSensorHum = mockSensorHum.coerceIn(20.0, 80.0)
-                
-                onSensorData?.invoke(mockSensorTemp.toFloat(), mockSensorHum.toFloat())
+                temp += (-5..5).random() / 10.0
+                hum += (-10..10).random() / 10.0
+                temp = temp.coerceIn(15.0, 30.0)
+                hum = hum.coerceIn(20.0, 80.0)
+
+                onSensorData?.invoke(temp.toFloat(), hum.toFloat())
                 delay(5000)
             }
         }
@@ -1582,6 +1596,16 @@ class QPController(private val context: Context) {
     suspend fun uploadRingtone(
         pcmData: ByteArray, targetSignature: ByteArray, onProgress: (Float) -> Unit
     ): Boolean {
+        if (currentDeviceMac == MOCK_MAC) {
+            AppLogger.d(TAG, "Mocking ringtone upload...")
+            val steps = 20
+            for (i in 1..steps) {
+                delay(200)
+                onProgress(i.toFloat() / steps)
+            }
+            return true
+        }
+
         // Don't use gattMutex here - it causes blocking issues
         val currentGatt = gatt ?: run {
             AppLogger.e(TAG, "GATT not connected")

@@ -21,9 +21,9 @@ fun rememberDeviceSheetOverscrollConnection(
     sheetOverscrollThresholdPx: Float,
     onOpenDeviceSheet: () -> Unit,
 ): NestedScrollConnection {
-    val homeOverscrollAccum = remember { mutableFloatStateOf(0f) }
     val openSheetLatest = rememberUpdatedState(onOpenDeviceSheet)
     return remember(activeDevice, sheetOverscrollThresholdPx, dashboardScroll) {
+        val homeOverscrollAccum = mutableFloatStateOf(0f)
         object : NestedScrollConnection {
             override fun onPostScroll(
                 consumed: Offset,
@@ -34,15 +34,17 @@ fun rememberDeviceSheetOverscrollConnection(
                     homeOverscrollAccum.floatValue = 0f
                     return Offset.Zero
                 }
-                if (dashboardScroll.maxValue <= 0) {
-                    homeOverscrollAccum.floatValue = 0f
-                    return Offset.Zero
-                }
+
                 if (dashboardScroll.canScrollForward) {
                     homeOverscrollAccum.floatValue = 0f
                     return Offset.Zero
                 }
-                if (available.y < 0f) {
+                if (available.y > 0f) {
+                    homeOverscrollAccum.floatValue = 0f
+                    return Offset.Zero
+                }
+
+                if (available.y < 0f && source == NestedScrollSource.Drag) {
                     homeOverscrollAccum.floatValue += -available.y
                     if (homeOverscrollAccum.floatValue >= sheetOverscrollThresholdPx) {
                         homeOverscrollAccum.floatValue = 0f

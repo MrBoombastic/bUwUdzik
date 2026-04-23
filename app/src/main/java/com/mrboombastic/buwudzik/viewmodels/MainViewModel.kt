@@ -35,14 +35,17 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val TAG = "MainViewModel"
-
 class MainViewModel(
     private val scanner: BluetoothScanner,
     private val settingsRepository: SettingsRepository,
     private val deviceProfileRepository: DeviceProfileRepository,
     private val applicationContext: Context
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "MainViewModel"
+        const val FAKE_MAC = "DE:AD:BE:EF:CA:FE"
+    }
 
     private fun sensorRepo() = SensorRepository(
         applicationContext,
@@ -146,7 +149,7 @@ class MainViewModel(
 
     fun checkPairingStatus() {
         val mac = activeMac
-        _isPaired.value = mac.isNotEmpty() && qpController.isDevicePaired(mac)
+        _isPaired.value = mac == FAKE_MAC || (mac.isNotEmpty() && qpController.isDevicePaired(mac))
     }
 
     fun deviceSheetSwipeHintAlreadyShown(): Boolean = settingsRepository.deviceSheetSwipeHintShown
@@ -178,7 +181,11 @@ class MainViewModel(
                 AppLogger.d(TAG, "Active device changed to $mac, resetting UI and connections")
                 stopActiveConnection()
                 updateActiveDeviceUiState()
-                if (mac != null && _isBluetoothEnabled.value) {
+                if (mac != null && !mac.equals(
+                        FAKE_MAC,
+                        ignoreCase = true
+                    ) && _isBluetoothEnabled.value
+                ) {
                     startScanning()
                 }
             }
@@ -187,6 +194,11 @@ class MainViewModel(
 
     /** Reset cached device UI when there is no selected profile (e.g. all devices removed). */
     private fun updateActiveDeviceUiState() {
+        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+            AppLogger.d(TAG, "Fake device selected, initializing mock state")
+            initializeMockState()
+            return
+        }
         _sensorData.value = if (activeMac.isNotEmpty()) sensorRepo().getSensorData() else null
         _alarms.value = emptyList()
         _deviceSettings.value = null
@@ -198,7 +210,7 @@ class MainViewModel(
 
     fun updateBluetoothState(enabled: Boolean) {
         _isBluetoothEnabled.value = enabled
-        if (enabled) {
+        if (enabled && !activeMac.equals(FAKE_MAC, ignoreCase = true)) {
             startScanning()
         } else {
             scanJob?.cancel()
@@ -209,12 +221,18 @@ class MainViewModel(
     private fun stopActiveConnection() {
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
+        scanJob?.cancel(); scanJob = null
         qpController.disconnect()
         _deviceConnected.value = false
         _deviceConnecting.value = false
     }
 
     fun startScanning() {
+        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+            AppLogger.d(TAG, "Fake device active, skipping scan.")
+            return
+        }
+
         if (scanJob?.isActive == true) {
             AppLogger.v(TAG, "Scan already active, ignoring start request.")
             return
@@ -243,6 +261,7 @@ class MainViewModel(
     }
 
     fun restartScanning() {
+        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) return
         AppLogger.d(TAG, "Restarting scan...")
         scanJob?.cancel()
         scanJob = null
@@ -408,6 +427,22 @@ class MainViewModel(
     fun updateAlarm(alarm: Alarm, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
+                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+                    // Update controller mock state
+                    qpController.setAlarm(
+                        alarm.hour,
+                        alarm.minute,
+                        alarm.id,
+                        alarm.enabled,
+                        alarm.days,
+                        alarm.snooze
+                    )
+                    // Refresh local flow
+                    reloadAlarms()
+                    onResult(Result.success(Unit))
+                    return@launch
+                }
+
                 qpController.setAlarm(
                     hour = alarm.hour,
                     minute = alarm.minute,
@@ -429,6 +464,13 @@ class MainViewModel(
     fun deleteAlarm(alarmId: Int, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
+                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+                    qpController.deleteAlarm(alarmId)
+                    reloadAlarms()
+                    onResult(Result.success(Unit))
+                    return@launch
+                }
+
                 qpController.deleteAlarm(alarmId)
                 alarmTitleRepo().deleteTitle(alarmId)
                 reloadAlarms()
@@ -443,6 +485,13 @@ class MainViewModel(
     fun updateDeviceSettings(settings: DeviceSettings, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
+                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+                    // Simulate fake settings update
+                    _deviceSettings.value = settings
+                    onResult(Result.success(Unit))
+                    return@launch
+                }
+
                 val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
                 qpController.writeDeviceSettings(settings)
                 _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
@@ -487,43 +536,60 @@ class MainViewModel(
      */
     fun injectFakeDevice(
         name: String = "Fake clOwOck",
-        mac: String = "DE:AD:BE:EF:CA:FE",
+        mac: String = FAKE_MAC,
         temperature: Double = 21.5,
         humidity: Double = 55.0,
         battery: Int = 72,
         rssi: Int = -65,
         alarmCount: Int = 3,
     ) {
+        initializeMockState(name, mac, temperature, humidity, alarmCount, battery, rssi)
+    }
+
+    private fun initializeMockState(
+        name: String = "Fake clOwOck",
+        mac: String = FAKE_MAC,
+        temperature: Double = 21.5,
+        humidity: Double = 55.0,
+        alarmCount: Int = 3,
+        battery: Int = 72,
+        rssi: Int = -65
+    ) {
         scanJob?.cancel()
         scanJob = null
         stopActiveConnection()
+
+        qpController.setupMockDevice(mac, temperature, humidity, alarmCount)
 
         val profile = DeviceProfile(mac, name)
         addDevice(profile, makeActive = true)
 
         viewModelScope.launch {
             _deviceConnecting.value = true
-            qpController.setupMockState(temperature, humidity, alarmCount)
-            val success = qpController.connectMockDevice(mac)
-            if (success) {
-                _deviceConnected.value = true
-                _connectionError.value = null
-                checkPairingStatus()
+            // Mock connection is instantaneous
+            _deviceConnected.value = true
+            _connectionError.value = null
+            _isPaired.value = true
+            checkPairingStatus()
 
-                attachLiveSensorCallbacks()
+            attachLiveSensorCallbacks()
 
-                // Trigger manual callback for the initial values
-                qpController.onSensorData?.invoke(temperature.toFloat(), humidity.toFloat())
-                _sensorData.value = _sensorData.value?.copy(battery = battery, rssi = rssi)
+            // Trigger manual callback for the initial values
+            qpController.onSensorData?.invoke(temperature.toFloat(), humidity.toFloat())
+            _sensorData.value = SensorData(
+                name = name,
+                macAddress = mac,
+                temperature = temperature,
+                humidity = humidity,
+                battery = battery,
+                rssi = rssi,
+                timestamp = System.currentTimeMillis()
+            )
 
-                launch { loadDeviceMetadataAfterConnect() }
-            } else {
-                _deviceConnected.value = false
-                _connectionError.value = "Failed to connect mock device"
-            }
+            launch { loadDeviceMetadataAfterConnect() }
             _deviceConnecting.value = false
         }
-        AppLogger.d(TAG, "Fake device injected: $name @ $mac")
+        AppLogger.d(TAG, "Mock state initialized for $name @ $mac")
     }
 
     /**
@@ -536,7 +602,10 @@ class MainViewModel(
         _alarms.value = emptyList()
         _deviceSettings.value = null
         AppLogger.d(TAG, "Fake device cleared, restarting scan")
-        startScanning()
+
+        if (!activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+            startScanning()
+        }
     }
 
     override fun onCleared() {

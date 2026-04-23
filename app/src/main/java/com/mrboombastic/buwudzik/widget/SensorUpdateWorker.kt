@@ -11,6 +11,7 @@ import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.utils.AppLogger
+import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -34,7 +35,9 @@ class SensorUpdateWorker(
         val forceRefresh = inputData.getBoolean("force_refresh", false)
 
         val widgetPrefs = WidgetPreferencesRepository(applicationContext)
-        val uniqueMacs = widgetPrefs.getAllWidgetMacs().values.toSet()
+        val uniqueMacs = widgetPrefs.getAllWidgetMacs().values
+            .filter { !it.equals(MainViewModel.FAKE_MAC, ignoreCase = true) }
+            .toSet()
         val profileRepo = DeviceProfileRepository(applicationContext)
         val activeMac = profileRepo.getActiveDeviceId()
 
@@ -77,6 +80,11 @@ class SensorUpdateWorker(
         forceRefresh: Boolean,
         profileRepo: DeviceProfileRepository
     ): Result {
+        if (mac.equals(MainViewModel.FAKE_MAC, ignoreCase = true)) {
+            AppLogger.d(TAG, "[$mac] Fake device active, skipping background scan")
+            return Result.success()
+        }
+
         val repository = SensorRepository(applicationContext, mac, profileRepo)
 
         val lastUpdate = repository.getLastUpdateTimestamp()
