@@ -1,5 +1,6 @@
 package com.mrboombastic.buwudzik.ui.utils
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -44,7 +45,7 @@ fun Modifier.adaptiveContentWidth(maxWidth: Dp = MAX_CONTENT_WIDTH): Modifier =
  */
 @Composable
 fun AdaptiveScreen(
-    modifier: Modifier = Modifier.fillMaxSize(),
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier.fillMaxSize(),
     columnModifier: Modifier = Modifier,
     maxWidth: Dp = MAX_CONTENT_WIDTH,
     content: @Composable ColumnScope.() -> Unit

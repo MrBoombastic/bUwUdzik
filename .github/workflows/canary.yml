@@ -42,13 +42,13 @@ jobs:
         run: yes | sdkmanager "build-tools;36.0.0"
 
       - name: Build Canary APK (canary flavor)
-        run: ./gradlew --no-daemon --build-cache --configuration-cache -PCANARY_BUILD=${{ github.run_number }} assembleCanaryRelease
+        run: ./gradlew --no-daemon --build-cache --configuration-cache -PCANARY_BUILD=${{ github.run_number }} assembleCanaryDebug
 
       - name: Sign Canary APK
         id: sign_apk
         uses: ilharp/sign-android-release@v2
         with:
-          releaseDir: app/build/outputs/apk/canary/release
+          releaseDir: app/build/outputs/apk/canary/debug
           signingKey: ${{ secrets.SIGNING_KEY }}
           keyAlias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
@@ -56,7 +56,7 @@ jobs:
 
       - name: Rename signed APK
         run: |
-          output="app/build/outputs/apk/canary/release/clOwOck-canary-release-${GITHUB_SHA::7}.apk"
+          output="app/build/outputs/apk/canary/debug/clOwOck-canary-debug-${GITHUB_SHA::7}.apk"
           mv "${{ steps.sign_apk.outputs.signedFile }}" "$output"
           echo "SIGNED_APK_PATH=$output" >> "$GITHUB_ENV"
 
@@ -85,4 +85,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-canary-apk
-          path: app/build/outputs/apk/canary/release/*-unsigned.apk
+          path: app/build/outputs/apk/canary/debug/*-unsigned.apk

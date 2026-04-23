@@ -54,16 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
-import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
-import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.device.Alarm
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.SimpleTimePickerDialog
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -481,7 +481,7 @@ fun AlarmEditDialog(
                 ) {
                     Text(
                         text = String.format(
-                            Locale.getDefault(), "%02d:%02d", selectedHour, selectedMinute
+                            LocalLocale.current.platformLocale, "%02d:%02d", selectedHour, selectedMinute
                         ), style = MaterialTheme.typography.headlineLarge
                     )
                 }

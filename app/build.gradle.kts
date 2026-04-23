@@ -8,6 +8,14 @@ plugins {
 }
 
 
+configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
+    beforeVariants { variant ->
+        if (variant.name == "canaryRelease") {
+            variant.enable = false
+        }
+    }
+}
+
 configure<ApplicationExtension> {
     val canaryBuild = providers.gradleProperty("CANARY_BUILD").orNull
     namespace = "com.mrboombastic.buwudzik"
@@ -63,6 +71,7 @@ configure<ApplicationExtension> {
         }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             buildConfigField(
                 "String",
                 "UPDATE_CHECK_DEBUG_FAKE_VERSION",
@@ -74,6 +83,7 @@ configure<ApplicationExtension> {
             )
         }
     }
+
     buildFeatures {
         compose = true
         buildConfig = true

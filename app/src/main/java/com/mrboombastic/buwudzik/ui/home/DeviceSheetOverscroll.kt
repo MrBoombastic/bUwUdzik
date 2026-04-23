@@ -44,7 +44,7 @@ fun rememberDeviceSheetOverscrollConnection(
                     return Offset.Zero
                 }
 
-                if (available.y < 0f && source == NestedScrollSource.Drag) {
+                if (available.y < 0f && source == NestedScrollSource.UserInput) {
                     homeOverscrollAccum.floatValue += -available.y
                     if (homeOverscrollAccum.floatValue >= sheetOverscrollThresholdPx) {
                         homeOverscrollAccum.floatValue = 0f

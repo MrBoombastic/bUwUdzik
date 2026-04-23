@@ -40,8 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
-import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.SettingsRepository
@@ -56,6 +54,7 @@ import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
 import com.mrboombastic.buwudzik.ui.components.SimpleTimePickerDialog
 import com.mrboombastic.buwudzik.ui.components.StandardTopBar
 import com.mrboombastic.buwudzik.ui.components.TimePickerCard
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -71,7 +70,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
     var batteryType by remember { mutableStateOf(BatteryType.ALKALINE) }
 
     val settings by viewModel.deviceSettings.collectAsState()
-    val isBusy by viewModel.qpController.isBusy.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
@@ -271,8 +270,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         immediateUpdateJob = coroutineScope.launch {
                             delay(500) // Debounce to avoid spamming BLE commands
                             val tempSettings = currentSettings.copy(volume = it.toInt())
-                            viewModel.qpController.enqueueCommand {
-                                viewModel.qpController.previewRingtone(tempSettings)
+                            viewModel.deviceController.enqueueCommand {
+                                viewModel.deviceController.previewRingtone(tempSettings)
                             }
                         }
                     }, onValueChangeFinished = {
@@ -327,8 +326,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                     onValueChange = { screenBrightness = it },
                     onValueChangeFinished = { saveSettings() },
                     onPreview = { previewValue ->
-                        viewModel.qpController.enqueueCommand {
-                            viewModel.qpController.setImmediateBrightness(previewValue.toInt())
+                        viewModel.deviceController.enqueueCommand {
+                            viewModel.deviceController.previewBrightness(previewValue.toInt())
                         }
                     },
                     valueRange = 0f..100f,
@@ -378,8 +377,8 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         onValueChange = { nightModeBrightness = it },
                         onValueChangeFinished = { saveSettings() },
                         onPreview = { previewValue ->
-                            viewModel.qpController.enqueueCommand {
-                                viewModel.qpController.setImmediateBrightness(previewValue.toInt())
+                            viewModel.deviceController.enqueueCommand {
+                                viewModel.deviceController.previewBrightness(previewValue.toInt())
                             }
                         },
                         valueRange = 0f..100f,

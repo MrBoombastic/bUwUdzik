@@ -98,7 +98,7 @@ data class OnlineRingtone(
 fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel) {
     val context = LocalContext.current
     val settings by viewModel.deviceSettings.collectAsState()
-    val isBusy by viewModel.qpController.isBusy.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val repository = remember { SettingsRepository(context) }
@@ -282,8 +282,8 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 uploadStartTime = System.currentTimeMillis()
                 estimatedTimeRemaining = null
 
-                val success = viewModel.qpController.uploadRingtone(
-                    pcmData = pcmData, targetSignature = targetSignature
+                val success = viewModel.deviceController.uploadAudio(
+                    audioData = pcmData, signature = targetSignature
                 ) { progress ->
                     uploadProgress = progress
 

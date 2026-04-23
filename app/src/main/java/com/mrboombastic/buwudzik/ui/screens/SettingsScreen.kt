@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -46,8 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
-import com.mrboombastic.buwudzik.ui.utils.adaptiveContentWidth
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -64,6 +61,7 @@ import com.mrboombastic.buwudzik.ui.components.BackNavigationButton
 import com.mrboombastic.buwudzik.ui.components.CustomSnackbarHost
 import com.mrboombastic.buwudzik.ui.components.ReleaseChangelogMarkdown
 import com.mrboombastic.buwudzik.ui.components.SettingsDropdown
+import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
@@ -574,7 +572,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             }
 
 
-            if (BuildConfig.DEBUG || BuildConfig.FLAVOR == "canary") {
+            if (BuildConfig.DEBUG) {
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
@@ -611,7 +609,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                                 cal.set(java.util.Calendar.MINUTE, 37)
                                 cal.set(java.util.Calendar.SECOND, 0)
                                 val timestamp = cal.timeInMillis / 1000
-                                val success = viewModel.qpController.synchronizeTime(timestamp)
+                                val success = viewModel.deviceController.synchronizeTime(timestamp)
                                 if (success) {
                                     snackbarHostState.showSnackbar(successMsg)
                                 } else {

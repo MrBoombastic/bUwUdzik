@@ -14,9 +14,12 @@ import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.Alarm
+import com.mrboombastic.buwudzik.device.BleDeviceController
 import com.mrboombastic.buwudzik.device.BluetoothScanner
+import com.mrboombastic.buwudzik.device.DeviceController
 import com.mrboombastic.buwudzik.device.DeviceSettings
-import com.mrboombastic.buwudzik.device.QPController
+import com.mrboombastic.buwudzik.device.DisconnectionReason
+import com.mrboombastic.buwudzik.device.MockDeviceController
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -29,6 +32,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -134,11 +138,21 @@ class MainViewModel(
     private val _isPaired = MutableStateFlow(false)
     val isPaired: StateFlow<Boolean> = _isPaired.asStateFlow()
 
-    val qpController = QPController(applicationContext)
+    private var _deviceController: DeviceController = BleDeviceController(applicationContext)
+    private val _controllerState = MutableStateFlow(_deviceController)
+    val deviceController: DeviceController get() = _deviceController
 
-    val disconnectionEvent = qpController.disconnectionEvent
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val isBusy: StateFlow<Boolean> = _controllerState
+        .flatMapLatest { it.isBusy }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _deviceController.isBusy.value)
 
-    fun clearDisconnectionEvent() = qpController.clearDisconnectionEvent()
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val disconnectionEvent: StateFlow<DisconnectionReason?> = _controllerState
+        .flatMapLatest { it.disconnectionEvent }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _deviceController.disconnectionEvent.value)
+
+    fun clearDisconnectionEvent() = _deviceController.clearDisconnectionEvent()
 
     private val _connectionError = MutableStateFlow<String?>(null)
     val connectionError: StateFlow<String?> = _connectionError.asStateFlow()
@@ -149,7 +163,7 @@ class MainViewModel(
 
     fun checkPairingStatus() {
         val mac = activeMac
-        _isPaired.value = mac == FAKE_MAC || (mac.isNotEmpty() && qpController.isDevicePaired(mac))
+        _isPaired.value = mac == FAKE_MAC || (mac.isNotEmpty() && _deviceController.isDevicePaired(mac))
     }
 
     fun deviceSheetSwipeHintAlreadyShown(): Boolean = settingsRepository.deviceSheetSwipeHintShown
@@ -179,6 +193,20 @@ class MainViewModel(
             .distinctUntilChanged()
             .onEach { mac ->
                 AppLogger.d(TAG, "Active device changed to $mac, resetting UI and connections")
+
+                val newController = if (mac?.equals(FAKE_MAC, ignoreCase = true) == true) {
+                    MockDeviceController(applicationContext)
+                } else {
+                    BleDeviceController(applicationContext)
+                }
+                
+                if (_deviceController::class != newController::class) {
+                    AppLogger.d(TAG, "Switching controller to ${newController::class.simpleName}")
+                    _deviceController.close()
+                    _deviceController = newController
+                    _controllerState.value = newController
+                }
+
                 stopActiveConnection()
                 updateActiveDeviceUiState()
                 if (mac != null && !mac.equals(
@@ -222,7 +250,7 @@ class MainViewModel(
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
         scanJob?.cancel(); scanJob = null
-        qpController.disconnect()
+        _deviceController.disconnect()
         _deviceConnected.value = false
         _deviceConnecting.value = false
     }
@@ -296,7 +324,7 @@ class MainViewModel(
                 val adapter = bluetoothManager.adapter
                 val device = adapter.getRemoteDevice(targetMac)
 
-                val success = qpController.connectAndAuthenticate(device)
+                val success = _deviceController.connectAndAuthenticate(device)
                 if (success) {
                     _deviceConnected.value = true
                     _connectionError.value = null
@@ -308,11 +336,11 @@ class MainViewModel(
                     rssiPollJob = viewModelScope.launch {
                         while (isActive && _deviceConnected.value) {
                             try {
-                                qpController.readRssi()
+                                _deviceController.readRssi()
                             } catch (e: Exception) {
                                 AppLogger.w(TAG, "RSSI poll failed: ${e.message}", e)
                             }
-                            delay(QPController.DELAY_RSSI_POLL)
+                            delay(BleDeviceController.DELAY_RSSI_POLL)
                         }
                     }
 
@@ -339,7 +367,7 @@ class MainViewModel(
     fun reloadAlarms() {
         viewModelScope.launch {
             try {
-                delay(QPController.DELAY_ALARM_RELOAD)
+                delay(BleDeviceController.DELAY_ALARM_RELOAD)
                 AppLogger.d(TAG, "Reloading alarms...")
                 _alarms.value = fetchAlarmsWithTitles()
                 AppLogger.d(TAG, "Reloaded ${_alarms.value.size} alarms")
@@ -350,7 +378,7 @@ class MainViewModel(
     }
 
     private suspend fun fetchAlarmsWithTitles(): List<Alarm> {
-        val deviceAlarms = qpController.readAlarms()
+        val deviceAlarms = _deviceController.readAlarms()
         val titleRepo = alarmTitleRepo()
         return deviceAlarms.map { alarm ->
             alarm.copy(title = titleRepo.getTitle(alarm.id))
@@ -367,10 +395,10 @@ class MainViewModel(
             AppLogger.e(TAG, "Error loading alarms", e)
         }
 
-        delay(QPController.DELAY_BLE_OPERATION)
+        delay(BleDeviceController.DELAY_BLE_OPERATION)
 
         try {
-            val settings = qpController.readDeviceSettings()
+            val settings = _deviceController.readDeviceSettings()
             _deviceSettings.value = settings
             AppLogger.d(TAG, "Loaded device settings: $settings")
 
@@ -380,17 +408,17 @@ class MainViewModel(
             if (settings.timeZone.getOffset(now) != currentPhoneTz.getOffset(now)) {
                 AppLogger.d(TAG, "Device timezone offset differs from phone, auto-syncing...")
                 val updatedSettings = settings.copy(timeZone = currentPhoneTz)
-                qpController.writeDeviceSettings(updatedSettings)
+                _deviceController.writeDeviceSettings(updatedSettings)
                 _deviceSettings.value = updatedSettings
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "Error loading settings", e)
         }
 
-        delay(QPController.DELAY_BLE_OPERATION)
+        delay(BleDeviceController.DELAY_BLE_OPERATION)
 
         try {
-            val version = qpController.readFirmwareVersion()
+            val version = _deviceController.readFirmwareVersion()
             _deviceSettings.value = _deviceSettings.value?.copy(firmwareVersion = version)
             AppLogger.d(TAG, "Loaded firmware version: $version")
         } catch (e: Exception) {
@@ -399,7 +427,7 @@ class MainViewModel(
     }
 
     private fun attachLiveSensorCallbacks() {
-        qpController.onSensorData = { temperature, humidity ->
+        _deviceController.onSensorData = { temperature, humidity ->
             val currentData = _sensorData.value
             val mac = activeMac
             val batteryFromStore = sensorRepo().getSensorData()?.battery
@@ -419,31 +447,18 @@ class MainViewModel(
                 timestamp = System.currentTimeMillis()
             )
         }
-        qpController.onRssiUpdate = { rssi ->
+        _deviceController.onRssiUpdate = { rssi ->
             _sensorData.value = _sensorData.value?.copy(rssi = rssi)
+        }
+        _deviceController.onBatteryUpdate = { battery ->
+            _sensorData.value = _sensorData.value?.copy(battery = battery)
         }
     }
 
     fun updateAlarm(alarm: Alarm, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-                    // Update controller mock state
-                    qpController.setAlarm(
-                        alarm.hour,
-                        alarm.minute,
-                        alarm.id,
-                        alarm.enabled,
-                        alarm.days,
-                        alarm.snooze
-                    )
-                    // Refresh local flow
-                    reloadAlarms()
-                    onResult(Result.success(Unit))
-                    return@launch
-                }
-
-                qpController.setAlarm(
+                _deviceController.setAlarm(
                     hour = alarm.hour,
                     minute = alarm.minute,
                     alarmId = alarm.id,
@@ -464,14 +479,7 @@ class MainViewModel(
     fun deleteAlarm(alarmId: Int, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-                    qpController.deleteAlarm(alarmId)
-                    reloadAlarms()
-                    onResult(Result.success(Unit))
-                    return@launch
-                }
-
-                qpController.deleteAlarm(alarmId)
+                _deviceController.deleteAlarm(alarmId)
                 alarmTitleRepo().deleteTitle(alarmId)
                 reloadAlarms()
                 onResult(Result.success(Unit))
@@ -485,15 +493,8 @@ class MainViewModel(
     fun updateDeviceSettings(settings: DeviceSettings, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             try {
-                if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-                    // Simulate fake settings update
-                    _deviceSettings.value = settings
-                    onResult(Result.success(Unit))
-                    return@launch
-                }
-
                 val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
-                qpController.writeDeviceSettings(settings)
+                _deviceController.writeDeviceSettings(settings)
                 _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
                 onResult(Result.success(Unit))
             } catch (e: Exception) {
@@ -507,7 +508,7 @@ class MainViewModel(
         viewModelScope.launch {
             try {
                 AppLogger.d(TAG, "Reloading device settings...")
-                val settings = qpController.readDeviceSettings()
+                val settings = _deviceController.readDeviceSettings()
                 val currentVersion = _deviceSettings.value?.firmwareVersion ?: ""
                 _deviceSettings.value = settings.copy(firmwareVersion = currentVersion)
                 AppLogger.d(TAG, "Reloaded device settings")
@@ -559,34 +560,41 @@ class MainViewModel(
         scanJob = null
         stopActiveConnection()
 
-        qpController.setupMockDevice(mac, temperature, humidity, alarmCount)
-
         val profile = DeviceProfile(mac, name)
         addDevice(profile, makeActive = true)
 
         viewModelScope.launch {
             _deviceConnecting.value = true
-            // Mock connection is instantaneous
-            _deviceConnected.value = true
-            _connectionError.value = null
-            _isPaired.value = true
-            checkPairingStatus()
+            
+            // For mock controller, we can provide initial data before connecting
+            if (_deviceController is MockDeviceController) {
+                (_deviceController as MockDeviceController).setupMockData(
+                    mac = mac,
+                    alarmCount = alarmCount,
+                    initialTemp = temperature,
+                    initialHum = humidity,
+                    initialBattery = battery,
+                    initialRssi = rssi
+                )
+            }
 
-            attachLiveSensorCallbacks()
+            // Trigger connection flow which handles authentication and metadata loading
+            val bluetoothManager = applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
+            val adapter = bluetoothManager.adapter
+            val device = adapter.getRemoteDevice(mac)
+            
+            val success = _deviceController.connectAndAuthenticate(device)
+            if (success) {
+                _deviceConnected.value = true
+                _connectionError.value = null
+                _isPaired.value = true
+                checkPairingStatus()
 
-            // Trigger manual callback for the initial values
-            qpController.onSensorData?.invoke(temperature.toFloat(), humidity.toFloat())
-            _sensorData.value = SensorData(
-                name = name,
-                macAddress = mac,
-                temperature = temperature,
-                humidity = humidity,
-                battery = battery,
-                rssi = rssi,
-                timestamp = System.currentTimeMillis()
-            )
-
-            launch { loadDeviceMetadataAfterConnect() }
+                attachLiveSensorCallbacks()
+                
+                // Load alarms and settings
+                loadDeviceMetadataAfterConnect()
+            }
             _deviceConnecting.value = false
         }
         AppLogger.d(TAG, "Mock state initialized for $name @ $mac")
@@ -610,6 +618,6 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        qpController.close()
+        _deviceController.close()
     }
 }

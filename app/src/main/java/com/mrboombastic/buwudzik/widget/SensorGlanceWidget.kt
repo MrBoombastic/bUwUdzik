@@ -44,6 +44,7 @@ import com.mrboombastic.buwudzik.MainActivity
 import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.utils.TimeFormatUtils.formatAbsoluteTime
 import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 class SensorGlanceWidget : GlanceAppWidget() {
 
@@ -57,7 +58,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 val state = currentState<WidgetState>()
 
                 val locale = if (state.language == "system") {
-                    Locale.getDefault()
+                    LocalLocale.current.platformLocale
                 } else {
                     Locale.forLanguageTag(state.language)
                 }

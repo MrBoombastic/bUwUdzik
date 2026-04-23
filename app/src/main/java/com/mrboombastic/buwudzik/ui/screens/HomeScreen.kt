@@ -88,6 +88,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 private const val TAG = "HomeScreen"
 
@@ -599,14 +600,14 @@ fun Dashboard(
                 )
             }
             Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.temperature)}°C",
+                text = "${String.format(LocalLocale.current.platformLocale, "%.1f", sensorData.temperature)}°C",
                 fontSize = 64.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "${String.format(Locale.getDefault(), "%.1f", sensorData.humidity)}%",
+                text = "${String.format(LocalLocale.current.platformLocale, "%.1f", sensorData.humidity)}%",
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.secondary
