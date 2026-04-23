@@ -6,5 +6,6 @@
     <color name="widget_text_secondary">#FFCAC4D0</color>
     <color name="widget_icon_tint">#FFCAC4D0</color>
     <color name="bg_dark_splash">#0E1214</color>
+    <color name="ic_launcher_background">#0E1214</color>
 </resources>
 

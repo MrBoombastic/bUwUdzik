@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="website/media/logo-dark.svg" width="100" alt="clOwOck Logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="website/media/logo-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="website/media/logo-black.svg">
+    <img src="website/media/logo-white.svg" width="100" alt="clOwOck Logo">
+  </picture>
 </div>
 
 # clOwOck
