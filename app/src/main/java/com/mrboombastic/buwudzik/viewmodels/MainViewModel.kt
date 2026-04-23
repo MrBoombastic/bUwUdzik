@@ -144,12 +144,12 @@ class MainViewModel(
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val isBusy: StateFlow<Boolean> = _controllerState
-        .flatMapLatest { it.isBusy }
+        .flatMapLatest { controller -> controller.isBusy }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _deviceController.isBusy.value)
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val disconnectionEvent: StateFlow<DisconnectionReason?> = _controllerState
-        .flatMapLatest { it.disconnectionEvent }
+        .flatMapLatest { controller -> controller.disconnectionEvent }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _deviceController.disconnectionEvent.value)
 
     fun clearDisconnectionEvent() = _deviceController.clearDisconnectionEvent()
@@ -209,12 +209,17 @@ class MainViewModel(
 
                 stopActiveConnection()
                 updateActiveDeviceUiState()
-                if (mac != null && !mac.equals(
-                        FAKE_MAC,
-                        ignoreCase = true
-                    ) && _isBluetoothEnabled.value
-                ) {
-                    startScanning()
+
+                // Ensure callbacks are attached to the current controller instance
+                attachLiveSensorCallbacks()
+
+                if (mac != null && _isBluetoothEnabled.value) {
+                    if (mac.equals(FAKE_MAC, ignoreCase = true)) {
+                        AppLogger.d(TAG, "Fake device active, starting mock broadcast.")
+                        (_deviceController as? MockDeviceController)?.setupMockData(mac)
+                    } else {
+                        startScanning()
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -223,8 +228,14 @@ class MainViewModel(
     /** Reset cached device UI when there is no selected profile (e.g. all devices removed). */
     private fun updateActiveDeviceUiState() {
         if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-            AppLogger.d(TAG, "Fake device selected, initializing mock state")
-            initializeMockState()
+            AppLogger.d(TAG, "Fake device selected, resetting mock UI state")
+            _sensorData.value = null
+            _alarms.value = emptyList()
+            _deviceSettings.value = null
+            _deviceConnected.value = false
+            _deviceConnecting.value = false
+            _connectionError.value = null
+            _isPaired.value = true // Assume paired for fake device
             return
         }
         _sensorData.value = if (activeMac.isNotEmpty()) sensorRepo().getSensorData() else null
@@ -448,10 +459,28 @@ class MainViewModel(
             )
         }
         _deviceController.onRssiUpdate = { rssi ->
-            _sensorData.value = _sensorData.value?.copy(rssi = rssi)
+            val current = _sensorData.value
+            _sensorData.value = current?.copy(rssi = rssi) ?: SensorData(
+                name = "clOwOck",
+                temperature = 0.0,
+                humidity = 0.0,
+                battery = 0,
+                rssi = rssi,
+                macAddress = activeMac,
+                timestamp = System.currentTimeMillis()
+            )
         }
         _deviceController.onBatteryUpdate = { battery ->
-            _sensorData.value = _sensorData.value?.copy(battery = battery)
+            val current = _sensorData.value
+            _sensorData.value = current?.copy(battery = battery) ?: SensorData(
+                name = "clOwOck",
+                temperature = 0.0,
+                humidity = 0.0,
+                battery = battery,
+                rssi = 0,
+                macAddress = activeMac,
+                timestamp = System.currentTimeMillis()
+            )
         }
     }
 
@@ -579,7 +608,8 @@ class MainViewModel(
             }
 
             // Trigger connection flow which handles authentication and metadata loading
-            val bluetoothManager = applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
+            val bluetoothManager =
+                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val adapter = bluetoothManager.adapter
             val device = adapter.getRemoteDevice(mac)
             

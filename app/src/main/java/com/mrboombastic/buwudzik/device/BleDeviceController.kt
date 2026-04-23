@@ -22,13 +22,24 @@ import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_WRITE
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_SENSOR_NOTIFY
 import com.mrboombastic.buwudzik.utils.AppLogger
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.*
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.util.UUID
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -117,6 +128,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
     private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
     override var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
+    override var onBatteryUpdate: ((battery: Int) -> Unit)? = null
     override var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     override var onLastUpdated: ((timestamp: Long) -> Unit)? = null
 

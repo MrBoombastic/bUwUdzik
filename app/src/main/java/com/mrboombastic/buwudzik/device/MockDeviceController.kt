@@ -27,6 +27,7 @@ class MockDeviceController(context: Context) : DeviceController {
     override val disconnectionEvent = _disconnectionEvent.asStateFlow()
 
     override var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
+    override var onBatteryUpdate: ((battery: Int) -> Unit)? = null
     override var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     override var onLastUpdated: ((timestamp: Long) -> Unit)? = null
 
@@ -67,6 +68,10 @@ class MockDeviceController(context: Context) : DeviceController {
         return true
     }
 
+    override fun disconnect() {
+        AppLogger.d(tag, "Mocking disconnection from device ${currentMac ?: "unknown"}...")
+    }
+
     fun setupMockData(
         mac: String,
         alarmCount: Int = 3,
@@ -96,6 +101,8 @@ class MockDeviceController(context: Context) : DeviceController {
             val fakeToken = ByteArray(16) { 0xDE.toByte() }
             tokenStorage.storeToken(mac, fakeToken)
         }
+
+        startMockSensorLoop()
     }
 
     private fun startMockSensorLoop() {
@@ -108,16 +115,12 @@ class MockDeviceController(context: Context) : DeviceController {
                 currentHum = currentHum.coerceIn(20.0, 80.0)
                 
                 onSensorData?.invoke(currentTemp.toFloat(), currentHum.toFloat())
+                onBatteryUpdate?.invoke(currentBattery)
+                onRssiUpdate?.invoke(currentRssi)
                 onLastUpdated?.invoke(System.currentTimeMillis())
                 delay(5000)
             }
         }
-    }
-
-    override fun disconnect() {
-        mockSensorJob?.cancel()
-        mockSensorJob = null
-        AppLogger.d(tag, "Mock device disconnected")
     }
 
     override fun readRssi() {

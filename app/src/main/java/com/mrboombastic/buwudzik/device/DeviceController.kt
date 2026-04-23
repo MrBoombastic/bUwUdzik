@@ -8,6 +8,7 @@ interface DeviceController {
     val disconnectionEvent: StateFlow<DisconnectionReason?>
     
     var onSensorData: ((temperature: Float, humidity: Float) -> Unit)?
+    var onBatteryUpdate: ((battery: Int) -> Unit)?
     var onRssiUpdate: ((rssi: Int) -> Unit)?
     var onLastUpdated: ((timestamp: Long) -> Unit)?
 

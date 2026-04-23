@@ -67,6 +67,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -88,7 +89,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.ui.platform.LocalLocale
 
 private const val TAG = "HomeScreen"
 
@@ -113,6 +113,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
     }
     val dashboardOpenSheetNested = rememberDeviceSheetOverscrollConnection(
         activeDevice = activeDevice,
+        devices = devices,
         dashboardScroll = dashboardScroll,
         sheetOverscrollThresholdPx = sheetOverscrollThresholdPx,
         onOpenDeviceSheet = { deviceSwitcherOpen = true }
