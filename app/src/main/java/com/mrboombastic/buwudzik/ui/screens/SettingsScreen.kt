@@ -465,7 +465,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                             val downloadUrl = updateResult?.downloadUrl
                             if (downloadUrl != null) {
                                 coroutineScope.launch {
-                                    val updateManager = UpdateManager.create()
+                                    val updateManager = UpdateManager.create(context)
                                     updateManager.downloadAndInstall(downloadUrl)
                                     updateManager.close()
                                 }
@@ -534,7 +534,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                         isCheckingUpdates = true
                         coroutineScope.launch {
                             try {
-                                val updateManager = UpdateManager.create()
+                                val updateManager = UpdateManager.create(context)
                                 val result = try {
                                     updateManager.checkForUpdates()
                                 } finally {
