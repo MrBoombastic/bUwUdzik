@@ -253,4 +253,6 @@
     <string name="device_sheet_swipe_hint_got_it">Got it</string>
     <string name="widget_configure_title">Choose device for widget</string>
     <string name="widget_configure_subtitle">Select which device this widget will display:</string>
+    <string name="try_demo_mode">Try Demo Mode</string>
+    <string name="demo_device_name">Demo Fake Device</string>
 </resources>

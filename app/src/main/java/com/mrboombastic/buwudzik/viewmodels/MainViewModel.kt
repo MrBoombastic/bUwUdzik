@@ -585,6 +585,25 @@ class MainViewModel(
         battery: Int = 72,
         rssi: Int = -65
     ) {
+        // If we are already connected to a mock device, just update its data in-place
+        if (_deviceConnected.value && _deviceController is MockDeviceController) {
+            AppLogger.d(TAG, "Updating active mock state in-place")
+            (_deviceController as MockDeviceController).setupMockData(
+                mac = mac,
+                alarmCount = alarmCount,
+                initialTemp = temperature,
+                initialHum = humidity,
+                initialBattery = battery,
+                initialRssi = rssi
+            )
+            return
+        }
+
+        if (_deviceConnecting.value) {
+            AppLogger.d(TAG, "Mock state initialization ignored: already connecting")
+            return
+        }
+
         scanJob?.cancel()
         scanJob = null
         stopActiveConnection()

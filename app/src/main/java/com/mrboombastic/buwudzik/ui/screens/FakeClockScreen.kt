@@ -48,7 +48,7 @@ import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 /**
  * Debug-only screen for injecting a fake Bluetooth clock into the app.
  *
- * Available only in canaryDebug builds (gated by [BuildConfig.DEBUG] in [MainActivity]).
+ * Available only in canaryDebug builds
  * Lets you configure sensor values, alarm count, and device name — then inject the fake
  * state directly into [MainViewModel], bypassing BLE entirely.
  */
@@ -67,8 +67,8 @@ fun FakeClockScreen(navController: NavController, viewModel: MainViewModel) {
     var rssi by remember { mutableIntStateOf(-65) }
     var alarmCount by remember { mutableIntStateOf(3) }
 
-    // Inject immediately if not active
-    LaunchedEffect(isFakeActive) {
+    // Inject immediately on enter if not already active
+    LaunchedEffect(Unit) {
         if (!isFakeActive) {
             viewModel.injectFakeDevice(
                 name = fakeName.ifBlank { "Fake clOwOck" },

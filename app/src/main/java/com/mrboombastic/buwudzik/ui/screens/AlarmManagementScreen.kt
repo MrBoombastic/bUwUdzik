@@ -48,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,8 +63,6 @@ import com.mrboombastic.buwudzik.ui.utils.AdaptiveScreen
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.launch
-import java.util.Locale
-import androidx.compose.ui.platform.LocalLocale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +87,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
 
     // Edit alarm dialog
     selectedAlarm?.let { alarm ->
-        @Suppress("AssignedValueIsNeverRead") AlarmEditDialog(
+        AlarmEditDialog(
             alarm = alarm,
             onDismiss = { selectedAlarm = null },
             onSave = { updatedAlarm ->
@@ -155,38 +154,44 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
         },
         floatingActionButton = {
             if (deviceConnected && hasPermissions) {
-                FloatingActionButton(onClick = {
-                    if (!isUpdating) {
-                        if (alarms.size < 16) {
-                            // Create new alarm with next available ID
-                            // Find first unused ID just in case, though usually simple append works
-                            val usedIds = alarms.map { it.id }.toSet()
-                            val newId = (0..15).firstOrNull { !usedIds.contains(it) } ?: alarms.size
-
-                            if (newId < 16) {
-                                @Suppress("AssignedValueIsNeverRead")
-                                selectedAlarm = Alarm(
-                                    id = newId,
-                                    enabled = true,
-                                    hour = 8,
-                                    minute = 0,
-                                    days = 0,
-                                    snooze = false
-                                )
+                val canAdd = !isUpdating && selectedAlarm == null
+                FloatingActionButton(
+                    onClick = {
+                        if (canAdd) {
+                            if (alarms.size < 16) {
+                                val usedIds = alarms.map { it.id }.toSet()
+                                val newId =
+                                    (0..15).firstOrNull { !usedIds.contains(it) } ?: alarms.size
+                                if (newId < 16) {
+                                    selectedAlarm = Alarm(
+                                        id = newId,
+                                        enabled = true,
+                                        hour = 8,
+                                        minute = 0,
+                                        days = 0,
+                                        snooze = false
+                                    )
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.max_alarms_message,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                             } else {
                                 Toast.makeText(
                                     context,
                                     R.string.max_alarms_message,
                                     Toast.LENGTH_SHORT
-                                )
-                                    .show()
+                                ).show()
                             }
-                        } else {
-                            Toast.makeText(context, R.string.max_alarms_message, Toast.LENGTH_SHORT)
-                                .show()
                         }
-                    }
-                }) {
+                    },
+                    containerColor = if (canAdd) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (canAdd) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = 0.38f
+                    )
+                ) {
                     Icon(
                         Icons.Default.Add,
                         contentDescription = stringResource(R.string.add_alarm_desc)
@@ -310,7 +315,8 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                     }
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
                     ) {
                         items(alarms) { alarm ->
                             @Suppress("AssignedValueIsNeverRead") AlarmCard(

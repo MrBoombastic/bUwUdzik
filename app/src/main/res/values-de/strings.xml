@@ -235,5 +235,7 @@
     <string name="device_sheet_swipe_hint_got_it">Verstanden</string>
     <string name="widget_configure_title">Gerät für Widget wählen</string>
     <string name="widget_configure_subtitle">Wählen Sie das Gerät, das dieses Widget anzeigt:</string>
+    <string name="try_demo_mode">Demo-Modus ausprobieren</string>
+    <string name="demo_device_name">Demo-Gerät</string>
 </resources>
 

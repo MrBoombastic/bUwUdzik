@@ -267,28 +267,26 @@ fun DeviceSetupScreen(
                     modifier = Modifier.padding(top = 8.dp)
                 )
 
-                if (com.mrboombastic.buwudzik.BuildConfig.DEBUG) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = {
-                            val demoMac = MainViewModel.FAKE_MAC
-                            // Immediately inject fake data so the UI works without real BLE
-                            viewModel?.injectFakeDevice(
-                                name = "Demo Fake Device",
-                                mac = demoMac
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = {
+                        val demoMac = MainViewModel.FAKE_MAC
+                        // Immediately inject fake data so the UI works without real BLE
+                        viewModel?.injectFakeDevice(
+                            name = context.getString(R.string.demo_device_name),
+                            mac = demoMac
+                        )
+                        onDeviceSelected(
+                            DiscoveredDevice(
+                                name = context.getString(R.string.demo_device_name),
+                                address = demoMac,
+                                rssi = -42
                             )
-                            onDeviceSelected(
-                                DiscoveredDevice(
-                                    name = "Demo Fake Device",
-                                    address = demoMac,
-                                    rssi = -42
-                                )
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Add Demo Device")
-                    }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.try_demo_mode))
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

@@ -235,5 +235,7 @@
     <string name="device_sheet_swipe_hint_got_it">知道了</string>
     <string name="widget_configure_title">选择小组件显示的设备</string>
     <string name="widget_configure_subtitle">选择此小组件显示的设备：</string>
+    <string name="try_demo_mode">尝试演示模式</string>
+    <string name="demo_device_name">演示虚拟设备</string>
 </resources>
 
