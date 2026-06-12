@@ -10,6 +10,25 @@
     <link rel="stylesheet" href="style.css">
     <link href="media/logo.png" rel="icon" type="image/png">
     <link href="media/logo-white.svg" rel="icon" type="image/svg+xml">
+
+    <!-- Open Graph / Facebook -->
+    <meta content="website" property="og:type">
+    <meta content="https://mrboombastic.github.io/bUwUdzik/" property="og:url">
+    <meta content="clOwOck - Qingping Alarm Clock Companion" property="og:title">
+    <meta content="The ultimate companion app for the Qingping CGD1 Bluetooth LE alarm clock. Manage alarms, custom ringtones, and monitor sensors."
+          property="og:description">
+    <meta content="https://raw.githubusercontent.com/MrBoombastic/bUwUdzik/master/website/media/logo.png"
+          property="og:image">
+
+    <!-- Twitter -->
+    <meta content="summary" property="twitter:card">
+    <meta content="https://mrboombastic.github.io/bUwUdzik/" property="twitter:url">
+    <meta content="clOwOck - Qingping Alarm Clock Companion" property="twitter:title">
+    <meta content="The ultimate companion app for the Qingping CGD1 Bluetooth LE alarm clock. Manage alarms, custom ringtones, and monitor sensors."
+          property="twitter:description">
+    <meta content="https://raw.githubusercontent.com/MrBoombastic/bUwUdzik/master/website/media/logo.png"
+          property="twitter:image">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;800&display=swap" rel="stylesheet">
@@ -20,11 +39,11 @@
     <div class="blob blob-2"></div>
 
     <nav class="navbar">
-        <div class="logo">
+        <a class="logo" href="#">
             <img alt="clOwOck Logo" src="media/logo-white.svg"
                 style="height: 32px; width: 32px; border-radius: 8px; margin-right: 10px; vertical-align: middle;">
             clOwOck
-        </div>
+        </a>
         <div class="nav-links">
             <a href="#features">Features</a>
             <a href="#screenshots">Screenshots</a>
@@ -91,19 +110,27 @@
         <h2 class="section-title">See It In Action</h2>
         <div class="carousel-container">
             <button class="carousel-btn prev-btn" aria-label="Previous">&lt;</button>
-            <div class="carousel-track">
+            <div aria-label="App screenshots gallery" class="carousel-track" tabindex="0">
                 <img src="media/setup.png" alt="Setup Screen" class="carousel-img">
-                <img src="media/pair.png" alt="Pairing screen" class="carousel-img">
-                <img src="media/settings.png" alt="Settings Screen" class="carousel-img">
-                <img src="media/s1.png" alt="Home Screen" class="carousel-img">
-                <img src="media/s2.png" alt="Main alarms screen" class="carousel-img">
-                <img src="media/s3.png" alt="Alarm settings screen" class="carousel-img">
-                <img src="media/s4.png" alt="Device settings screen" class="carousel-img">
-                <img src="media/s5.png" alt="Ringtone selection screen" class="carousel-img">
-                <img src="media/s6.png" alt="Ringtone trimming screen" class="carousel-img">
-                <img src="media/import.png" alt="Import device screen" class="carousel-img">
-                <img src="media/export.png" alt="Export device screen" class="carousel-img">
-                <img src="media/widget.png" alt="Home widgets" class="carousel-img">
+                <img alt="Pairing screen" class="carousel-img" loading="lazy" src="media/pair.png">
+                <img alt="Settings Screen" class="carousel-img" loading="lazy"
+                     src="media/settings.png">
+                <img alt="Home Screen" class="carousel-img" loading="lazy" src="media/s1.png">
+                <img alt="Main alarms screen" class="carousel-img" loading="lazy"
+                     src="media/s2.png">
+                <img alt="Alarm settings screen" class="carousel-img" loading="lazy"
+                     src="media/s3.png">
+                <img alt="Device settings screen" class="carousel-img" loading="lazy"
+                     src="media/s4.png">
+                <img alt="Ringtone selection screen" class="carousel-img" loading="lazy"
+                     src="media/s5.png">
+                <img alt="Ringtone trimming screen" class="carousel-img" loading="lazy"
+                     src="media/s6.png">
+                <img alt="Import device screen" class="carousel-img" loading="lazy"
+                     src="media/import.png">
+                <img alt="Export device screen" class="carousel-img" loading="lazy"
+                     src="media/export.png">
+                <img alt="Home widgets" class="carousel-img" loading="lazy" src="media/widget.png">
             </div>
             <button class="carousel-btn next-btn" aria-label="Next">&gt;</button>
         </div>

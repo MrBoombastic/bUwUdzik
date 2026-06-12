@@ -84,5 +84,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 behavior: 'smooth'
             });
         });
+
+        // Keyboard Navigation for Carousel
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.key === 'ArrowLeft') {
+                track.scrollBy({
+                    left: -scrollAmount,
+                    behavior: 'smooth'
+                });
+            } else if (e.key === 'ArrowRight') {
+                track.scrollBy({
+                    left: scrollAmount,
+                    behavior: 'smooth'
+                });
+            }
+        });
     }
 });

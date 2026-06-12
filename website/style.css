@@ -2,9 +2,9 @@
     --bg-color: #0b0f19;
     --text-main: #f0f4f8;
     --text-muted: #8b9eb7;
-    --primary: #6366f1;
-    --primary-hover: #4f46e5;
-    --primary-glow: rgba(99, 102, 241, 0.4);
+    --primary: #4f46e5;
+    --primary-hover: #3730a3;
+    --primary-glow: rgba(79, 70, 229, 0.4);
     --secondary: #ec4899;
     --secondary-glow: rgba(236, 72, 153, 0.4);
     --glass-bg: rgba(17, 24, 39, 0.6);
@@ -115,6 +115,7 @@ h3 {
     font-weight: 800;
     letter-spacing: -0.5px;
     color: var(--text-main);
+    text-decoration: none;
 }
 
 .nav-links {
@@ -283,6 +284,7 @@ h3 {
 /* Features */
 .features-section {
     padding: 5rem 5%;
+    scroll-margin-top: 80px;
 }
 
 .features-grid {
@@ -320,6 +322,7 @@ h3 {
 .screenshots-section {
     padding: 5rem 0;
     overflow-x: clip; /* prevent horizontal overflow without clipping vertical shadows */
+    scroll-margin-top: 80px;
 }
 
 .carousel-container {
