@@ -109,9 +109,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        val mac = intent.getStringExtra("mac")
+        var mac = intent.getStringExtra("mac")
+        if (mac.isNullOrEmpty()) {
+            val data = intent.data
+            if (data != null && data.scheme == "buwudzik" && data.host == "device") {
+                mac = data.lastPathSegment
+            }
+        }
         if (!mac.isNullOrEmpty()) {
-            AppLogger.d(TAG, "Intent received with MAC extra: $mac. Switching active device.")
+            AppLogger.d(TAG, "Intent received with MAC: $mac. Switching active device.")
             mainViewModel?.setActiveDevice(mac)
         }
     }
