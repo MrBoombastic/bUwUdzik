@@ -322,7 +322,7 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                         contentPadding = PaddingValues(bottom = 80.dp)
                     ) {
                         items(alarms) { alarm ->
-                            @Suppress("AssignedValueIsNeverRead") AlarmCard(
+                            AlarmCard(
                                 alarm = alarm,
                                 enabled = !isUpdating,
                                 onToggle = { enabled ->
@@ -461,7 +461,7 @@ fun AlarmEditDialog(
             initialHour = selectedHour, initialMinute = selectedMinute, is24Hour = true
         )
 
-        @Suppress("AssignedValueIsNeverRead") SimpleTimePickerDialog(
+        SimpleTimePickerDialog(
             onDismiss = { showTimePicker = false },
             title = stringResource(R.string.select_time_title),
             onConfirm = {
@@ -481,7 +481,7 @@ fun AlarmEditDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
                 // Time display with click to edit
-                @Suppress("AssignedValueIsNeverRead") OutlinedButton(
+                OutlinedButton(
                     onClick = {
                         showTimePicker = true
                     },

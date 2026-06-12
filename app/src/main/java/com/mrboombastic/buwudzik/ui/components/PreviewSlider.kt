@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Slider with debounced preview functionality
@@ -52,7 +53,7 @@ fun PreviewSlider(
             onPreview?.let { preview ->
                 previewJob?.cancel()
                 previewJob = coroutineScope.launch {
-                    delay(debounceMs)
+                    delay(debounceMs.milliseconds)
                     preview(newValue)
                 }
             }

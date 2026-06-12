@@ -43,6 +43,7 @@ import java.util.UUID
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Controller for QP CGD1 device via BLE GATT
@@ -343,7 +344,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         } else {
                             alarmCompletionJob?.cancel()
                             alarmCompletionJob = scope.launch {
-                                delay(DELAY_ALARM_COMPLETION)
+                                delay(DELAY_ALARM_COMPLETION.milliseconds)
                                 AppLogger.d(TAG, "Timeout waiting for more packets, returning ${alarmBuffer.size} alarms")
                                 alarmReadContinuation?.resume(alarmBuffer.toList())
                                 alarmReadContinuation = null
@@ -499,10 +500,10 @@ class BleDeviceController(private val context: Context) : DeviceController {
         connect(device)
 
         if (!isAuthenticated) {
-            withTimeout(TIMEOUT_AUTHENTICATION) { authenticate() }
-            delay(DELAY_POST_AUTH)
+            withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { authenticate() }
+            delay(DELAY_POST_AUTH.milliseconds)
         }
-        withTimeout(TIMEOUT_AUTHENTICATION) { synchronizeTime() }
+        withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { synchronizeTime() }
         enableSensorNotifications()
         return true
     }
@@ -626,7 +627,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     override suspend fun writeDeviceSettings(settings: DeviceSettings): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
-            withTimeout(TIMEOUT_OPERATION) {
+            withTimeout(TIMEOUT_OPERATION.milliseconds) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
                         continuation.resumeWithException(Exception("GATT not connected"))
@@ -740,7 +741,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     override suspend fun setAlarm(hour: Int, minute: Int, alarmId: Int, enable: Boolean, days: Int, snooze: Boolean): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
-            withTimeout(TIMEOUT_OPERATION) {
+            withTimeout(TIMEOUT_OPERATION.milliseconds) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
                         continuation.resumeWithException(Exception("GATT not connected"))
@@ -774,7 +775,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     override suspend fun deleteAlarm(alarmId: Int): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
-            withTimeout(TIMEOUT_OPERATION) {
+            withTimeout(TIMEOUT_OPERATION.milliseconds) {
                 suspendCancellableCoroutine { continuation ->
                     val currentGatt = gatt ?: run {
                         continuation.resumeWithException(Exception("GATT not connected"))
@@ -884,7 +885,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
             currentGatt.setCharacteristicNotification(dataNotifyChar, true)
             val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
             descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
-            delay(DELAY_ALARM_RELOAD)
+            delay(DELAY_ALARM_RELOAD.milliseconds)
             enabledNotifications.add(UUID_DATA_NOTIFY)
         }
 
@@ -895,7 +896,11 @@ class BleDeviceController(private val context: Context) : DeviceController {
         
         uploadInitAckReceived = false
         if (!writeCharAndWait(dataWriteChar, initPayload)) return false
-        repeat(AUDIO_INIT_ACK_WAIT_ITERATIONS) { if (!uploadInitAckReceived) delay(AUDIO_ACK_WAIT_DELAY) }
+        repeat(AUDIO_INIT_ACK_WAIT_ITERATIONS) {
+            if (!uploadInitAckReceived) delay(
+                AUDIO_ACK_WAIT_DELAY.milliseconds
+            )
+        }
         if (!uploadInitAckReceived) return false
 
         val packetSize = AUDIO_PACKET_SIZE
@@ -914,10 +919,14 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 if (isLastInBlock) {
                     uploadAckReceived = false
                     writeCharAndWait(dataWriteChar, packet)
-                    repeat(AUDIO_ACK_WAIT_ITERATIONS) { if (!uploadAckReceived) delay(AUDIO_ACK_WAIT_DELAY) }
+                    repeat(AUDIO_ACK_WAIT_ITERATIONS) {
+                        if (!uploadAckReceived) delay(
+                            AUDIO_ACK_WAIT_DELAY.milliseconds
+                        )
+                    }
                 } else {
                     writeCharAndWait(dataWriteChar, packet)
-                    delay(DELAY_PACKET_WRITE)
+                    delay(DELAY_PACKET_WRITE.milliseconds)
                 }
                 offset += audioLen
             }
@@ -953,14 +962,20 @@ class BleDeviceController(private val context: Context) : DeviceController {
             writeCompleteDeferred = null
             return false
         }
-        return try { withTimeout(TIMEOUT_OPERATION) { deferred.await() } } catch (_: Exception) { false } finally { writeCompleteDeferred = null }
+        return try {
+            withTimeout(TIMEOUT_OPERATION.milliseconds) { deferred.await() }
+        } catch (_: Exception) {
+            false
+        } finally {
+            writeCompleteDeferred = null
+        }
     }
 
     private suspend fun writeCharacteristicWithRetry(characteristic: BluetoothGattCharacteristic, value: ByteArray, retryCount: Int = 3): Boolean {
         val currentGatt = gatt ?: return false
         repeat(retryCount) { attempt ->
             if (currentGatt.writeCharacteristic(characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == android.bluetooth.BluetoothStatusCodes.SUCCESS) return true
-            delay(100 * (attempt + 1).toLong())
+            delay((100 * (attempt + 1).toLong()).milliseconds)
         }
         return false
     }

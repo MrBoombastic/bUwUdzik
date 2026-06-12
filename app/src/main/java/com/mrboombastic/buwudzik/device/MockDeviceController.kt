@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class MockDeviceController(context: Context) : DeviceController {
     private val tag = "MockDeviceController"
@@ -51,7 +52,7 @@ class MockDeviceController(context: Context) : DeviceController {
     override suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
         currentMac = device.address
         AppLogger.d(tag, "Mocking connection to demo device ${device.address}...")
-        delay(1000)
+        delay(1000.milliseconds)
         
         // Set up the initial mock state if not already done
         if (mockAlarms.isEmpty()) {
@@ -118,7 +119,7 @@ class MockDeviceController(context: Context) : DeviceController {
                 onBatteryUpdate?.invoke(currentBattery)
                 onRssiUpdate?.invoke(currentRssi)
                 onLastUpdated?.invoke(System.currentTimeMillis())
-                delay(5000)
+                delay(5000.milliseconds)
             }
         }
     }
@@ -128,7 +129,7 @@ class MockDeviceController(context: Context) : DeviceController {
     }
 
     override suspend fun readAlarms(): List<Alarm> {
-        delay(500)
+        delay(500.milliseconds)
         return mockAlarms.toList()
     }
 
@@ -140,7 +141,7 @@ class MockDeviceController(context: Context) : DeviceController {
         days: Int,
         snooze: Boolean
     ): Boolean {
-        delay(300)
+        delay(300.milliseconds)
         val existing = mockAlarms.indexOfFirst { it.id == alarmId }
         val newAlarm = Alarm(alarmId, enable, hour, minute, days, snooze)
         if (existing >= 0) mockAlarms[existing] = newAlarm
@@ -149,18 +150,18 @@ class MockDeviceController(context: Context) : DeviceController {
     }
 
     override suspend fun deleteAlarm(alarmId: Int): Boolean {
-        delay(300)
+        delay(300.milliseconds)
         mockAlarms.removeAll { it.id == alarmId }
         return true
     }
 
     override suspend fun readDeviceSettings(): DeviceSettings {
-        delay(500)
+        delay(500.milliseconds)
         return mockSettings
     }
 
     override suspend fun writeDeviceSettings(settings: DeviceSettings): Boolean {
-        delay(500)
+        delay(500.milliseconds)
         mockSettings = settings
         return true
     }
@@ -180,7 +181,7 @@ class MockDeviceController(context: Context) : DeviceController {
 
     override suspend fun uploadAudio(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean {
         for (i in 1..10) {
-            delay(200)
+            delay(200.milliseconds)
             onProgress(i / 10f)
         }
         return true
@@ -189,7 +190,7 @@ class MockDeviceController(context: Context) : DeviceController {
     override suspend fun stopAudioPreview(): Boolean = true
 
     override suspend fun previewRingtone(settings: DeviceSettings?): Boolean {
-        delay(300)
+        delay(300.milliseconds)
         if (settings != null) {
             mockSettings = settings
         }

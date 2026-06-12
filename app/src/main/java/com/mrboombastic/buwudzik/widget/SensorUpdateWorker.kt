@@ -14,6 +14,7 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.milliseconds
 
 class SensorUpdateWorker(
     appContext: Context,
@@ -131,7 +132,7 @@ class SensorUpdateWorker(
         val scanMode =
             if (forceRefresh) ScanSettings.SCAN_MODE_LOW_LATENCY else ScanSettings.SCAN_MODE_BALANCED
 
-        val result = withTimeoutOrNull(SCAN_TIMEOUT_MS) {
+        val result = withTimeoutOrNull(SCAN_TIMEOUT_MS.milliseconds) {
             try {
                 scanner.scan(mac, scanMode).first()
             } catch (e: Exception) {

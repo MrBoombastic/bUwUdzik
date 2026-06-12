@@ -78,6 +78,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Duration.Companion.milliseconds
 
 private const val MAX_OUTPUT_SIZE = 98_000 // 98KB limit for device
 private const val TAG = "AudioTrimmer"
@@ -354,7 +355,7 @@ fun AudioTrimmerDialog(
                     playbackPosition = 0f
                 }
 
-                delay(50)
+                delay(50.milliseconds)
             }
         }
     }
@@ -481,7 +482,7 @@ fun AudioTrimmerDialog(
 
                 // Apply time input when focus lost
                 LaunchedEffect(startTimeText) {
-                    delay(500) // Debounce
+                    delay(500.milliseconds) // Debounce
                     parseAndSetStartTime(startTimeText)
                 }
 

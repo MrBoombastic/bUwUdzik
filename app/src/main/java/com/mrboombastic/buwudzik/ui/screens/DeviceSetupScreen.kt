@@ -62,6 +62,7 @@ import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.time.Duration.Companion.milliseconds
 
 data class DiscoveredDevice(
     val name: String?,
@@ -83,6 +84,7 @@ fun DeviceSetupScreen(
     viewModel: MainViewModel? = null
 ) {
     val context = LocalContext.current
+    val demoDeviceName = stringResource(R.string.demo_device_name)
     val scanner = remember {
         val repo = DeviceProfileRepository(context)
         BluetoothScanner(context, repo)
@@ -273,12 +275,12 @@ fun DeviceSetupScreen(
                         val demoMac = MainViewModel.FAKE_MAC
                         // Immediately inject fake data so the UI works without real BLE
                         viewModel?.injectFakeDevice(
-                            name = context.getString(R.string.demo_device_name),
+                            name = demoDeviceName,
                             mac = demoMac
                         )
                         onDeviceSelected(
                             DiscoveredDevice(
-                                name = context.getString(R.string.demo_device_name),
+                                name = demoDeviceName,
                                 address = demoMac,
                                 rssi = -42
                             )
@@ -426,7 +428,7 @@ private suspend fun performDeviceScan(
     savedMacAddresses: Set<String>
 ) {
     try {
-        kotlinx.coroutines.withTimeout(15000L) {
+        kotlinx.coroutines.withTimeout(15000L.milliseconds) {
             scanner.scan(targetAddress = null).collect { sensorData ->
                 val macKey = sensorData.macAddress.normalizedBluetoothMac()
                 if (macKey in savedMacAddresses) {

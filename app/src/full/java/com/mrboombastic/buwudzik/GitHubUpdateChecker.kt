@@ -88,9 +88,7 @@ abstract class GitHubUpdateChecker(
                     .versionName ?: "0.0.0"
             val fakeCurrent = BuildConfig.UPDATE_CHECK_DEBUG_FAKE_VERSION
             val currentVersion =
-                if (fakeCurrent.isNotEmpty()) {
-                    fakeCurrent
-                } else {
+                fakeCurrent.ifEmpty {
                     packageVersion
                 }
 
@@ -326,7 +324,7 @@ abstract class GitHubUpdateChecker(
                 if (latestPart > currentPart) return true
                 if (latestPart < currentPart) return false
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return false
         }
         return false

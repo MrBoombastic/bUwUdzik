@@ -59,6 +59,7 @@ import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,7 +143,6 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                 var nightEndMinute by remember { mutableIntStateOf(currentSettings.nightEndMinute) }
 
                 // Define save function using current state
-                @Suppress("AssignedValueIsNeverRead")
                 val saveSettings = {
                     val newSettings = currentSettings.copy(
                         tempUnit = tempUnit,
@@ -268,7 +268,7 @@ fun DeviceSettingsScreen(navController: NavController, viewModel: MainViewModel)
                         // Immediate update with debouncing
                         immediateUpdateJob?.cancel()
                         immediateUpdateJob = coroutineScope.launch {
-                            delay(500) // Debounce to avoid spamming BLE commands
+                            delay(500.milliseconds) // Debounce to avoid spamming BLE commands
                             val tempSettings = currentSettings.copy(volume = it.toInt())
                             viewModel.deviceController.enqueueCommand {
                                 viewModel.deviceController.previewRingtone(tempSettings)

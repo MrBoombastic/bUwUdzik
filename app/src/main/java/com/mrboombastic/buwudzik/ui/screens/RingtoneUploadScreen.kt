@@ -314,7 +314,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     }
 
     // Audio trimmer dialog for custom files
-    @Suppress("AssignedValueIsNeverRead") if (showAudioTrimmer && selectedCustomUri != null) {
+    if (showAudioTrimmer && selectedCustomUri != null) {
         AudioTrimmerDialog(
             uri = selectedCustomUri!!,
             onConfirm = { startMs, durationMs, channelMode ->
@@ -487,7 +487,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             onlineRingtones.forEach { ringtone ->
                 val isCurrentRingtone = currentSignature.safeContentEquals(ringtone.signature)
 
-                @Suppress("AssignedValueIsNeverRead") Card(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .selectable(

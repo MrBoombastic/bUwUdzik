@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class MainViewModel(
     private val scanner: BluetoothScanner,
@@ -354,7 +355,7 @@ class MainViewModel(
                             } catch (e: Exception) {
                                 AppLogger.w(TAG, "RSSI poll failed: ${e.message}", e)
                             }
-                            delay(BleDeviceController.DELAY_RSSI_POLL)
+                            delay(BleDeviceController.DELAY_RSSI_POLL.milliseconds)
                         }
                     }
 
@@ -380,7 +381,7 @@ class MainViewModel(
 
     suspend fun reloadAlarms() {
         try {
-            delay(BleDeviceController.DELAY_ALARM_RELOAD)
+            delay(BleDeviceController.DELAY_ALARM_RELOAD.milliseconds)
             AppLogger.d(TAG, "Reloading alarms...")
             _alarms.value = fetchAlarmsWithTitles()
             AppLogger.d(TAG, "Reloaded ${_alarms.value.size} alarms")
@@ -407,7 +408,7 @@ class MainViewModel(
             AppLogger.e(TAG, "Error loading alarms", e)
         }
 
-        delay(BleDeviceController.DELAY_BLE_OPERATION)
+        delay(BleDeviceController.DELAY_BLE_OPERATION.milliseconds)
 
         try {
             val settings = _deviceController.readDeviceSettings()
@@ -427,7 +428,7 @@ class MainViewModel(
             AppLogger.e(TAG, "Error loading settings", e)
         }
 
-        delay(BleDeviceController.DELAY_BLE_OPERATION)
+        delay(BleDeviceController.DELAY_BLE_OPERATION.milliseconds)
 
         try {
             val version = _deviceController.readFirmwareVersion()
