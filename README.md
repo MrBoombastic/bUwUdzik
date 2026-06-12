@@ -113,7 +113,7 @@ CGD1 Alarm Clock.
 ### 1. Service & Characteristics Profile
 
 The device uses a custom service structure but relies on standard 128-bit base UUIDs for
-characteristics in this specific firmware version.
+characteristics.
 
 **Target Service UUID:** `22210000-554a-4546-5542-46534450464d` (Advertised)
 
