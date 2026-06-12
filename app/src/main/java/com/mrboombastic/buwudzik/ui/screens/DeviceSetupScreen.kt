@@ -134,29 +134,23 @@ fun DeviceSetupScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
         hasBluetoothPermissions = BluetoothUtils.hasBluetoothPermissions(context)
-        if (hasBluetoothPermissions && isBluetoothEnabled) {
-            isScanning = true
-        }
     }
 
     LaunchedEffect(Unit) {
         hasBluetoothPermissions = BluetoothUtils.hasBluetoothPermissions(context)
         if (!hasBluetoothPermissions) {
             launcher.launch(permissionsToRequest)
-        } else if (isBluetoothEnabled) {
-            isScanning = true
         }
     }
 
-    // Start (or restart) scanning when BT is turned on while BLE permissions are already granted
+    // Start scanning when permissions and Bluetooth are available; stop/cancel when unavailable
     LaunchedEffect(isBluetoothEnabled, hasBluetoothPermissions) {
-        if (hasBluetoothPermissions && isBluetoothEnabled) {
-            isScanning = true
-        }
+        isScanning = hasBluetoothPermissions && isBluetoothEnabled
     }
 
     LaunchedEffect(isScanning) {
         if (isScanning) {
+            discoveredDevices.clear()
             try {
                 performDeviceScan(scanner, discoveredDevices, savedMacAddresses)
             } finally {
@@ -346,7 +340,6 @@ fun DeviceSetupScreen(
                 if (hasBluetoothPermissions && isBluetoothEnabled) {
                     OutlinedButton(
                         onClick = {
-                            discoveredDevices.clear()
                             isScanning = true
                         },
                         modifier = Modifier.weight(1f),
