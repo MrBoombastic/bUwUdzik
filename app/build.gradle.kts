@@ -27,7 +27,7 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = 34
         targetSdk = 36
-        versionCode = 33
+        versionCode = 34
         versionName = "1.9.0"
         buildConfigField(
             "String",
