@@ -321,9 +321,15 @@ class SensorGlanceWidget : GlanceAppWidget() {
                         else -> iconTint
                     }
 
+                    val refreshModifier = if (isLoading) {
+                        GlanceModifier.size(maxOf((footerSizeVal * 2f).dp, 32.dp))
+                    } else {
+                        GlanceModifier.size(maxOf((footerSizeVal * 2f).dp, 32.dp))
+                            .clickable(actionRunCallback<RefreshAction>())
+                    }
+
                     Box(
-                        modifier = GlanceModifier.size(maxOf((footerSizeVal * 2f).dp, 32.dp))
-                            .clickable(actionRunCallback<RefreshAction>()),
+                        modifier = refreshModifier,
                         contentAlignment = Alignment.Center
                     ) {
                         Image(

@@ -1,5 +1,6 @@
 package com.mrboombastic.buwudzik.widget
 
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -7,6 +8,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
+import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.utils.AppLogger
 
 private const val TAG = "SensorWidgetRefresher"
@@ -31,6 +33,7 @@ object SensorWidgetRefresher {
             val ids = manager.getGlanceIds(SensorGlanceWidget::class.java)
             val sensorRepo = SensorRepository(context, mac)
             val profileRepo = DeviceProfileRepository(context)
+            val widgetPrefs = WidgetPreferencesRepository(context)
 
             val data = sensorRepo.getSensorData()
             val alias = profileRepo.getByMac(mac)?.alias?.trim().orEmpty()
@@ -39,10 +42,22 @@ object SensorWidgetRefresher {
             val lastUpdate = sensorRepo.getLastUpdateTimestamp()
 
             ids.forEach { id ->
+                val appWidgetId = try {
+                    manager.getAppWidgetId(id)
+                } catch (_: Exception) {
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+                }
+                val mappedMac = if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                    widgetPrefs.getDeviceMacForWidget(appWidgetId)
+                } else {
+                    null
+                }
+
                 updateAppWidgetState(context, PreferencesGlanceStateDefinition, id) { prefs ->
-                    // Only update if this widget is explicitly assigned to this MAC in its internal state
-                    if (prefs[SensorGlanceWidget.KEY_MAC] == mac) {
+                    // Update if MAC is bound in either Glance state or widget preferences mapping.
+                    if (prefs[SensorGlanceWidget.KEY_MAC] == mac || mappedMac == mac) {
                         prefs.toMutablePreferences().apply {
+                            set(SensorGlanceWidget.KEY_MAC, mac)
                             if (data != null) {
                                 set(SensorGlanceWidget.KEY_TEMP, data.temperature)
                                 set(SensorGlanceWidget.KEY_HUMIDITY, data.humidity)
