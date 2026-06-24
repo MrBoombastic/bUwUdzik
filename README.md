@@ -1,3 +1,4 @@
+<!--suppress HtmlDeprecatedAttribute -->
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="website/media/logo-white.svg">

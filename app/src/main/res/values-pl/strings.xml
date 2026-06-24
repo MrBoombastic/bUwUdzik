@@ -38,7 +38,7 @@
     <string name="theme_dark">ciemny</string>
     <string name="battery_type_label">Typ baterii</string>
     <string name="battery_alkaline">alkaliczne (domyślne)</string>
-    <string name="battery_nimh">NiMH (akumulatorki, 1.2V)</string>
+    <string name="battery_nimh">NiMH (akumulatorki, 1.2 V)</string>
     <string name="about_app_label">O aplikacji</string>
     <string name="version_label">Wersja: %1$s</string>
     <string name="author_label">Autor: %1$s</string>
@@ -230,7 +230,7 @@
     <string name="manage_devices_label">Zarządzaj urządzeniami</string>
     <string name="active_device_label">%1$s</string>
     <string name="device_sheet_swipe_hint_title">Wskazówka</string>
-    <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu aby zmienić urządzenie albo stuknij nazwę powyżej.</string>
+    <string name="device_sheet_swipe_hint_body">Przesuń w górę od dołu ekranu, aby zmienić urządzenie albo stuknij nazwę powyżej.</string>
     <string name="device_sheet_swipe_hint_got_it">Rozumiem</string>
     <string name="widget_configure_title">Wybierz urządzenie dla widżetu</string>
     <string name="widget_configure_subtitle">Wybierz urządzenie wyświetlane przez ten widżet:</string>

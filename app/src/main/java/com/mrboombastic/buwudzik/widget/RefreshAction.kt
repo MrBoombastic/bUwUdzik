@@ -18,7 +18,7 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 import java.util.concurrent.TimeUnit
 
 /**
- * ActionCallback for handling refresh button clicks in the Glance widget.
+ * ActionCallback for handling the refresh button clicks in the Glance widget.
  * Triggers a one-time WorkManager request to scan for sensor data.
  */
 class RefreshAction : ActionCallback {

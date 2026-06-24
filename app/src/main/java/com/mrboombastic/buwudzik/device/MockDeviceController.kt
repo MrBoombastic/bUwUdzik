@@ -58,8 +58,8 @@ class MockDeviceController(context: Context) : DeviceController {
         if (mockAlarms.isEmpty()) {
             setupMockData(device.address)
         }
-        
-        // Report initial values immediately after connect
+
+        // Report initial values immediately after connection
         onSensorData?.invoke(currentTemp.toFloat(), currentHum.toFloat())
         onBatteryUpdate?.invoke(currentBattery)
         onRssiUpdate?.invoke(currentRssi)

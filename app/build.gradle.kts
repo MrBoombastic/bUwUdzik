@@ -16,20 +16,20 @@ configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
     }
 }
 
+var minSDK = 34
+var targetSDK = 37
+
 configure<ApplicationExtension> {
     val canaryBuild = providers.gradleProperty("CANARY_BUILD").orNull
     namespace = "com.mrboombastic.buwudzik"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = targetSDK
 
     defaultConfig.apply {
         applicationId = "com.mrboombastic.buwudzik"
-        minSdk = 34
-        targetSdk = 37
-        compileSdk = 37
-        versionCode = 37
-        versionName = "1.9.2"
+        minSdk = minSDK
+        targetSdk = targetSDK
+        versionCode = 38
+        versionName = "1.9.3"
         buildConfigField(
             "String",
             "WIDGET_UPDATE_ACTION",

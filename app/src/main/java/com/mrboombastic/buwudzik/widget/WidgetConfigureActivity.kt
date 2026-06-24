@@ -44,7 +44,7 @@ import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
-import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
+import com.mrboombastic.buwudzik.ui.theme.ClOwOckTheme
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -82,7 +82,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
         setResult(RESULT_CANCELED)
 
         setContent {
-            BuwudzikTheme {
+            ClOwOckTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     WidgetConfigureScreen(
                         onDeviceSelected = { profile -> onDevicePicked(profile) }

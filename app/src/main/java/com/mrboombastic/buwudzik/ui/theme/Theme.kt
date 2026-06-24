@@ -22,7 +22,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun BuwudzikTheme(
+fun ClOwOckTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // minSdk 34 — Material 3 dynamic color always available on supported devices.
     dynamicColor: Boolean = true, content: @Composable () -> Unit

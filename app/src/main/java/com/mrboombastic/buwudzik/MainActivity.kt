@@ -67,7 +67,7 @@ import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.HomeScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
-import com.mrboombastic.buwudzik.ui.theme.BuwudzikTheme
+import com.mrboombastic.buwudzik.ui.theme.ClOwOckTheme
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.ui.utils.NavigationAnimations
 import com.mrboombastic.buwudzik.ui.utils.ThemeUtils
@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         var mac = intent.getStringExtra("mac")
         if (mac.isNullOrEmpty()) {
             val data = intent.data
-            if (data != null && data.scheme == "buwudzik" && data.host == "device") {
+            if (data != null && (data.scheme == "buwudzik" || data.scheme == "clowock") && data.host == "device") {
                 mac = data.lastPathSegment
             }
         }
@@ -225,7 +225,7 @@ class MainActivity : AppCompatActivity() {
         handleIntent(intent)
 
         setContent {
-            BuwudzikTheme {
+            ClOwOckTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {

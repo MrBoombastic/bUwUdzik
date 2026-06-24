@@ -9,7 +9,7 @@ import com.mrboombastic.buwudzik.utils.AppLogger
  * Repository for storing alarm titles locally.
  * Titles are stored per-device by alarm ID since the device doesn't support titles natively.
  *
- * @param mac Device MAC address (used to namespace keys). When empty, falls back to the
+ * @param mac Device MAC address (used to namespace keys). When empty, it falls back to the
  *            legacy global namespace (migration only).
  */
 class AlarmTitleRepository(context: Context, private val mac: String = "") {

@@ -1,8 +1,8 @@
 <resources>
     <!-- Base application theme. -->
-    <style name="Base.Theme.BUwUdzik" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="Base.Theme.clOwOck" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/bg_dark_splash</item>
     </style>
 
-    <style name="Theme.BUwUdzik" parent="Base.Theme.BUwUdzik" />
+    <style name="Theme.clOwOck" parent="Base.Theme.clOwOck" />
 </resources>

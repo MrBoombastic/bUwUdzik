@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Base.Theme.BUwUdzik" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="Base.Theme.clOwOck" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/white</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background
         </item>
     </style>
 
-    <style name="Theme.BUwUdzik" parent="Base.Theme.BUwUdzik" />
+    <style name="Theme.clOwOck" parent="Base.Theme.clOwOck" />
 </resources>

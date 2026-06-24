@@ -332,7 +332,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
             },
             onDismiss = {
                 showAudioTrimmer = false
-                // Cleanup temp file if cancelled
+                // Clean up temp file if cancelled
                 if (selectedCustomUri?.lastPathSegment == "temp_ringtone.wav") {
                     try {
                         File(context.cacheDir, "temp_ringtone.wav").delete()

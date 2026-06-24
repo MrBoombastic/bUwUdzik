@@ -503,7 +503,7 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Github Button
+            // GitHub Button
             val githubUrl = stringResource(R.string.github_repo_url)
             val githubErrorMsg = stringResource(R.string.error_cannot_open_github)
             Button(

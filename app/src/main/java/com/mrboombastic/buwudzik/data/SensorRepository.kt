@@ -11,7 +11,7 @@ import java.util.Locale
 
 /**
  * Repository for caching the latest sensor reading.
- * Keys are namespaced per-device using the MAC address so each device
+ * Keys are namespaced per-device using the MAC address, so each device
  * has its own independent cached reading.
  *
  * Battery: [saveSensorData] applies [BluetoothUtils.correctBatteryLevel] using the profile’s
