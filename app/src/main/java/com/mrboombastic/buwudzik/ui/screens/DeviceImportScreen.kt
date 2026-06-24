@@ -139,11 +139,6 @@ fun DeviceImportScreen(
             columnModifier = Modifier
                 .padding(16.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
             when {
                 !hasCameraPermission -> {
                     Box(
@@ -153,7 +148,9 @@ fun DeviceImportScreen(
                             containerColor = MaterialTheme.colorScheme.errorContainer
                         ) {
                             Column(
-                                modifier = Modifier.padding(24.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
@@ -175,6 +172,11 @@ fun DeviceImportScreen(
                 }
 
                 isScanning -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                     fun applyManualToken() {
                         val tokenText = manualToken.trim()
 

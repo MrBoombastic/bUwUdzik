@@ -266,7 +266,7 @@ class MainActivity : AppCompatActivity() {
                         contract = ActivityResultContracts.StartActivityForResult()
                     ) { }
 
-                    if (!isBluetoothEnabled) {
+                    if (!isBluetoothEnabled && BluetoothUtils.hasBluetoothPermissions(context)) {
                         AlertDialog(
                             onDismissRequest = { },
                             title = { Text(stringResource(R.string.bluetooth_required_title)) },
