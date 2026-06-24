@@ -55,6 +55,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="unspecified"
+            tools:ignore="DiscouragedApi"
+            tools:replace="android:screenOrientation" />
+
         <receiver
                 android:name=".widget.SensorGlanceReceiver"
                 android:exported="true">
