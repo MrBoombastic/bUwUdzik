@@ -491,7 +491,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
     }
 
-    override suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
+    override suspend fun connectAndAuthenticate(device: BluetoothDevice) {
         val macAddress = device.address
         currentDeviceMac = macAddress
         currentToken = prepareTokenForDevice(macAddress)
@@ -505,7 +505,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
         withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { synchronizeTime() }
         enableSensorNotifications()
-        return true
     }
 
     private suspend fun authenticate(): Boolean = gattMutex.withLock {
@@ -934,8 +933,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
         return true
     }
-
-    override suspend fun stopAudioPreview(): Boolean = true
 
     override fun disconnect() {
         clearConnectionState()

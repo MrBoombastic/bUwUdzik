@@ -1,7 +1,6 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.content.pm.PackageManager
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -119,7 +118,6 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
     )
 
     val permissionsToRequest = BluetoothUtils.BLUETOOTH_PERMISSIONS
-    val permissionsRequiredMessage = stringResource(R.string.permissions_required)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(), onResult = { perms ->
@@ -131,8 +129,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                 }
             } else {
                 val deniedPerms = perms.filter { !it.value }.keys.joinToString(", ")
-                val message = "$permissionsRequiredMessage\nMissing: $deniedPerms"
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                AppLogger.w(TAG, "Permissions denied. Missing: $deniedPerms")
             }
         })
 

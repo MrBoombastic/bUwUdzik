@@ -339,32 +339,27 @@ class MainViewModel(
                 val adapter = bluetoothManager.adapter
                 val device = adapter.getRemoteDevice(targetMac)
 
-                val success = _deviceController.connectAndAuthenticate(device)
-                if (success) {
-                    _deviceConnected.value = true
-                    _connectionError.value = null
-                    checkPairingStatus()
+                _deviceController.connectAndAuthenticate(device)
+                _deviceConnected.value = true
+                _connectionError.value = null
+                checkPairingStatus()
 
-                    attachLiveSensorCallbacks()
+                attachLiveSensorCallbacks()
 
-                    rssiPollJob?.cancel()
-                    rssiPollJob = viewModelScope.launch {
-                        while (isActive && _deviceConnected.value) {
-                            try {
-                                _deviceController.readRssi()
-                            } catch (e: Exception) {
-                                AppLogger.w(TAG, "RSSI poll failed: ${e.message}", e)
-                            }
-                            delay(BleDeviceController.DELAY_RSSI_POLL.milliseconds)
+                rssiPollJob?.cancel()
+                rssiPollJob = viewModelScope.launch {
+                    while (isActive && _deviceConnected.value) {
+                        try {
+                            _deviceController.readRssi()
+                        } catch (e: Exception) {
+                            AppLogger.w(TAG, "RSSI poll failed: ${e.message}", e)
                         }
+                        delay(BleDeviceController.DELAY_RSSI_POLL.milliseconds)
                     }
+                }
 
-                    if (reloadAlarms) {
-                        launch { loadDeviceMetadataAfterConnect() }
-                    }
-                } else {
-                    AppLogger.e(TAG, "Failed to connect to clock")
-                    restartScanning()
+                if (reloadAlarms) {
+                    launch { loadDeviceMetadataAfterConnect() }
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Error connecting to clock ($targetMac): ${e.message}", e)
@@ -633,19 +628,17 @@ class MainViewModel(
                 applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val adapter = bluetoothManager.adapter
             val device = adapter.getRemoteDevice(mac)
-            
-            val success = _deviceController.connectAndAuthenticate(device)
-            if (success) {
-                _deviceConnected.value = true
-                _connectionError.value = null
-                _isPaired.value = true
-                checkPairingStatus()
 
-                attachLiveSensorCallbacks()
-                
-                // Load alarms and settings
-                loadDeviceMetadataAfterConnect()
-            }
+            _deviceController.connectAndAuthenticate(device)
+            _deviceConnected.value = true
+            _connectionError.value = null
+            _isPaired.value = true
+            checkPairingStatus()
+
+            attachLiveSensorCallbacks()
+
+            // Load alarms and settings
+            loadDeviceMetadataAfterConnect()
             _deviceConnecting.value = false
         }
         AppLogger.d(TAG, "Mock state initialized for $name @ $mac")
@@ -668,7 +661,6 @@ class MainViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
         _deviceController.close()
     }
 }

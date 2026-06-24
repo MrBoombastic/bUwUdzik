@@ -12,7 +12,7 @@ interface DeviceController {
     var onRssiUpdate: ((rssi: Int) -> Unit)?
     var onLastUpdated: ((timestamp: Long) -> Unit)?
 
-    suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean
+    suspend fun connectAndAuthenticate(device: BluetoothDevice)
     fun disconnect()
     fun readRssi()
     fun enqueueCommand(command: suspend () -> Unit)
@@ -35,7 +35,6 @@ interface DeviceController {
     
     // For audio upload (from BleDeviceController)
     suspend fun uploadAudio(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean
-    suspend fun stopAudioPreview(): Boolean
     suspend fun previewRingtone(settings: DeviceSettings? = null): Boolean
     suspend fun previewBrightness(brightness: Int): Boolean
     suspend fun synchronizeTime(timestamp: Long? = null): Boolean

@@ -49,7 +49,7 @@ class MockDeviceController(context: Context) : DeviceController {
     private var currentBattery = 100
     private var currentRssi = -50
 
-    override suspend fun connectAndAuthenticate(device: BluetoothDevice): Boolean {
+    override suspend fun connectAndAuthenticate(device: BluetoothDevice) {
         currentMac = device.address
         AppLogger.d(tag, "Mocking connection to demo device ${device.address}...")
         delay(1000.milliseconds)
@@ -66,7 +66,6 @@ class MockDeviceController(context: Context) : DeviceController {
         onLastUpdated?.invoke(System.currentTimeMillis())
         
         startMockSensorLoop()
-        return true
     }
 
     override fun disconnect() {
@@ -186,8 +185,6 @@ class MockDeviceController(context: Context) : DeviceController {
         }
         return true
     }
-
-    override suspend fun stopAudioPreview(): Boolean = true
 
     override suspend fun previewRingtone(settings: DeviceSettings?): Boolean {
         delay(300.milliseconds)
