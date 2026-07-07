@@ -4,6 +4,7 @@ import android.bluetooth.le.ScanSettings
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -123,10 +124,15 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
     LaunchedEffect(Unit) {
         val fetchedVersionName = withContext(Dispatchers.IO) {
             try {
-                val packageInfo = context.packageManager.getPackageInfo(
-                    context.packageName,
-                    PackageManager.PackageInfoFlags.of(0)
-                )
+                val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        context.packageName,
+                        PackageManager.PackageInfoFlags.of(0)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
                 packageInfo.versionName
             } catch (_: Exception) {
                 null
@@ -140,10 +146,15 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
             val sortedApps = withContext(Dispatchers.IO) {
                 val pm = context.packageManager
                 val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
-                val apps = pm.queryIntentActivities(
-                    intent,
-                    PackageManager.ResolveInfoFlags.of(0)
-                )
+                val apps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    pm.queryIntentActivities(
+                        intent,
+                        PackageManager.ResolveInfoFlags.of(0)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.queryIntentActivities(intent, 0)
+                }
                 AppLogger.d("SettingsScreen", "Found ${apps.size} launcher apps")
                 apps.sortedBy { it.loadLabel(pm).toString().lowercase() }
             }

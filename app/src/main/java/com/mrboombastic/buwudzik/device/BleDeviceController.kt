@@ -9,6 +9,7 @@ import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.os.Build
 import androidx.annotation.RequiresPermission
 import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.device.BleConstants.Command
@@ -275,7 +276,25 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
         }
 
+        @Deprecated("Deprecated in Java")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            if (characteristic == null) return
+            @Suppress("DEPRECATION")
+            val value = characteristic.value ?: ByteArray(0)
+            onCharacteristicChangedCompat(characteristic, value)
+        }
+
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            onCharacteristicChangedCompat(characteristic, value)
+        }
+
+        private fun onCharacteristicChangedCompat(
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
             AppLogger.d(TAG, "onCharacteristicChanged ${characteristic.uuid}: ${value.toHexString()}")
 
             when (characteristic.uuid) {
@@ -427,7 +446,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 authInitAckReceived = false
                 AppLogger.d(TAG, "Auth Init write complete, now sending Auth Confirm (11 02)...")
                 pendingAuthWriteChar?.let { char ->
-                    gatt?.writeCharacteristic(char, buildAuthConfirmPacket(), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                    gatt?.let { writeCharacteristicCompat(it, char, buildAuthConfirmPacket()) }
                 }
             }
         }
@@ -461,7 +480,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     pendingAuthWrite?.let { char ->
                         AppLogger.d(TAG, "Descriptor write complete, sending Auth Init (11 01)...")
                         pendingAuthWriteChar = char
-                        gatt?.writeCharacteristic(char, buildAuthInitPacket(), BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                        gatt?.let { writeCharacteristicCompat(it, char, buildAuthInitPacket()) }
                         pendingAuthWrite = null
                     }
                 }
@@ -471,7 +490,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         val dataService = gatt?.services?.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
                         val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
                         dataWriteChar?.let { char ->
-                            gatt.writeCharacteristic(char, cmd, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                            writeCharacteristicCompat(gatt, char, cmd)
                         }
                         pendingDataCommand = null
                     }
@@ -528,7 +547,11 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 val descriptor = authNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
                 pendingAuthWrite = authWriteChar
                 descriptor?.let {
-                    currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+                    writeDescriptorCompat(
+                        currentGatt,
+                        it,
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
                 }
                 continuation.invokeOnCancellation {
                     pendingAckContinuations.remove(Command.AUTH_CONFIRM)
@@ -559,7 +582,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     continuation.resumeWithException(Exception("Auth write characteristic not found"))
                     return@suspendCancellableCoroutine
                 }
-                currentGatt.writeCharacteristic(authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                writeCharacteristicCompat(currentGatt, authWriteChar, command)
                 continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.TIME_SYNC) }
             }
         }
@@ -585,12 +608,18 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                currentGatt.writeCharacteristic(dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                writeCharacteristicCompat(currentGatt, dataWriteChar, command)
             } else {
                 currentGatt.setCharacteristicNotification(dataNotifyChar, true)
                 val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
                 pendingDataCommand = command
-                descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+                descriptor?.let {
+                    writeDescriptorCompat(
+                        currentGatt,
+                        it,
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                }
                 enabledNotifications.add(UUID_DATA_NOTIFY)
             }
             continuation.invokeOnCancellation {
@@ -619,7 +648,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 return@suspendCancellableCoroutine
             }
             val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
-            currentGatt.writeCharacteristic(authWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+            writeCharacteristicCompat(currentGatt, authWriteChar, command)
             continuation.invokeOnCancellation { firmwareVersionReadContinuation = null }
         }
     }
@@ -722,12 +751,18 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
             if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                currentGatt.writeCharacteristic(dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                writeCharacteristicCompat(currentGatt, dataWriteChar, command)
             } else {
                 currentGatt.setCharacteristicNotification(dataNotifyChar, true)
                 val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
                 pendingDataCommand = command
-                descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+                descriptor?.let {
+                    writeDescriptorCompat(
+                        currentGatt,
+                        it,
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                }
                 enabledNotifications.add(UUID_DATA_NOTIFY)
             }
             continuation.invokeOnCancellation {
@@ -763,10 +798,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
                         currentGatt.setCharacteristicNotification(dataNotifyChar, true)
                         val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                        descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+                        descriptor?.let {
+                            writeDescriptorCompat(
+                                currentGatt,
+                                it,
+                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            )
+                        }
                         enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                    currentGatt.writeCharacteristic(dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                    writeCharacteristicCompat(currentGatt, dataWriteChar, command)
                 }
             }
         }
@@ -797,10 +838,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
                         currentGatt.setCharacteristicNotification(dataNotifyChar, true)
                         val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                        descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+                        descriptor?.let {
+                            writeDescriptorCompat(
+                                currentGatt,
+                                it,
+                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            )
+                        }
                         enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                    currentGatt.writeCharacteristic(dataWriteChar, command, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                    writeCharacteristicCompat(currentGatt, dataWriteChar, command)
                 }
             }
         }
@@ -883,7 +930,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
         if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
             currentGatt.setCharacteristicNotification(dataNotifyChar, true)
             val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-            descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+            descriptor?.let {
+                writeDescriptorCompat(
+                    currentGatt,
+                    it,
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                )
+            }
             delay(DELAY_ALARM_RELOAD.milliseconds)
             enabledNotifications.add(UUID_DATA_NOTIFY)
         }
@@ -955,7 +1008,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val currentGatt = gatt ?: return false
         val deferred = CompletableDeferred<Boolean>()
         writeCompleteDeferred = deferred
-        if (currentGatt.writeCharacteristic(characteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) != android.bluetooth.BluetoothStatusCodes.SUCCESS) {
+        if (!writeCharacteristicCompat(currentGatt, characteristic, data)) {
             writeCompleteDeferred = null
             return false
         }
@@ -971,7 +1024,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
     private suspend fun writeCharacteristicWithRetry(characteristic: BluetoothGattCharacteristic, value: ByteArray, retryCount: Int = 3): Boolean {
         val currentGatt = gatt ?: return false
         repeat(retryCount) { attempt ->
-            if (currentGatt.writeCharacteristic(characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == android.bluetooth.BluetoothStatusCodes.SUCCESS) return true
+            if (writeCharacteristicCompat(currentGatt, characteristic, value)) return true
             delay((100 * (attempt + 1).toLong()).milliseconds)
         }
         return false
@@ -1030,8 +1083,52 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
             val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-            descriptor?.let { currentGatt.writeDescriptor(it, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) }
+            descriptor?.let {
+                writeDescriptorCompat(
+                    currentGatt,
+                    it,
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                )
+            }
             continuation.invokeOnCancellation { sensorNotificationContinuation = null }
+        }
+    }
+
+    private fun writeCharacteristicCompat(
+        gatt: BluetoothGatt,
+        characteristic: BluetoothGattCharacteristic,
+        value: ByteArray
+    ): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            gatt.writeCharacteristic(
+                characteristic,
+                value,
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            ) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            characteristic.value = value
+            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            @Suppress("DEPRECATION")
+            gatt.writeCharacteristic(characteristic)
+        }
+    }
+
+    private fun writeDescriptorCompat(
+        gatt: BluetoothGatt,
+        descriptor: BluetoothGattDescriptor,
+        value: ByteArray
+    ): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            gatt.writeDescriptor(
+                descriptor,
+                value
+            ) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+        } else {
+            @Suppress("DEPRECATION")
+            descriptor.value = value
+            @Suppress("DEPRECATION")
+            gatt.writeDescriptor(descriptor)
         }
     }
 }

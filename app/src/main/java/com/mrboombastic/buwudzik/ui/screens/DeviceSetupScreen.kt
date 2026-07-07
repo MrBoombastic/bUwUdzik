@@ -120,9 +120,15 @@ fun DeviceSetupScreen(
 
     val permissionsToRequest = remember {
         mutableListOf<String>().apply {
-            add(Manifest.permission.BLUETOOTH_SCAN)
-            add(Manifest.permission.BLUETOOTH_CONNECT)
-            add(Manifest.permission.POST_NOTIFICATIONS)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                add(Manifest.permission.BLUETOOTH_SCAN)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            } else {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }.toTypedArray()
     }
 
@@ -169,7 +175,7 @@ fun DeviceSetupScreen(
                 batteryType = BatteryType.ALKALINE
             )
             viewModel.addDevice(profile, makeActive = true)
-            // Navigate back to devices list or home
+            // Navigate back to device list or home
             if (navController.previousBackStackEntry?.destination?.route == "devices") {
                 navController.popBackStack()
             } else {

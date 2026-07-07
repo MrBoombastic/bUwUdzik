@@ -16,7 +16,7 @@ configure<com.android.build.api.variant.ApplicationAndroidComponentsExtension> {
     }
 }
 
-var minSDK = 34
+var minSDK = 29
 var targetSDK = 37
 
 configure<ApplicationExtension> {
@@ -28,8 +28,8 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = minSDK
         targetSdk = targetSDK
-        versionCode = 38
-        versionName = "1.9.3"
+        versionCode = 40
+        versionName = "1.9.4"
         buildConfigField(
             "String",
             "WIDGET_UPDATE_ACTION",

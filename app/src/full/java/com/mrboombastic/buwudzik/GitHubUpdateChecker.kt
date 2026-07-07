@@ -82,10 +82,16 @@ abstract class GitHubUpdateChecker(
             )
 
             val latestVersion = release.tagName.removePrefix("v")
-            val packageVersion =
-                context.packageManager
-                    .getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
-                    .versionName ?: "0.0.0"
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            val packageVersion = packageInfo.versionName ?: "0.0.0"
             val fakeCurrent = BuildConfig.UPDATE_CHECK_DEBUG_FAKE_VERSION
             val currentVersion =
                 fakeCurrent.ifEmpty {

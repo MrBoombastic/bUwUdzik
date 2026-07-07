@@ -14,9 +14,12 @@ object BluetoothUtils {
     /**
      * Required Bluetooth permissions for scanning and connecting
      */
-    val BLUETOOTH_PERMISSIONS = arrayOf(
-        Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT
-    )
+    val BLUETOOTH_PERMISSIONS =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
 
     /**
      * Check if Bluetooth is currently enabled

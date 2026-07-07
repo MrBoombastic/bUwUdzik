@@ -45,7 +45,7 @@
     <string name="theme_dark">dark</string>
     <string name="battery_type_label">Battery type</string>
     <string name="battery_alkaline">alkaline (default)</string>
-    <string name="battery_nimh">NiMH (rechargeable, 1.2V)</string>
+    <string name="battery_nimh">NiMH (rechargeable, 1.2 V)</string>
     <string name="about_app_label">About</string>
     <string name="version_label">Version: %1$s</string>
     <string name="author_label">Author: %1$s</string>
@@ -154,7 +154,7 @@
     <string name="custom_ringtone_header">Custom ringtone</string>
     <string name="select_audio_file">Select audio file</string>
     <string name="file_selected">File selected</string>
-    <string name="audio_format_hint">Audio will be converted to 8kHz mono.</string>
+    <string name="audio_format_hint">Audio will be converted to 8 kHz mono.</string>
     <string name="current_label">Current</string>
     <string name="converting_audio">Converting audio…</string>
     <string name="uploading_progress">Uploading: %1$d%%</string>
@@ -188,7 +188,7 @@
     <string name="pairing_step1_title">Enter pairing mode</string>
     <string name="pairing_step1_desc">Press the device button for 2 seconds.</string>
     <string name="pairing_step2_title">Wait for signal</string>
-    <string name="pairing_step2_desc">The Bluetooth icon on device will blink.</string>
+    <string name="pairing_step2_desc">The Bluetooth icon on the device will blink.</string>
     <string name="pairing_step3_title">Connect</string>
     <string name="pairing_step3_desc">Tap the button below to pair.</string>
     <string name="pair_and_connect">Pair and connect</string>

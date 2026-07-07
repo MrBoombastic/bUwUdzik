@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -162,8 +163,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun clearCacheIfUpdated() {
         try {
-            val packageInfo =
+            val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
             val currentVersionCode = packageInfo.longVersionCode.toInt()
 
             if (settingsRepository.lastVersionCode != currentVersionCode) {
