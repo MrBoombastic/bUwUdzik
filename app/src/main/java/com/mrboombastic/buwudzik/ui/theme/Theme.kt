@@ -24,7 +24,6 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun ClOwOckTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // minSdk 34 — Material 3 dynamic color always available on supported devices.
     dynamicColor: Boolean = true, content: @Composable () -> Unit
 ) {
     val colorScheme = when {

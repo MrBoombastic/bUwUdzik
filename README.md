@@ -89,7 +89,7 @@ The application is built with modern Android development technologies and target
 versions.
 
 - **Target API:** The application targets Android 16 (API level 36) and has a minimum requirement of
-  Android 14 (API level 34)
+  Android 10 (API level 29)
 - **UI:** Jetpack Compose for a declarative and modern UI
 - **Background Processing:** `WorkManager` and `AlarmManager` for scheduling periodic data fetches,
   ensuring the widget is always up to date
