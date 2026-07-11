@@ -9,7 +9,23 @@
 
 # clOwOck
 
-Android app for the Qingping Cleargrass CGD1 (`cgllc.clock.dove`) - Bluetooth LE alarm clock with sensors.
+[![GitHub release](https://img.shields.io/github/v/release/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/releases)
+[![GitHub all releases](https://img.shields.io/github/downloads/MrBoombastic/clOwOck/total)](https://github.com/MrBoombastic/clOwOck/releases)
+[![GitHub issues](https://img.shields.io/github/issues/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/issues)
+[![GitHub forks](https://img.shields.io/github/forks/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/network)
+[![GitHub stars](https://img.shields.io/github/stars/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/stargazers)
+[![GitHub license](https://img.shields.io/github/license/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/blob/main/LICENSE)
+
+<!--suppress HtmlDeprecatedAttribute -->
+<div align="center">
+<a href="https://play.google.com/store/apps/details?id=com.mrboombastic.buwudzik">
+  <img src=".github/gplay.svg" width="200" alt="Get it on Google Play">
+</a>
+</div>
+
+
+Android app for the Qingping Cleargrass CGD1 (`cgllc.clock.dove`) - Bluetooth LE alarm clock with
+sensors.
 
 <details>
 <summary><strong>Table of Contents</strong></summary>
@@ -82,7 +98,6 @@ so it's only semi-slop, but you have been warned, etc., etc.
 <img src="website/media/export.png" width="23%" alt="Export device screenshot"></img>
 <img src="website/media/widget.png" width="23%" alt="Multiple widgets screenshot"></img>
 
-
 ## Technical Details
 
 The application is built with modern Android development technologies and targets recent Android
@@ -93,7 +108,6 @@ versions.
 - **UI:** Jetpack Compose for a declarative and modern UI
 - **Background Processing:** `WorkManager` and `AlarmManager` for scheduling periodic data fetches,
   ensuring the widget is always up to date
-
 
 ### Firmware Compatibility
 
