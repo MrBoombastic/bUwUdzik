@@ -9,12 +9,16 @@
 
 # clOwOck
 
+<!--suppress HtmlDeprecatedAttribute -->
+<div align="center">
 [![GitHub release](https://img.shields.io/github/v/release/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/releases)
 [![GitHub all releases](https://img.shields.io/github/downloads/MrBoombastic/clOwOck/total)](https://github.com/MrBoombastic/clOwOck/releases)
 [![GitHub issues](https://img.shields.io/github/issues/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/issues)
 [![GitHub forks](https://img.shields.io/github/forks/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/network)
 [![GitHub stars](https://img.shields.io/github/stars/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/stargazers)
 [![GitHub license](https://img.shields.io/github/license/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/blob/main/LICENSE)
+</div>
+
 
 <!--suppress HtmlDeprecatedAttribute -->
 <div align="center">
