@@ -10,15 +10,29 @@
 # clOwOck
 
 <!--suppress HtmlDeprecatedAttribute -->
-<div align="center">
-[![GitHub release](https://img.shields.io/github/v/release/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/releases)
-[![GitHub all releases](https://img.shields.io/github/downloads/MrBoombastic/clOwOck/total)](https://github.com/MrBoombastic/clOwOck/releases)
-[![GitHub issues](https://img.shields.io/github/issues/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/issues)
-[![GitHub forks](https://img.shields.io/github/forks/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/network)
-[![GitHub stars](https://img.shields.io/github/stars/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/stargazers)
-[![GitHub license](https://img.shields.io/github/license/MrBoombastic/clOwOck)](https://github.com/MrBoombastic/clOwOck/blob/main/LICENSE)
-</div>
-
+<p align="center">
+<a href="https://github.com/MrBoombastic/clOwOck/actions">
+  <img src="https://img.shields.io/github/actions/workflow/status/MrBoombastic/clOwOck/release.yml?branch=main" alt="Build Status">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/releases">
+  <img src="https://img.shields.io/github/v/release/MrBoombastic/clOwOck" alt="GitHub release">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/releases">
+  <img src="https://img.shields.io/github/downloads/MrBoombastic/clOwOck/total" alt="GitHub all releases">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/issues">
+  <img src="https://img.shields.io/github/issues/MrBoombastic/clOwOck" alt="GitHub issues">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/network">
+  <img src="https://img.shields.io/github/forks/MrBoombastic/clOwOck" alt="GitHub forks">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/stargazers">
+  <img src="https://img.shields.io/github/stars/MrBoombastic/clOwOck" alt="GitHub stars">
+</a>
+<a href="https://github.com/MrBoombastic/clOwOck/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/MrBoombastic/clOwOck" alt="GitHub license">
+</a>
+</p>
 
 <!--suppress HtmlDeprecatedAttribute -->
 <div align="center">
