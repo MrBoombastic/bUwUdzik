@@ -28,8 +28,8 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = minSDK
         targetSdk = targetSDK
-        versionCode = 40
-        versionName = "1.9.4"
+        versionCode = 41
+        versionName = "1.9.5"
         buildConfigField(
             "String",
             "WIDGET_UPDATE_ACTION",

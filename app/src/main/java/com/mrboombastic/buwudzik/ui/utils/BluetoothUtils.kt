@@ -25,9 +25,25 @@ object BluetoothUtils {
      * Check if Bluetooth is currently enabled
      */
     fun isBluetoothEnabled(context: Context): Boolean {
+        // Since Android 12, reading BluetoothAdapter state requires BLUETOOTH_CONNECT.
+        // This method is also called while the ViewModel is being created, before the UI
+        // has had a chance to request runtime permissions.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return false
+        }
+
         val bluetoothManager =
             context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        return bluetoothManager?.adapter?.isEnabled == true
+        return try {
+            bluetoothManager?.adapter?.isEnabled == true
+        } catch (_: SecurityException) {
+            // Some platform Bluetooth services can reject this call transiently; treat
+            // an unavailable state as disabled instead of crashing during app startup.
+            false
+        }
     }
 
     /**
