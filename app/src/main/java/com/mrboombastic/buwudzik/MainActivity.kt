@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Resume BLE scan only when a device is configured and permissions are granted
         val vm = mainViewModel ?: return
+        vm.refreshBluetoothState()
         vm.checkPairingStatus()
         if (BluetoothUtils.hasBluetoothPermissions(this) &&
             vm.activeMac.isNotEmpty()
@@ -261,6 +262,7 @@ class MainActivity : AppCompatActivity() {
                             filter,
                             ContextCompat.RECEIVER_NOT_EXPORTED
                         )
+                        viewModel.refreshBluetoothState()
                         onDispose {
                             context.unregisterReceiver(receiver)
                         }
@@ -269,7 +271,9 @@ class MainActivity : AppCompatActivity() {
                     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
                     val enableBluetoothLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.StartActivityForResult()
-                    ) { }
+                    ) {
+                        viewModel.refreshBluetoothState()
+                    }
 
                     if (!isBluetoothEnabled && BluetoothUtils.hasBluetoothPermissions(context)) {
                         AlertDialog(

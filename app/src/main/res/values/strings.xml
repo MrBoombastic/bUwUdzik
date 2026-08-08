@@ -211,6 +211,10 @@
     <string name="import_device_button">Import device</string>
     <string name="camera_permission_required">Camera permission is required to scan QR codes.</string>
     <string name="widget_refresh_description">Refresh sensor data</string>
+    <string name="widget_refresh_channel_name">Widget refresh</string>
+    <string name="widget_refresh_channel_description">Shows when a widget refresh is reading a Bluetooth sensor.</string>
+    <string name="widget_refresh_notification_title">Refreshing widget</string>
+    <string name="widget_refresh_notification_text">Reading the latest sensor data…</string>
     <string name="auth_hint">You may need to unpair the device in settings, then pair it again.</string>
     <string name="disconnect_reason_device_terminated">Device terminated connection.</string>
     <string name="disconnect_reason_timeout">Connection timeout.</string>

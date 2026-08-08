@@ -261,6 +261,10 @@ class MainViewModel(
         }
     }
 
+    fun refreshBluetoothState() {
+        updateBluetoothState(BluetoothUtils.isBluetoothEnabled(applicationContext))
+    }
+
     private fun stopActiveConnection() {
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null

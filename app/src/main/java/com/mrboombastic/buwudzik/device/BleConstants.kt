@@ -8,6 +8,8 @@ import java.util.UUID
  */
 object BleConstants {
     // UUIDs for QP CGD1
+    val UUID_DEVICE_SERVICE: UUID =
+        UUID.fromString("22210000-554a-4546-5542-46534450464d")
     val UUID_AUTH_WRITE: UUID = UUID.fromString("00000001-0000-1000-8000-00805f9b34fb")
     val UUID_AUTH_NOTIFY: UUID = UUID.fromString("00000002-0000-1000-8000-00805f9b34fb")
     val UUID_DATA_WRITE: UUID = UUID.fromString("0000000b-0000-1000-8000-00805f9b34fb")
@@ -15,6 +17,12 @@ object BleConstants {
     val UUID_SENSOR_NOTIFY: UUID = UUID.fromString("00000100-0000-1000-8000-00805f9b34fb")
     val UUID_CLIENT_CHARACTERISTIC_CONFIG: UUID =
         UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+    // Standard Battery Service, exposed by supported CGD1 firmware while connected.
+    val UUID_BATTERY_SERVICE: UUID =
+        UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+    val UUID_BATTERY_LEVEL: UUID =
+        UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
 
     // Passive advertising service
     val UUID_SERVICE_ADVERTISING: ParcelUuid =
@@ -74,17 +82,19 @@ object BleConstants {
     }
 
     object Advertise {
+        const val PACKET_TYPE_QINGPING = 0x08
         const val DEVICE_ID_CGD1 = 0x0C
 
-        // Payload indices
-        const val INDEX_DEVICE_ID = 1
-        const val INDEX_TEMP_L = 10
-        const val INDEX_TEMP_H = 11
-        const val INDEX_HUMID_L = 12
-        const val INDEX_HUMID_H = 13
-        const val INDEX_BATTERY = 16
+        const val OBJECT_TEMPERATURE_HUMIDITY = 0x01
+        const val OBJECT_BATTERY = 0x02
+        const val TEMPERATURE_HUMIDITY_LENGTH = 4
+        const val BATTERY_LENGTH = 1
 
-        const val MIN_PAYLOAD_SIZE = 17
+        // Fixed header indices. Sensor values after the header use type-length-value objects.
+        const val INDEX_PACKET_TYPE = 0
+        const val INDEX_DEVICE_ID = 1
+        const val HEADER_SIZE = 8
+        const val MIN_PAYLOAD_SIZE = HEADER_SIZE + 2
     }
 
     object Alarm {

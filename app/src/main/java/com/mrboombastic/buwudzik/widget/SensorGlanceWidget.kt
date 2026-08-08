@@ -172,6 +172,7 @@ class SensorGlanceWidget : GlanceAppWidget() {
                 Intent(context, MainActivity::class.java).apply {
                     putExtra("mac", mac)
                     data = "buwudzik://device/$mac".toUri()
+                    setPackage(context.packageName)
                 }
             )
         } else {

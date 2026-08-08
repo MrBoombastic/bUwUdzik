@@ -18,9 +18,12 @@ import com.mrboombastic.buwudzik.device.BleConstants.Header
 import com.mrboombastic.buwudzik.device.BleConstants.Status
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_WRITE
+import com.mrboombastic.buwudzik.device.BleConstants.UUID_BATTERY_LEVEL
+import com.mrboombastic.buwudzik.device.BleConstants.UUID_BATTERY_SERVICE
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_CLIENT_CHARACTERISTIC_CONFIG
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_WRITE
+import com.mrboombastic.buwudzik.device.BleConstants.UUID_DEVICE_SERVICE
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_SENSOR_NOTIFY
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.CompletableDeferred
@@ -124,8 +127,11 @@ class BleDeviceController(private val context: Context) : DeviceController {
     private var lastSettingsPacket: ByteArray? = null
     private var pendingAuthWriteChar: BluetoothGattCharacteristic? = null
     private var authInitAckReceived = false
+    private var authInitWriteCompleted = false
+    private var authConfirmSent = false
     private var pendingAuthWrite: BluetoothGattCharacteristic? = null
     private var pendingDataCommand: ByteArray? = null
+    private var pendingBatteryReadAfterDescriptor = false
     private val enabledNotifications = mutableSetOf<UUID>()
     private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
@@ -147,11 +153,14 @@ class BleDeviceController(private val context: Context) : DeviceController {
         isAuthenticated = false
         enabledNotifications.clear()
         authInitAckReceived = false
+        authInitWriteCompleted = false
+        authConfirmSent = false
         alarmBuffer.clear()
         lastSettingsPacket = null
         pendingAuthWriteChar = null
         pendingAuthWrite = null
         pendingDataCommand = null
+        pendingBatteryReadAfterDescriptor = false
         alarmCompletionJob?.cancel()
         alarmCompletionJob = null
 
@@ -195,16 +204,18 @@ class BleDeviceController(private val context: Context) : DeviceController {
     }
 
     private fun handleAckNotification(value: ByteArray, characteristicUuid: UUID) {
-        if (value.size < 4 || value[0] != Header.ACK[0] || value[1] != Header.ACK[1]) {
+        val ack = parseBleAck(value)
+        if (ack == null) {
             AppLogger.d(TAG, "[$characteristicUuid] Unhandled notification: ${value.toHexString()}")
             return
         }
-        val cmdId = value[2].toInt() and 0xFF
-        val status = value[3].toInt() and 0xFF
+        val cmdId = ack.command
+        val status = ack.status
+        val isAuthNotification = characteristicUuid == UUID_AUTH_NOTIFY
 
         val cmdName = when (cmdId) {
-            Command.AUTH_INIT -> "Auth Init"
-            Command.AUTH_CONFIRM -> "Auth Confirm"
+            Command.AUTH_INIT -> if (isAuthNotification) "Auth Init" else "Set Settings"
+            Command.AUTH_CONFIRM -> if (isAuthNotification) "Auth Confirm" else "Read Settings"
             Command.PREVIEW_BRIGHTNESS -> "Brightness Preview"
             Command.PREVIEW_RINGTONE -> "Preview Ringtone"
             Command.SET_ALARM -> "Alarm"
@@ -214,35 +225,51 @@ class BleDeviceController(private val context: Context) : DeviceController {
             else -> "Cmd $cmdId"
         }
         val authHint = context.getString(com.mrboombastic.buwudzik.R.string.auth_hint)
-        AppLogger.d(TAG, "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). Status: ${status.toHexString()}")
+        AppLogger.d(
+            TAG,
+            "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). Length: ${ack.payloadLength}. Status: ${status.toHexString()}"
+        )
 
         if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
             handleUploadAck(value)
         }
 
-        if (status == Status.SUCCESS || status == Status.ALARM_STILL_SUCCESS || (cmdId == Command.AUTH_INIT && status == Status.AUTH_INIT_SUCCESS)) {
-            if (cmdId == Command.AUTH_INIT) {
+        if (isSuccessfulAck(cmdId, status, isAuthNotification)) {
+            if (isAuthNotification && cmdId == Command.AUTH_INIT) {
                 AppLogger.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
                 authInitAckReceived = true
-            } else if (cmdId == Command.AUTH_CONFIRM) {
+                maybeSendAuthConfirm()
+            } else if (isAuthNotification && cmdId == Command.AUTH_CONFIRM) {
                 AppLogger.d(TAG, "Authentication seems successful, but syncing time will tell the truth")
                 isAuthenticated = true
                 pendingAuthWriteChar = null
-                if (isPendingPairing) {
-                    currentDeviceMac?.let { mac ->
-                        currentToken?.let { token ->
-                            tokenStorage.storeToken(mac, token)
-                            AppLogger.d(TAG, "Token stored for $mac after successful pairing")
-                        }
-                    }
-                    isPendingPairing = false
-                }
             }
             pendingAckContinuations.remove(cmdId)?.resume(true)
         } else {
-            val errorSuffix = if (status == Status.AUTH_INIT_SUCCESS) " $authHint" else ""
+            val errorSuffix =
+                if (isAuthNotification && status == Status.AUTH_INIT_SUCCESS) " $authHint" else ""
             AppLogger.e(TAG, "[$characteristicUuid] $cmdName failed with status $status$errorSuffix (Full: ${value.toHexString()})")
             pendingAckContinuations.remove(cmdId)?.resumeWithException(Exception("$cmdName failed: $status$errorSuffix"))
+        }
+    }
+
+    private fun isSuccessfulAck(command: Int, status: Int, isAuthNotification: Boolean): Boolean =
+        status == Status.SUCCESS ||
+                (isAuthNotification && command == Command.AUTH_INIT && status == Status.AUTH_INIT_SUCCESS) ||
+                ((command == Command.SET_ALARM || command == Command.AUDIO_INIT || command == Command.AUDIO_BLOCK) &&
+                        status == Status.ALARM_STILL_SUCCESS)
+
+    private fun maybeSendAuthConfirm() {
+        if (!authInitAckReceived || !authInitWriteCompleted || authConfirmSent) return
+        val currentGatt = gatt ?: return
+        val characteristic = pendingAuthWriteChar ?: return
+
+        authConfirmSent = true
+        AppLogger.d(TAG, "Auth Init write and ACK complete; sending Auth Confirm (11 02)...")
+        if (!writeCharacteristicCompat(currentGatt, characteristic, buildAuthConfirmPacket())) {
+            authConfirmSent = false
+            pendingAckContinuations.remove(Command.AUTH_CONFIRM)
+                ?.resumeWithException(Exception("writeCharacteristic failed for Auth Confirm"))
         }
     }
 
@@ -318,10 +345,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
                 UUID_DATA_NOTIFY -> {
                     if (value.size >= 3 && value[0] == Header.ACK[0] && value[1] == Header.ACK[1]) {
-                        val cmdId = value[2].toInt() and 0xFF
-                        if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
-                            handleUploadAck(value)
-                        }
                         if (value.size >= 4) {
                             handleAckNotification(value, characteristic.uuid)
                         }
@@ -419,8 +442,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
                 UUID_SENSOR_NOTIFY -> {
                     if (value.size >= 5 && value[0] == Header.SENSOR_DATA) {
-                        val tempRaw = (value[2].toInt() and 0xFF shl 8) or (value[1].toInt() and 0xFF)
-                        val humRaw = (value[4].toInt() and 0xFF shl 8) or (value[3].toInt() and 0xFF)
+                        val tempRaw = littleEndianUInt16(value, 1).toShort().toInt()
+                        val humRaw = littleEndianUInt16(value, 3)
                         val temperature = tempRaw / 100.0f
                         val humidity = humRaw / 100.0f
                         AppLogger.d(TAG, "Sensor data: Temp=$temperature \u00b0C, Hum=$humidity %")
@@ -428,7 +451,40 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         onLastUpdated?.invoke(System.currentTimeMillis())
                     }
                 }
+
+                UUID_BATTERY_LEVEL -> handleBatteryValue(value)
             }
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            if (characteristic == null || status != BluetoothGatt.GATT_SUCCESS) return
+            @Suppress("DEPRECATION")
+            onCharacteristicReadCompat(characteristic, characteristic.value ?: ByteArray(0))
+        }
+
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
+            if (status == BluetoothGatt.GATT_SUCCESS) onCharacteristicReadCompat(
+                characteristic,
+                value
+            )
+        }
+
+        private fun onCharacteristicReadCompat(
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            AppLogger.d(TAG, "onCharacteristicRead ${characteristic.uuid}: ${value.toHexString()}")
+            if (characteristic.uuid == UUID_BATTERY_LEVEL) handleBatteryValue(value)
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
@@ -442,12 +498,9 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             deferred?.complete(true)
 
-            if (authInitAckReceived && characteristic?.uuid == UUID_AUTH_WRITE) {
-                authInitAckReceived = false
-                AppLogger.d(TAG, "Auth Init write complete, now sending Auth Confirm (11 02)...")
-                pendingAuthWriteChar?.let { char ->
-                    gatt?.let { writeCharacteristicCompat(it, char, buildAuthConfirmPacket()) }
-                }
+            if (characteristic?.uuid == UUID_AUTH_WRITE && pendingAuthWriteChar != null && !authConfirmSent) {
+                authInitWriteCompleted = true
+                maybeSendAuthConfirm()
             }
         }
 
@@ -470,6 +523,10 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         sensorNotificationContinuation?.resumeWithException(Exception("Enable sensor notification failed: $status"))
                         sensorNotificationContinuation = null
                     }
+                    UUID_BATTERY_LEVEL -> {
+                        pendingBatteryReadAfterDescriptor = false
+                        descriptor.characteristic?.let { gatt?.readCharacteristic(it) }
+                    }
                 }
                 return
             }
@@ -480,6 +537,9 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     pendingAuthWrite?.let { char ->
                         AppLogger.d(TAG, "Descriptor write complete, sending Auth Init (11 01)...")
                         pendingAuthWriteChar = char
+                        authInitAckReceived = false
+                        authInitWriteCompleted = false
+                        authConfirmSent = false
                         gatt?.let { writeCharacteristicCompat(it, char, buildAuthInitPacket()) }
                         pendingAuthWrite = null
                     }
@@ -499,6 +559,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     sensorNotificationContinuation?.resume(true)
                     sensorNotificationContinuation = null
                 }
+                UUID_BATTERY_LEVEL -> {
+                    enabledNotifications.add(UUID_BATTERY_LEVEL)
+                    if (pendingBatteryReadAfterDescriptor) {
+                        pendingBatteryReadAfterDescriptor = false
+                        descriptor.characteristic?.let { gatt?.readCharacteristic(it) }
+                    }
+                }
             }
         }
 
@@ -514,7 +581,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val macAddress = device.address
         currentDeviceMac = macAddress
         currentToken = prepareTokenForDevice(macAddress)
-        AppLogger.d(TAG, "Token prepared for $macAddress: ${currentToken?.toHexString()}")
+        AppLogger.d(TAG, "Authentication token prepared for $macAddress")
 
         connect(device)
 
@@ -522,8 +589,22 @@ class BleDeviceController(private val context: Context) : DeviceController {
             withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { authenticate() }
             delay(DELAY_POST_AUTH.milliseconds)
         }
-        withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { synchronizeTime() }
+        val timeSynchronized =
+            withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) { synchronizeTime() }
+        if (!timeSynchronized) throw Exception("Time synchronization failed after authentication")
+
+        if (isPendingPairing) {
+            val token = currentToken ?: throw IllegalStateException("No token after authentication")
+            tokenStorage.storeToken(macAddress, token)
+            isPendingPairing = false
+            AppLogger.d(
+                TAG,
+                "Token stored for $macAddress after authenticated time synchronization"
+            )
+        }
+
         enableSensorNotifications()
+        enableBatteryUpdates()
     }
 
     private suspend fun authenticate(): Boolean = gattMutex.withLock {
@@ -535,9 +616,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 }
                 AppLogger.d(TAG, "Starting authentication...")
                 pendingAckContinuations[Command.AUTH_CONFIRM] = continuation
-                val authService = currentGatt.services.find { it.getCharacteristic(UUID_AUTH_NOTIFY) != null }
-                val authNotifyChar = authService?.getCharacteristic(UUID_AUTH_NOTIFY)
-                val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
+                val authNotifyChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_NOTIFY)
+                val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
                 if (authNotifyChar == null || authWriteChar == null) {
                     pendingAckContinuations.remove(Command.AUTH_CONFIRM)
                     continuation.resumeWithException(Exception("Auth characteristics not found"))
@@ -575,8 +655,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 }
                 pendingAckContinuations[Command.TIME_SYNC] = continuation
                 val command = byteArrayOf(Header.TIME, Command.TIME_SYNC.toByte(), (finalTimestamp and 0xFF).toByte(), ((finalTimestamp shr 8) and 0xFF).toByte(), ((finalTimestamp shr 16) and 0xFF).toByte(), ((finalTimestamp shr 24) and 0xFF).toByte())
-                val authService = currentGatt.services.find { it.getCharacteristic(UUID_AUTH_WRITE) != null }
-                val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
+                val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
                 if (authWriteChar == null) {
                     pendingAckContinuations.remove(Command.TIME_SYNC)
                     continuation.resumeWithException(Exception("Auth write characteristic not found"))
@@ -599,9 +678,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 return@suspendCancellableCoroutine
             }
             deviceSettingsReadContinuation = continuation
-            val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-            val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+            val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+            val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
             if (dataWriteChar == null || dataNotifyChar == null) {
                 continuation.resumeWithException(Exception("Data characteristics not found"))
                 return@suspendCancellableCoroutine
@@ -640,8 +718,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 return@suspendCancellableCoroutine
             }
             firmwareVersionReadContinuation = continuation
-            val authService = currentGatt.services.find { it.getCharacteristic(UUID_AUTH_WRITE) != null }
-            val authWriteChar = authService?.getCharacteristic(UUID_AUTH_WRITE)
+            val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
             if (authWriteChar == null) {
                 firmwareVersionReadContinuation = null
                 continuation.resumeWithException(Exception("Auth write characteristic not found"))
@@ -703,8 +780,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         payload[BleConstants.Settings.INDEX_RINGTONE_SIG + 2] = sig[2]
                         payload[BleConstants.Settings.INDEX_RINGTONE_SIG + 3] = sig[3]
                     }
-                    val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                    val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
                     if (dataWriteChar == null) {
                         pendingAckContinuations.remove(Command.SET_SETTINGS)
                         continuation.resumeWithException(Exception("Data write characteristic not found"))
@@ -741,9 +817,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             alarmReadContinuation = continuation
             alarmBuffer.clear()
-            val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_NOTIFY) != null }
-            val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
-            val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+            val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
+            val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
             if (dataNotifyChar == null || dataWriteChar == null) {
                 alarmReadContinuation?.resumeWithException(Exception("Data characteristics not found"))
                 alarmReadContinuation = null
@@ -787,9 +862,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     }
                     pendingAckContinuations[Command.SET_ALARM] = continuation
                     val command = byteArrayOf(Header.SET_ALARM, Command.SET_ALARM.toByte(), alarmId.toByte(), if (enable) 0x01.toByte() else 0x00.toByte(), hour.toByte(), minute.toByte(), days.toByte(), if (snooze) 0x01.toByte() else 0x00.toByte())
-                    val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                    val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-                    val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                    val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
                     if (dataWriteChar == null || dataNotifyChar == null) {
                         pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("Data characteristics not found"))
@@ -827,9 +901,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     }
                     pendingAckContinuations[Command.SET_ALARM] = continuation
                     val command = byteArrayOf(Header.SET_ALARM, Command.SET_ALARM.toByte(), alarmId.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
-                    val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                    val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-                    val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                    val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
                     if (dataWriteChar == null || dataNotifyChar == null) {
                         pendingAckContinuations.remove(Command.SET_ALARM)
                         continuation.resumeWithException(Exception("Data characteristics not found"))
@@ -866,8 +939,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 }
                 val value = (brightness / 10).coerceIn(0, 10).toByte()
                 val command = byteArrayOf(Header.BRIGHTNESS, Command.PREVIEW_BRIGHTNESS.toByte(), value)
-                val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+                val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
                 if (dataWriteChar == null) {
                     continuation.resume(false)
                     return@suspendCancellableCoroutine
@@ -900,9 +972,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 } else {
                     byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
                 }
-                
-                val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-                val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
+
+                val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
                 if (dataWriteChar == null) {
                     continuation.resumeWithException(Exception("Data write characteristic not found"))
                     return@suspendCancellableCoroutine
@@ -922,9 +993,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
         // Renamed from uploadRingtone
         val currentGatt = gatt ?: return false
         if (!isAuthenticated) return false
-        val dataService = currentGatt.services.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
-        val dataWriteChar = dataService?.getCharacteristic(UUID_DATA_WRITE)
-        val dataNotifyChar = dataService?.getCharacteristic(UUID_DATA_NOTIFY)
+        val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+        val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
         if (dataWriteChar == null || dataNotifyChar == null) return false
 
         if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
@@ -945,15 +1015,15 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val targetSignature = signature
         val sizeBytes = audioData.size
         val initPayload = byteArrayOf(Header.AUDIO_INIT, Command.AUDIO_INIT.toByte(), (sizeBytes and 0xFF).toByte(), ((sizeBytes shr 8) and 0xFF).toByte(), ((sizeBytes shr 16) and 0xFF).toByte(), targetSignature[0], targetSignature[1], targetSignature[2], targetSignature[3])
-        
-        uploadInitAckReceived = false
+
+        uploadInitAckStatus = null
         if (!writeCharAndWait(dataWriteChar, initPayload)) return false
         repeat(AUDIO_INIT_ACK_WAIT_ITERATIONS) {
-            if (!uploadInitAckReceived) delay(
+            if (uploadInitAckStatus == null) delay(
                 AUDIO_ACK_WAIT_DELAY.milliseconds
             )
         }
-        if (!uploadInitAckReceived) return false
+        if (!isSuccessfulUploadStatus(uploadInitAckStatus)) return false
 
         val packetSize = AUDIO_PACKET_SIZE
         val packetsPerBlock = AUDIO_PACKETS_PER_BLOCK
@@ -969,15 +1039,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 val isLastInBlock = (pktIdx == packetsPerBlock - 1) || (offset + audioLen >= audioData.size)
 
                 if (isLastInBlock) {
-                    uploadAckReceived = false
-                    writeCharAndWait(dataWriteChar, packet)
+                    uploadBlockAckStatus = null
+                    if (!writeCharAndWait(dataWriteChar, packet)) return false
                     repeat(AUDIO_ACK_WAIT_ITERATIONS) {
-                        if (!uploadAckReceived) delay(
+                        if (uploadBlockAckStatus == null) delay(
                             AUDIO_ACK_WAIT_DELAY.milliseconds
                         )
                     }
+                    if (!isSuccessfulUploadStatus(uploadBlockAckStatus)) return false
                 } else {
-                    writeCharAndWait(dataWriteChar, packet)
+                    if (!writeCharAndWait(dataWriteChar, packet)) return false
                     delay(DELAY_PACKET_WRITE.milliseconds)
                 }
                 offset += audioLen
@@ -1031,17 +1102,21 @@ class BleDeviceController(private val context: Context) : DeviceController {
     }
 
     private fun handleUploadAck(value: ByteArray) {
-        if (value.size >= 3 && value[0] == Header.ACK[0] && value[1] == Header.ACK[1]) {
-            val cmdId = value[2].toInt() and 0xFF
-            when (cmdId) {
-                Command.AUDIO_INIT -> uploadInitAckReceived = true
-                Command.AUDIO_BLOCK -> uploadAckReceived = true
-            }
+        val ack = parseBleAck(value) ?: return
+        when (ack.command) {
+            Command.AUDIO_INIT -> uploadInitAckStatus = ack.status
+            Command.AUDIO_BLOCK -> uploadBlockAckStatus = ack.status
         }
     }
 
-    private var uploadAckReceived = false
-    private var uploadInitAckReceived = false
+    private fun isSuccessfulUploadStatus(status: Int?): Boolean =
+        status == Status.SUCCESS || status == Status.ALARM_STILL_SUCCESS
+
+    @Volatile
+    private var uploadBlockAckStatus: Int? = null
+
+    @Volatile
+    private var uploadInitAckStatus: Int? = null
 
     private fun buildAuthInitPacket(): ByteArray = byteArrayOf(Header.AUTH, Command.AUTH_INIT.toByte()) + (currentToken ?: throw IllegalStateException("No token"))
     private fun buildAuthConfirmPacket(): ByteArray = byteArrayOf(Header.AUTH, Command.AUTH_CONFIRM.toByte()) + (currentToken ?: throw IllegalStateException("No token"))
@@ -1074,8 +1149,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 return@suspendCancellableCoroutine
             }
             sensorNotificationContinuation = continuation
-            val sensorService = currentGatt.services.find { it.getCharacteristic(UUID_SENSOR_NOTIFY) != null }
-            val sensorNotifyChar = sensorService?.getCharacteristic(UUID_SENSOR_NOTIFY)
+            val sensorNotifyChar = currentGatt.findDeviceCharacteristic(UUID_SENSOR_NOTIFY)
             if (sensorNotifyChar == null) {
                 sensorNotificationContinuation?.resumeWithException(Exception("Sensor characteristic not found"))
                 sensorNotificationContinuation = null
@@ -1093,6 +1167,56 @@ class BleDeviceController(private val context: Context) : DeviceController {
             continuation.invokeOnCancellation { sensorNotificationContinuation = null }
         }
     }
+
+
+    private fun enableBatteryUpdates() {
+        val currentGatt = gatt ?: return
+        val batteryCharacteristic = currentGatt.getService(UUID_BATTERY_SERVICE)
+            ?.getCharacteristic(UUID_BATTERY_LEVEL)
+        if (batteryCharacteristic == null) {
+            AppLogger.d(TAG, "Connected Battery Service is not exposed by this firmware")
+            return
+        }
+
+        val supportsNotify =
+            batteryCharacteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0
+        val descriptor = batteryCharacteristic.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+        if (supportsNotify && descriptor != null &&
+            currentGatt.setCharacteristicNotification(batteryCharacteristic, true)
+        ) {
+            pendingBatteryReadAfterDescriptor = true
+            if (!writeDescriptorCompat(
+                    currentGatt,
+                    descriptor,
+                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                )
+            ) {
+                pendingBatteryReadAfterDescriptor = false
+                currentGatt.readCharacteristic(batteryCharacteristic)
+            }
+        } else {
+            currentGatt.readCharacteristic(batteryCharacteristic)
+        }
+    }
+
+    private fun handleBatteryValue(value: ByteArray) {
+        if (value.isEmpty()) return
+        val battery = value[0].toInt() and 0xff
+        if (battery > 100) {
+            AppLogger.w(TAG, "Ignoring invalid connected battery level: $battery")
+            return
+        }
+        AppLogger.d(TAG, "Connected battery level: $battery%")
+        onBatteryUpdate?.invoke(battery)
+        onLastUpdated?.invoke(System.currentTimeMillis())
+    }
+
+    private fun BluetoothGatt.findDeviceCharacteristic(uuid: UUID): BluetoothGattCharacteristic? =
+        getService(UUID_DEVICE_SERVICE)?.getCharacteristic(uuid)
+            ?: services.firstNotNullOfOrNull { it.getCharacteristic(uuid) }
+
+    private fun littleEndianUInt16(value: ByteArray, offset: Int): Int =
+        (value[offset].toInt() and 0xff) or ((value[offset + 1].toInt() and 0xff) shl 8)
 
     private fun writeCharacteristicCompat(
         gatt: BluetoothGatt,

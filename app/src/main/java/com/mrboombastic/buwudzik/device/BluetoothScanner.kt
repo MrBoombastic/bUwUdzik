@@ -10,7 +10,6 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
-import com.mrboombastic.buwudzik.device.BleConstants.Advertise
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_SERVICE_ADVERTISING
 import com.mrboombastic.buwudzik.utils.AppLogger
 import kotlinx.coroutines.channels.awaitClose
@@ -105,12 +104,8 @@ class BluetoothScanner(
                 ) return
 
                 val displayName = nameCache[mac] ?: device.name
-                val serviceData =
-                    result.scanRecord?.getServiceData(UUID_SERVICE_ADVERTISING) ?: return
-
                 try {
-                    val sensorData =
-                        parseCGD1(serviceData, result.rssi, displayName, device.address)
+                    val sensorData = SensorAdvertisementParser.parse(result, displayName)
                     if (sensorData != null) trySend(sensorData)
 
                 } catch (e: Exception) {
@@ -161,35 +156,6 @@ class BluetoothScanner(
                 AppLogger.e("BluetoothScanner", "Error stopping scan: ${e.message}", e)
             }
         }
-    }
-
-    private fun parseCGD1(
-        serviceData: ByteArray, rssi: Int, name: String?, macAddress: String
-    ): SensorData? {
-        if (serviceData.size < Advertise.MIN_PAYLOAD_SIZE) return null
-
-        // model ID check
-        val deviceId = serviceData[Advertise.INDEX_DEVICE_ID].toInt()
-        if (deviceId != Advertise.DEVICE_ID_CGD1) return null
-
-        // MAC Address is at 2..7 (ignored)
-
-        // Temperature: Little Endian Int16
-        val tempLow = serviceData[Advertise.INDEX_TEMP_L].toInt() and 0xFF
-        val tempHigh = serviceData[Advertise.INDEX_TEMP_H].toInt()
-        val tempRaw = (tempHigh shl 8) or tempLow
-        val temp = tempRaw.toShort() / 10.0
-
-        // Humidity: Little Endian UInt16
-        val humidLow = serviceData[Advertise.INDEX_HUMID_L].toInt() and 0xFF
-        val humidHigh = serviceData[Advertise.INDEX_HUMID_H].toInt() and 0xFF
-        val humidRaw = (humidHigh shl 8) or humidLow
-        val humid = humidRaw / 10.0
-
-        // Battery
-        val battery = serviceData[Advertise.INDEX_BATTERY].toInt() and 0xFF
-
-        return SensorData(temp, humid, battery, rssi, name, macAddress)
     }
 
 }

@@ -121,11 +121,12 @@ so it's only semi-slop, but you have been warned, etc., etc.
 The application is built with modern Android development technologies and targets recent Android
 versions.
 
-- **Target API:** The application targets Android 16 (API level 36) and has a minimum requirement of
+- **Target API:** The application targets Android 17 (API level 37) and has a minimum requirement of
   Android 10 (API level 29)
 - **UI:** Jetpack Compose for a declarative and modern UI
-- **Background Processing:** `WorkManager` and `AlarmManager` for scheduling periodic data fetches,
-  ensuring the widget is always up to date
+- **Background Processing:** `AlarmManager` starts filtered BLE scans through a `PendingIntent` for
+  periodic widget updates. User-requested refreshes use a short `connectedDevice` foreground service
+  so modern Android versions can execute the scan immediately.
 
 ### Firmware Compatibility
 
@@ -148,7 +149,12 @@ CGD1 Alarm Clock.
 The device uses a custom service structure but relies on standard 128-bit base UUIDs for
 characteristics.
 
-**Target Service UUID:** `22210000-554a-4546-5542-46534450464d` (Advertised)
+**Custom GATT Service UUID:** `22210000-554a-4546-5542-46534450464d`
+
+This is the service discovered after connecting. Passive advertisements carry sensor data under the
+16-bit `FDCD` service-data UUID documented in section 6; the custom GATT UUID is not the
+service-data
+filter used for scanning.
 
 | Function      | Characteristic UUID                    | Properties |
 |---------------|----------------------------------------|------------|
@@ -201,6 +207,8 @@ action and check if the device will close connection with you.
 - For new devices: Generate a random 16-byte token
 - For paired devices: Use the stored token from the previous pairing
 - Token must match what the device expects (first successful pairing establishes the token)
+- Persist a newly generated token only after a privileged command, such as time synchronization,
+  succeeds. An Auth Confirm ACK alone does not prove that the token was accepted.
 
 **ACK Response Format:** `04 ff [CmdID] [Len] [Status]`
 
@@ -275,7 +283,7 @@ Managed via a single comprehensive payload on **Data Write**.
 - **Command:** Start with `13` (Set Settings) or `01 02` (Read Settings)
 - **Set Settings Payload (20 bytes):**
 
-  `13 01 [Vol] [Hdr1] [Hdr2] [Flags] [Timezone] [Duration] [Brightness] [NightStartH] [NightStartM] [NightEndH] [NightEndM] [TzSign] [NightEn] [Sig 4B]`
+  `13 01 [Vol] [Hdr1] [Hdr2] [Flags] [Timezone] [Duration] [Brightness] [NightStartH] [NightStartM] [NightEndH] [NightEndM] [TzSign] [NightEn] [Reserved?] [Sig 4B]`
 
 | Byte  | Value           | Description                                                                                                    |
 |-------|-----------------|----------------------------------------------------------------------------------------------------------------|
@@ -327,30 +335,36 @@ Plays a generic "beep" sound for testing volume level (not the user's selected r
 
 - **Target:** `00000100-...` (Notify)
 - **Format:** `[00] [Temp L] [Temp H] [Hum L] [Hum H]`
-- **Values:** Little Endian Int16 / 100.0
+- **Values:** Temperature is signed Int16 LE / 100.0; humidity is unsigned UInt16 LE / 100.0.
 
 ### 6. Passive Sensor Stream (Advertising)
 
 The device also broadcasts sensor data in its BLE advertisement packets via Service Data.
 
 - **Service UUID:** `0000fdcd-0000-1000-8000-00805f9b34fb` (ClearGrass/Qingping Service)
-- **Format (Service Data):**
+- **Format (Service Data):** An 8-byte header followed by type-length-value (TLV) objects.
 
-| Byte  | Value       | Description                  |
-|-------|-------------|------------------------------|
-| 0     | `0x08`      | Packet Type (???)            |
-| 1     | `0x0c`      | Model ID (`0x0C` = CGD1)     |
-| 2-7   | MAC         | Device MAC Address (6 bytes) |
-| 8-9   | ???         | Unknown                      |
-| 10-11 | `Int16 LE`  | Temperature (Value / 10.0)   |
-| 12-13 | `UInt16 LE` | Humidity (Value / 10.0)      |
-| 14-15 | ???         | Unknown                      |
-| 16    | `UInt8`     | Battery Percentage (0-100)   |
+| Byte | Value  | Description                            |
+|------|--------|----------------------------------------|
+| 0    | `0x08` | Qingping packet type                   |
+| 1    | `0x0c` | Model ID (`0x0C` = CGD1)               |
+| 2-7  | MAC    | Device MAC address (6 bytes, reversed) |
+
+Known objects after byte 7:
+
+| Type | Length | Value                                                                                      |
+|------|--------|--------------------------------------------------------------------------------------------|
+| `01` | `04`   | `[Temp L] [Temp H] [Hum L] [Hum H]`; signed temperature and unsigned humidity, both / 10.0 |
+| `02` | `01`   | Battery percentage as UInt8 (`0-100`)                                                      |
+
+For example, the common 17-byte payload is
+`08 0c [MAC 6B] 01 04 [Temp 2B] [Humidity 2B] 02 01 [Battery]`.
 
 ### 7. Battery Level (Connected)
 
 - **Service UUID:** `0x180f`, **Char UUID:** `0x2a19`
 - **Format:** 1 byte (percentage)
+- The app reads this characteristic and subscribes when notifications are supported.
 
 ### 8. Firmware Version
 
@@ -469,7 +483,7 @@ app uses an additional `"pcm"` field, but this app takes the Wave and converts i
 
 - Packet size: 128 bytes
 - Packets per block: 4 (512 bytes per block)
-- First packet header: Prepend `81 08` to the audio data
+- Packet header: Prepend `81 08` to every 128-byte audio packet
 - Wait for block ACK (`04 ff 08 ...`) after every 4 packets
 
 **Step 4 - Completion:**
@@ -492,6 +506,7 @@ After sending all audio data, the device will apply the new ringtone.
 | 07  | 05  | Data Write     | Set Alarm                               |
 | 01  | 06  | Data Write     | Read Alarms                             |
 | 08  | 10  | Data Write     | Audio Upload Init                       |
+| 81  | 08  | Data Write     | Audio packet (+ 128B padded audio)      |
 
 **ACK Format (Notify characteristics):** `04 ff [CmdSub] [Len] [Status]`
 

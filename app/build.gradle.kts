@@ -28,8 +28,8 @@ configure<ApplicationExtension> {
         applicationId = "com.mrboombastic.buwudzik"
         minSdk = minSDK
         targetSdk = targetSDK
-        versionCode = 41
-        versionName = "1.9.5"
+        versionCode = 42
+        versionName = "1.10.0"
         buildConfigField(
             "String",
             "WIDGET_UPDATE_ACTION",
@@ -130,7 +130,6 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.navigation.compose)
@@ -145,5 +144,6 @@ dependencies {
     implementation(libs.guava.android)
     implementation(libs.androidx.compose.material3)
     implementation(libs.mikepenz.markdown.m3)
+    testImplementation(kotlin("test-junit"))
     debugImplementation(libs.androidx.ui.tooling)
 }
