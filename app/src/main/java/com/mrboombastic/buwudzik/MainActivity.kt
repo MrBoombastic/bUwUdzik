@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -274,7 +275,28 @@ class MainActivity : AppCompatActivity() {
                         viewModel.refreshBluetoothState()
                     }
 
-                    if (!isBluetoothEnabled && BluetoothUtils.hasBluetoothPermissions(context)) {
+                    var showDisclaimer by remember {
+                        mutableStateOf(!settingsRepository.disclaimerAccepted)
+                    }
+
+                    if (showDisclaimer) {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            title = { Text(stringResource(R.string.disclaimer_title)) },
+                            text = { Text(stringResource(R.string.disclaimer_desc)) },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        settingsRepository.disclaimerAccepted = true
+                                        showDisclaimer = false
+                                    }
+                                ) {
+                                    Text(stringResource(R.string.disclaimer_agree))
+                                }
+                            },
+                            icon = { Icon(Icons.Default.Info, contentDescription = null) }
+                        )
+                    } else if (!isBluetoothEnabled && BluetoothUtils.hasBluetoothPermissions(context)) {
                         AlertDialog(
                             onDismissRequest = { },
                             title = { Text(stringResource(R.string.bluetooth_required_title)) },

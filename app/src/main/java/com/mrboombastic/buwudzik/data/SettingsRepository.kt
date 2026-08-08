@@ -43,6 +43,7 @@ class SettingsRepository(private val context: Context) {
         private const val KEY_DEVICE_SHEET_SWIPE_HINT_SHOWN = "device_sheet_swipe_hint_shown"
         private const val KEY_AUTO_UPDATE_CHECK_ENABLED = "auto_update_check_enabled"
         private const val KEY_LAST_AUTO_UPDATE_CHECK_MS = "last_auto_update_check_ms"
+        private const val KEY_DISCLAIMER_ACCEPTED = "disclaimer_accepted"
     }
 
     /**
@@ -56,6 +57,12 @@ class SettingsRepository(private val context: Context) {
         get() = prefs.getInt(KEY_LAST_VERSION_CODE, -1)
         set(value) {
             prefs.edit { putInt(KEY_LAST_VERSION_CODE, value) }
+        }
+
+    var disclaimerAccepted: Boolean
+        get() = prefs.getBoolean(KEY_DISCLAIMER_ACCEPTED, false)
+        set(value) {
+            prefs.edit { putBoolean(KEY_DISCLAIMER_ACCEPTED, value) }
         }
 
     var ringtoneBaseUrl: String

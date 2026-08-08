@@ -239,7 +239,8 @@
     <string name="widget_configure_title">Choisir l\'appareil pour le widget</string>
     <string name="widget_configure_subtitle">Sélectionnez l\'appareil affiché par ce widget :</string>
     <string name="widget_outdated">Widget obsolète. Veuillez le supprimer et le rajouter.</string>
-    <string name="try_demo_mode">Essayer le mode démo</string>
-    <string name="demo_device_name">Appareil de démonstration</string>
+    <string name="disclaimer_title">Avis de compatibilité de l\'appareil</string>
+    <string name="disclaimer_desc">Cette application est conçue exclusivement pour le réveil Bluetooth Qingping Cleargrass CGD1. Elle ne fonctionnera avec aucun autre capteur de température ou appareil.</string>
+    <string name="disclaimer_agree">Je comprends</string>
 </resources>
 

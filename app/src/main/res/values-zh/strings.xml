@@ -239,7 +239,8 @@
     <string name="widget_configure_title">选择小组件显示的设备</string>
     <string name="widget_configure_subtitle">选择此小组件显示的设备：</string>
     <string name="widget_outdated">小组件已过期。请移除并重新添加。</string>
-    <string name="try_demo_mode">尝试演示模式</string>
-    <string name="demo_device_name">演示虚拟设备</string>
+    <string name="disclaimer_title">设备兼容性声明</string>
+    <string name="disclaimer_desc">此应用程序专为 Qingping Cleargrass CGD1 蓝牙闹钟设计。它不适用于任何其他温度传感器或设备。</string>
+    <string name="disclaimer_agree">我明白</string>
 </resources>
 

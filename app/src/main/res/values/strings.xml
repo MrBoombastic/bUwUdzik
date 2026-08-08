@@ -257,6 +257,7 @@
     <string name="widget_configure_title">Choose device for widget</string>
     <string name="widget_configure_subtitle">Select which device this widget will display:</string>
     <string name="widget_outdated">Widget outdated. Please remove and re-add it.</string>
-    <string name="try_demo_mode">Try Demo Mode</string>
-    <string name="demo_device_name">Demo Fake Device</string>
+    <string name="disclaimer_title">Device Compatibility Notice</string>
+    <string name="disclaimer_desc">This application is designed exclusively for the Qingping Cleargrass CGD1 Bluetooth Alarm Clock. It will not work with any other temperature sensors or devices.</string>
+    <string name="disclaimer_agree">I understand</string>
 </resources>

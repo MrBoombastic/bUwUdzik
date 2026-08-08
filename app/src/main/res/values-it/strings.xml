@@ -239,7 +239,8 @@
     <string name="widget_configure_title">Scegli il dispositivo per il widget</string>
     <string name="widget_configure_subtitle">Seleziona il dispositivo mostrato da questo widget:</string>
     <string name="widget_outdated">Widget obsoleto. Rimuovilo e aggiungilo di nuovo.</string>
-    <string name="try_demo_mode">Prova la modalità demo</string>
-    <string name="demo_device_name">Dispositivo demo</string>
+    <string name="disclaimer_title">Avviso di compatibilità del dispositivo</string>
+    <string name="disclaimer_desc">Questa applicazione è progettata esclusivamente per la sveglia Bluetooth Qingping Cleargrass CGD1. Non funzionerà con altri sensori di temperatura o dispositivi.</string>
+    <string name="disclaimer_agree">Ho capito</string>
 </resources>
 

@@ -84,7 +84,6 @@ fun DeviceSetupScreen(
     viewModel: MainViewModel? = null
 ) {
     val context = LocalContext.current
-    val demoDeviceName = stringResource(R.string.demo_device_name)
     val scanner = remember {
         val repo = DeviceProfileRepository(context)
         BluetoothScanner(context, repo)

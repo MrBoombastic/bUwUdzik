@@ -496,7 +496,6 @@ fun Dashboard(
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
-    val activeDevice by viewModel.activeDevice.collectAsState()
 
 
 
