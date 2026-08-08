@@ -316,61 +316,63 @@ fun DeviceImportScreen(
                         }
                     }
 
-                    TextButton(
-                        onClick = { tokenSectionExpanded = !tokenSectionExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = if (tokenSectionExpanded) {
-                                stringResource(R.string.import_token_hide)
-                            } else {
-                                stringResource(R.string.import_token_show)
-                            },
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Icon(
-                            imageVector = if (tokenSectionExpanded) {
-                                Icons.Default.KeyboardArrowUp
-                            } else {
-                                Icons.Default.KeyboardArrowDown
-                            },
-                            contentDescription = null
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = tokenSectionExpanded,
-                        enter = fadeIn() + expandVertically(),
-                        exit = fadeOut() + shrinkVertically()
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = manualToken,
-                                onValueChange = { manualToken = it },
-                                placeholder = {
-                                    Text(stringResource(R.string.import_token_label))
-                                },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    fontFamily = FontFamily.Monospace
-                                ),
-                                trailingIcon = {
-                                    IconButton(onClick = { applyManualToken() }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = stringResource(R.string.import_token_button)
-                                        )
-                                    }
-                                },
+                        if (activeDevice != null) {
+                            TextButton(
+                                onClick = { tokenSectionExpanded = !tokenSectionExpanded },
                                 modifier = Modifier.fillMaxWidth()
-                            )
+                            ) {
+                                Text(
+                                    text = if (tokenSectionExpanded) {
+                                        stringResource(R.string.import_token_hide)
+                                    } else {
+                                        stringResource(R.string.import_token_show)
+                                    },
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Icon(
+                                    imageVector = if (tokenSectionExpanded) {
+                                        Icons.Default.KeyboardArrowUp
+                                    } else {
+                                        Icons.Default.KeyboardArrowDown
+                                    },
+                                    contentDescription = null
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = tokenSectionExpanded,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically()
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = manualToken,
+                                        onValueChange = { manualToken = it },
+                                        placeholder = {
+                                            Text(stringResource(R.string.import_token_label))
+                                        },
+                                        singleLine = true,
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                            fontFamily = FontFamily.Monospace
+                                        ),
+                                        trailingIcon = {
+                                            IconButton(onClick = { applyManualToken() }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = stringResource(R.string.import_token_button)
+                                                )
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
                         }
                     }
-                }
             }
             }
         }
