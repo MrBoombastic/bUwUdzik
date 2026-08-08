@@ -64,7 +64,6 @@ import com.mrboombastic.buwudzik.ui.screens.DeviceListScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSettingsScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSetupScreen
 import com.mrboombastic.buwudzik.ui.screens.DeviceSharingScreen
-import com.mrboombastic.buwudzik.ui.screens.FakeClockScreen
 import com.mrboombastic.buwudzik.ui.screens.HomeScreen
 import com.mrboombastic.buwudzik.ui.screens.RingtoneUploadScreen
 import com.mrboombastic.buwudzik.ui.screens.SettingsScreen
@@ -467,16 +466,6 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                     DebugSavedDataScreen(navController, viewModel)
-                                }
-                                composable("fake-clock") {
-                                    BackHandler {
-                                        if (!navController.popBackStack()) {
-                                            navController.navigate("home") {
-                                                popUpTo(0) { inclusive = true }
-                                            }
-                                        }
-                                    }
-                                    FakeClockScreen(navController, viewModel)
                                 }
                             }
                             composable("alarms") {

@@ -278,28 +278,6 @@ fun DeviceSetupScreen(
                     modifier = Modifier.padding(top = 8.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = {
-                        val demoMac = MainViewModel.FAKE_MAC
-                        // Immediately inject fake data so the UI works without real BLE
-                        viewModel?.injectFakeDevice(
-                            name = demoDeviceName,
-                            mac = demoMac
-                        )
-                        onDeviceSelected(
-                            DiscoveredDevice(
-                                name = demoDeviceName,
-                                address = demoMac,
-                                rssi = -42
-                            )
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.try_demo_mode))
-                }
-
                 Spacer(modifier = Modifier.height(24.dp))
 
                 when {

@@ -24,7 +24,6 @@ import com.mrboombastic.buwudzik.device.BleConstants.UUID_SERVICE_ADVERTISING
 import com.mrboombastic.buwudzik.device.SensorAdvertisementParser
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
-import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 
 /** Owns the process-independent BLE scan used by scheduled widget refreshes. */
 object WidgetBleScanCoordinator {
@@ -47,26 +46,15 @@ object WidgetBleScanCoordinator {
             .map { it.normalizedBluetoothMac() }
             .toSet()
 
-        // Demo widgets use their cached value and never need a radio scan.
-        val demoMacs = allMacs.filterTo(mutableSetOf()) {
-            it.equals(MainViewModel.FAKE_MAC, ignoreCase = true)
-        }
-        for (mac in demoMacs) {
-            SensorRepository(appContext, mac).setLoading(false)
-            SensorWidgetRefresher.updateDeviceData(appContext, mac)
-        }
-
         val invalidMacs = allMacs.filterTo(mutableSetOf()) {
-            !it.equals(MainViewModel.FAKE_MAC, ignoreCase = true) &&
-                    !BluetoothAdapter.checkBluetoothAddress(it)
+            !BluetoothAdapter.checkBluetoothAddress(it)
         }
         if (invalidMacs.isNotEmpty()) {
             failDevices(appContext, invalidMacs, "Invalid widget Bluetooth address")
         }
 
         val targetMacs = allMacs.filterTo(mutableSetOf()) {
-            !it.equals(MainViewModel.FAKE_MAC, ignoreCase = true) &&
-                    BluetoothAdapter.checkBluetoothAddress(it)
+            BluetoothAdapter.checkBluetoothAddress(it)
         }
         if (targetMacs.isEmpty()) {
             finishScan(appContext)

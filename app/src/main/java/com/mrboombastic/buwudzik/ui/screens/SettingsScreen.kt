@@ -600,13 +600,6 @@ fun SettingsScreen(navController: NavController, viewModel: MainViewModel) {
                 ) {
                     Text(stringResource(R.string.debug_saved_data_nav))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { navController.navigate("fake-clock") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Fake Clock (Debug & Canary)")
-                }
             }
 
             // Easter Egg Button

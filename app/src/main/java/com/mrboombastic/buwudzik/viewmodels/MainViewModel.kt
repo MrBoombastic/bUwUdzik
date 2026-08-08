@@ -19,7 +19,6 @@ import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.device.DeviceController
 import com.mrboombastic.buwudzik.device.DeviceSettings
 import com.mrboombastic.buwudzik.device.DisconnectionReason
-import com.mrboombastic.buwudzik.device.MockDeviceController
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
@@ -49,7 +48,6 @@ class MainViewModel(
 
     companion object {
         private const val TAG = "MainViewModel"
-        const val FAKE_MAC = "DE:AD:BE:EF:CA:FE"
     }
 
     private fun sensorRepo() = SensorRepository(
@@ -167,7 +165,7 @@ class MainViewModel(
 
     fun checkPairingStatus() {
         val mac = activeMac
-        _isPaired.value = mac == FAKE_MAC || (mac.isNotEmpty() && _deviceController.isDevicePaired(mac))
+        _isPaired.value = mac.isNotEmpty() && _deviceController.isDevicePaired(mac)
     }
 
     fun deviceSheetSwipeHintAlreadyShown(): Boolean = settingsRepository.deviceSheetSwipeHintShown
@@ -198,11 +196,7 @@ class MainViewModel(
             .onEach { mac ->
                 AppLogger.d(TAG, "Active device changed to $mac, resetting UI and connections")
 
-                val newController = if (mac?.equals(FAKE_MAC, ignoreCase = true) == true) {
-                    MockDeviceController(applicationContext)
-                } else {
-                    BleDeviceController(applicationContext)
-                }
+                val newController = BleDeviceController(applicationContext)
                 
                 if (_deviceController::class != newController::class) {
                     AppLogger.d(TAG, "Switching controller to ${newController::class.simpleName}")
@@ -218,12 +212,7 @@ class MainViewModel(
                 attachLiveSensorCallbacks()
 
                 if (mac != null && _isBluetoothEnabled.value) {
-                    if (mac.equals(FAKE_MAC, ignoreCase = true)) {
-                        AppLogger.d(TAG, "Fake device active, starting mock broadcast.")
-                        (_deviceController as? MockDeviceController)?.setupMockData(mac)
-                    } else {
-                        startScanning()
-                    }
+                    startScanning()
                 }
             }
             .launchIn(viewModelScope)
@@ -231,17 +220,6 @@ class MainViewModel(
 
     /** Reset cached device UI when there is no selected profile (e.g. all devices removed). */
     private fun updateActiveDeviceUiState() {
-        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-            AppLogger.d(TAG, "Fake device selected, resetting mock UI state")
-            _sensorData.value = null
-            _alarms.value = emptyList()
-            _deviceSettings.value = null
-            _deviceConnected.value = false
-            _deviceConnecting.value = false
-            _connectionError.value = null
-            _isPaired.value = true // Assume paired for fake device
-            return
-        }
         _sensorData.value = if (activeMac.isNotEmpty()) sensorRepo().getSensorData() else null
         _alarms.value = emptyList()
         _deviceSettings.value = null
@@ -253,7 +231,7 @@ class MainViewModel(
 
     fun updateBluetoothState(enabled: Boolean) {
         _isBluetoothEnabled.value = enabled
-        if (enabled && !activeMac.equals(FAKE_MAC, ignoreCase = true)) {
+        if (enabled) {
             startScanning()
         } else {
             scanJob?.cancel()
@@ -275,10 +253,6 @@ class MainViewModel(
     }
 
     fun startScanning() {
-        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-            AppLogger.d(TAG, "Fake device active, skipping scan.")
-            return
-        }
 
         if (scanJob?.isActive == true) {
             AppLogger.v(TAG, "Scan already active, ignoring start request.")
@@ -308,7 +282,6 @@ class MainViewModel(
     }
 
     fun restartScanning() {
-        if (activeMac.equals(FAKE_MAC, ignoreCase = true)) return
         AppLogger.d(TAG, "Restarting scan...")
         scanJob?.cancel()
         scanJob = null
@@ -554,115 +527,6 @@ class MainViewModel(
         startScanning()
     }
 
-    // -------------------------------------------------------------------------
-    // Debug / fake-device injection (debug builds only)
-    // -------------------------------------------------------------------------
-
-    /**
-     * Injects a fully fake clock device into the UI, bypassing BLE entirely.
-     * Useful for testing layouts, sensor display, alarms, and settings screens
-     * without physical hardware.
-     *
-     * Call [clearFakeDevice] to tear down the fake state.
-     */
-    fun injectFakeDevice(
-        name: String = "Fake clOwOck",
-        mac: String = FAKE_MAC,
-        temperature: Double = 21.5,
-        humidity: Double = 55.0,
-        battery: Int = 72,
-        rssi: Int = -65,
-        alarmCount: Int = 3,
-    ) {
-        initializeMockState(name, mac, temperature, humidity, alarmCount, battery, rssi)
-    }
-
-    private fun initializeMockState(
-        name: String = "Fake clOwOck",
-        mac: String = FAKE_MAC,
-        temperature: Double = 21.5,
-        humidity: Double = 55.0,
-        alarmCount: Int = 3,
-        battery: Int = 72,
-        rssi: Int = -65
-    ) {
-        // If we are already connected to a mock device, just update its data in-place
-        if (_deviceConnected.value && _deviceController is MockDeviceController) {
-            AppLogger.d(TAG, "Updating active mock state in-place")
-            (_deviceController as MockDeviceController).setupMockData(
-                mac = mac,
-                alarmCount = alarmCount,
-                initialTemp = temperature,
-                initialHum = humidity,
-                initialBattery = battery,
-                initialRssi = rssi
-            )
-            return
-        }
-
-        if (_deviceConnecting.value) {
-            AppLogger.d(TAG, "Mock state initialization ignored: already connecting")
-            return
-        }
-
-        scanJob?.cancel()
-        scanJob = null
-        stopActiveConnection()
-
-        val profile = DeviceProfile(mac, name)
-        addDevice(profile, makeActive = true)
-
-        viewModelScope.launch {
-            _deviceConnecting.value = true
-            
-            // For mock controller, we can provide initial data before connecting
-            if (_deviceController is MockDeviceController) {
-                (_deviceController as MockDeviceController).setupMockData(
-                    mac = mac,
-                    alarmCount = alarmCount,
-                    initialTemp = temperature,
-                    initialHum = humidity,
-                    initialBattery = battery,
-                    initialRssi = rssi
-                )
-            }
-
-            // Trigger connection flow which handles authentication and metadata loading
-            val bluetoothManager =
-                applicationContext.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val adapter = bluetoothManager.adapter
-            val device = adapter.getRemoteDevice(mac)
-
-            _deviceController.connectAndAuthenticate(device)
-            _deviceConnected.value = true
-            _connectionError.value = null
-            _isPaired.value = true
-            checkPairingStatus()
-
-            attachLiveSensorCallbacks()
-
-            // Load alarms and settings
-            loadDeviceMetadataAfterConnect()
-            _deviceConnecting.value = false
-        }
-        AppLogger.d(TAG, "Mock state initialized for $name @ $mac")
-    }
-
-    /**
-     * Removes the fake device state and resumes normal BLE scanning.
-     */
-    fun clearFakeDevice() {
-        _sensorData.value = null
-        _deviceConnected.value = false
-        _isPaired.value = false
-        _alarms.value = emptyList()
-        _deviceSettings.value = null
-        AppLogger.d(TAG, "Fake device cleared, restarting scan")
-
-        if (!activeMac.equals(FAKE_MAC, ignoreCase = true)) {
-            startScanning()
-        }
-    }
 
     override fun onCleared() {
         _deviceController.close()

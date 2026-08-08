@@ -18,10 +18,8 @@ import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.device.BluetoothScanner
-import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.utils.BluetoothUtils
 import com.mrboombastic.buwudzik.utils.AppLogger
-import com.mrboombastic.buwudzik.viewmodels.MainViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -88,10 +86,7 @@ class WidgetManualRefreshService : Service() {
         SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
 
         try {
-            if (mac.equals(MainViewModel.FAKE_MAC, ignoreCase = true)) {
-                saveFakeReading(repository, mac)
-                return
-            }
+
 
             if (!BluetoothUtils.hasBluetoothPermissions(applicationContext)) {
                 AppLogger.w(TAG, "[$mac] Missing Bluetooth permissions")
@@ -131,21 +126,6 @@ class WidgetManualRefreshService : Service() {
         }
     }
 
-    private fun saveFakeReading(repository: SensorRepository, mac: String) {
-        val lastData = repository.getSensorData()
-        repository.saveSensorData(
-            SensorData(
-                temperature = ((lastData?.temperature ?: 22.0) + (-2..2).random() / 10.0)
-                    .coerceIn(15.0, 30.0),
-                humidity = ((lastData?.humidity ?: 45.0) + (-5..5).random() / 10.0)
-                    .coerceIn(20.0, 80.0),
-                battery = 100,
-                rssi = -50,
-                name = "Fake clOwOck",
-                macAddress = mac
-            )
-        )
-    }
 
     private fun createNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)

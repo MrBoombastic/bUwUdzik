@@ -498,7 +498,7 @@ fun Dashboard(
     val isPaired by viewModel.isPaired.collectAsState()
     val activeDevice by viewModel.activeDevice.collectAsState()
 
-    val isFakeDevice = activeDevice?.mac?.equals(MainViewModel.FAKE_MAC, ignoreCase = true) == true
+
 
     Column(
         modifier = modifier
@@ -538,7 +538,7 @@ fun Dashboard(
                 modifier = Modifier.fillMaxWidth(0.9f),
                 arrangementH = Arrangement.Center
             )
-        } else if (!isPaired && hasActiveDevice && !isFakeDevice) {
+        } else if (!isPaired && hasActiveDevice) {
             // Real device selected but not paired: ALWAYS show pairing instructions
             if (deviceConnecting) {
                 CircularProgressIndicator()
