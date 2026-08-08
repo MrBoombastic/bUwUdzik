@@ -14,7 +14,8 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 object WidgetUpdateScheduler {
 
     private const val TAG = "WidgetUpdateScheduler"
-    private const val REQUEST_CODE = 1001
+    private const val PERIODIC_REQUEST_CODE = 1001
+    private const val ONE_TIME_REQUEST_CODE = 1002
 
     /**
      * Maps a custom interval in minutes to the closest system-defined interval.
@@ -51,7 +52,7 @@ object WidgetUpdateScheduler {
             return
         }
 
-        val pendingIntent = createUpdatePendingIntent(context)
+        val pendingIntent = createUpdatePendingIntent(context, PERIODIC_REQUEST_CODE)
 
         // Calculate interval and first trigger time
         val intervalMillis = intervalMinutes * 60 * 1000L
@@ -86,7 +87,7 @@ object WidgetUpdateScheduler {
             return
         }
 
-        val pendingIntent = createUpdatePendingIntent(context)
+        val pendingIntent = createUpdatePendingIntent(context, PERIODIC_REQUEST_CODE)
 
         alarmManager.cancel(pendingIntent)
         pendingIntent.cancel()
@@ -94,17 +95,29 @@ object WidgetUpdateScheduler {
         AppLogger.d(TAG, "Cancelled widget updates")
     }
 
+    /** Schedules a distinct one-shot refresh without replacing the repeating alarm. */
+    fun scheduleOneTimeUpdate(context: Context, delayMillis: Long) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+            ?: return
+        alarmManager.setAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            System.currentTimeMillis() + delayMillis,
+            createUpdatePendingIntent(context, ONE_TIME_REQUEST_CODE)
+        )
+    }
+
     /**
      * Creates a PendingIntent for widget update broadcasts.
      */
-    private fun createUpdatePendingIntent(context: Context): PendingIntent {
+    private fun createUpdatePendingIntent(context: Context, requestCode: Int): PendingIntent {
         val intent = Intent(context, WidgetUpdateReceiver::class.java).apply {
             action = BuildConfig.WIDGET_UPDATE_ACTION
+            setPackage(context.packageName)
         }
 
         return PendingIntent.getBroadcast(
             context,
-            REQUEST_CODE,
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

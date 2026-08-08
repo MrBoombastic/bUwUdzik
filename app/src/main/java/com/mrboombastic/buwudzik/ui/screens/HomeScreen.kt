@@ -123,6 +123,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
         contract = ActivityResultContracts.RequestMultiplePermissions(), onResult = { perms ->
             val allGranted = perms.values.all { it }
             AppLogger.d(TAG, "Permissions result: $perms, All granted: $allGranted")
+            viewModel.refreshBluetoothState()
             if (allGranted) {
                 if (activeDevice != null) {
                     viewModel.startScanning()
@@ -134,6 +135,7 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
         })
 
     LaunchedEffect(Unit) {
+        viewModel.refreshBluetoothState()
         val allGranted = permissionsToRequest.all {
             context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
         }

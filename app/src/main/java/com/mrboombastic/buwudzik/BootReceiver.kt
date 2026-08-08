@@ -4,14 +4,9 @@ package com.mrboombastic.buwudzik
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.mrboombastic.buwudzik.data.SettingsRepository
 import com.mrboombastic.buwudzik.utils.AppLogger
-import com.mrboombastic.buwudzik.widget.SensorUpdateWorker
 import com.mrboombastic.buwudzik.widget.WidgetUpdateScheduler
-import java.util.concurrent.TimeUnit
 
 /**
  * Receiver that triggers widget update after device boot.
@@ -36,19 +31,12 @@ class BootReceiver : BroadcastReceiver() {
             // Re-schedule periodic updates using AlarmManager (alarms are cleared on reboot)
             WidgetUpdateScheduler.scheduleUpdates(context, intervalMinutes)
 
-            // Schedule an immediate update with a small delay to let the system settle
-            val initialWorkRequest = OneTimeWorkRequestBuilder<SensorUpdateWorker>()
-                .setInitialDelay(10, TimeUnit.SECONDS)
-                .build()
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                "SensorWidgetRefresh",
-                ExistingWorkPolicy.REPLACE,
-                initialWorkRequest
-            )
+            // Use a separate alarm so it does not replace the repeating update PendingIntent.
+            WidgetUpdateScheduler.scheduleOneTimeUpdate(context, 10_000L)
 
             AppLogger.d(
                 TAG,
-                "Scheduled initial update and periodic AlarmManager updates every $intervalMinutes minutes"
+                "Scheduled initial and periodic widget updates every $intervalMinutes minutes"
             )
         }
     }

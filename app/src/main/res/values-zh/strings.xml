@@ -195,6 +195,10 @@
     <string name="import_device_button">导入设备</string>
     <string name="camera_permission_required">需要相机权限才能扫描二维码。</string>
     <string name="widget_refresh_description">刷新传感器数据</string>
+    <string name="widget_refresh_channel_name">小组件刷新</string>
+    <string name="widget_refresh_channel_description">在小组件读取蓝牙传感器时显示。</string>
+    <string name="widget_refresh_notification_title">正在刷新小组件</string>
+    <string name="widget_refresh_notification_text">正在读取最新的传感器数据…</string>
     <string name="auth_hint">您可能需要在设置中忘记设备，然后重新配对。</string>
     <string name="disconnect_reason_device_terminated">设备已终止连接。</string>
     <string name="disconnect_reason_timeout">连接超时。</string>

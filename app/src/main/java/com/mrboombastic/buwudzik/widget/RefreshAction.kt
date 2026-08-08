@@ -2,24 +2,19 @@ package com.mrboombastic.buwudzik.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.action.ActionCallback
-import androidx.work.BackoffPolicy
-import androidx.work.Data
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkManager
 import com.mrboombastic.buwudzik.data.SensorRepository
 import com.mrboombastic.buwudzik.data.WidgetPreferencesRepository
 import com.mrboombastic.buwudzik.utils.AppLogger
-import java.util.concurrent.TimeUnit
 
 /**
  * ActionCallback for handling the refresh button clicks in the Glance widget.
- * Triggers a one-time WorkManager request to scan for sensor data.
+ * Starts a user-initiated connected-device foreground service so the refresh is not
+ * delayed by JobScheduler quota on recent Android versions.
  */
 class RefreshAction : ActionCallback {
     companion object {
@@ -46,31 +41,24 @@ class RefreshAction : ActionCallback {
             null
         }
 
-        if (!mac.isNullOrEmpty()) {
-            val sensorRepo = SensorRepository(context, mac)
-            sensorRepo.setLoading(true)
-            AppLogger.d(TAG, "Set loading=true for widget device $mac")
-
-            // Push loading state immediately to all widgets for this MAC
-            SensorWidgetRefresher.updateDeviceData(context, mac)
-        } else {
-            AppLogger.w(TAG, "No MAC mapped for widget $appWidgetId; worker will still run")
+        if (mac.isNullOrEmpty()) {
+            AppLogger.w(TAG, "No MAC mapped for widget $appWidgetId; refresh ignored")
+            return
         }
 
-        val workRequest = OneTimeWorkRequestBuilder<SensorUpdateWorker>()
-            .setInputData(
-                Data.Builder()
-                    .putBoolean("force_refresh", true)
-                    .build()
+        // Start the service immediately while the app still has the widget-interaction exemption.
+        try {
+            ContextCompat.startForegroundService(
+                context,
+                WidgetManualRefreshService.intent(context, mac)
             )
-            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-            .setBackoffCriteria(BackoffPolicy.LINEAR, 3, TimeUnit.SECONDS)
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "SensorWidgetRefresh",
-            ExistingWorkPolicy.REPLACE,
-            workRequest
-        )
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Could not start manual widget refresh", e)
+            SensorRepository(context, mac).apply {
+                setLoading(false)
+                setUpdateError(true)
+            }
+            SensorWidgetRefresher.updateDeviceData(context, mac)
+        }
     }
 }

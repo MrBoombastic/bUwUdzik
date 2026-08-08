@@ -97,6 +97,7 @@ fun DeviceSetupScreen(
     DisposableEffect(context) {
         val receiver = BluetoothStateReceiver { enabled ->
             isBluetoothEnabled = enabled
+            viewModel?.updateBluetoothState(enabled)
         }
         val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
         ContextCompat.registerReceiver(
@@ -105,6 +106,10 @@ fun DeviceSetupScreen(
             filter,
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
+        val currentEnabled = BluetoothUtils.isBluetoothEnabled(context)
+        isBluetoothEnabled = currentEnabled
+        viewModel?.updateBluetoothState(currentEnabled)
+
         onDispose { context.unregisterReceiver(receiver) }
     }
 
@@ -139,7 +144,11 @@ fun DeviceSetupScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        hasBluetoothPermissions = BluetoothUtils.hasBluetoothPermissions(context)
+        val hasPerms = BluetoothUtils.hasBluetoothPermissions(context)
+        hasBluetoothPermissions = hasPerms
+        val currentEnabled = BluetoothUtils.isBluetoothEnabled(context)
+        isBluetoothEnabled = currentEnabled
+        viewModel?.updateBluetoothState(currentEnabled)
     }
 
     LaunchedEffect(Unit) {

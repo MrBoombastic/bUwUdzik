@@ -195,6 +195,10 @@
     <string name="import_device_button">Importer l\'appareil</string>
     <string name="camera_permission_required">L\'autorisation de la caméra est requise pour scanner les codes QR.</string>
     <string name="widget_refresh_description">Actualiser les données du capteur</string>
+    <string name="widget_refresh_channel_name">Actualisation du widget</string>
+    <string name="widget_refresh_channel_description">S’affiche lorsqu’un widget lit un capteur Bluetooth.</string>
+    <string name="widget_refresh_notification_title">Actualisation du widget</string>
+    <string name="widget_refresh_notification_text">Lecture des dernières données du capteur…</string>
     <string name="auth_hint">Vous devrez peut-être oublier l\'appareil dans les paramètres, puis le jumeler à nouveau.</string>
     <string name="disconnect_reason_device_terminated">L\'appareil a terminé la connexion.</string>
     <string name="disconnect_reason_timeout">Délai de connexion dépassé.</string>

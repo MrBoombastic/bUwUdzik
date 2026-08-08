@@ -195,6 +195,10 @@
     <string name="import_device_button">Gerät importieren</string>
     <string name="camera_permission_required">Kameraberechtigung ist zum Scannen von QR-Codes erforderlich.</string>
     <string name="widget_refresh_description">Sensordaten aktualisieren</string>
+    <string name="widget_refresh_channel_name">Widget-Aktualisierung</string>
+    <string name="widget_refresh_channel_description">Wird angezeigt, wenn ein Widget einen Bluetooth-Sensor ausliest.</string>
+    <string name="widget_refresh_notification_title">Widget wird aktualisiert</string>
+    <string name="widget_refresh_notification_text">Neueste Sensordaten werden gelesen…</string>
     <string name="auth_hint">Möglicherweise müssen Sie das Gerät in den Einstellungen entkoppeln und dann erneut koppeln.</string>
     <string name="disconnect_reason_device_terminated">Gerät hat Verbindung beendet.</string>
     <string name="disconnect_reason_timeout">Verbindungs-Timeout.</string>

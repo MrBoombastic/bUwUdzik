@@ -26,6 +26,7 @@ class SensorGlanceReceiver : GlanceAppWidgetReceiver() {
         super.onDisabled(context)
         AppLogger.d(TAG, "Widget disabled - canceling periodic updates")
         WidgetUpdateScheduler.cancelUpdates(context)
+        WidgetBleScanCoordinator.cancel(context)
     }
 
     /**

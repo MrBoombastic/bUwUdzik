@@ -195,6 +195,10 @@
     <string name="content_desc_rewind">Przewiń</string>
     <string name="content_desc_fast_forward">Przeskocz wprzód</string>
     <string name="widget_refresh_description">Odśwież dane z czujników</string>
+    <string name="widget_refresh_channel_name">Odświeżanie widżetu</string>
+    <string name="widget_refresh_channel_description">Wyświetlane, gdy widżet odczytuje czujnik Bluetooth.</string>
+    <string name="widget_refresh_notification_title">Odświeżanie widżetu</string>
+    <string name="widget_refresh_notification_text">Odczytywanie najnowszych danych z czujnika…</string>
     <string name="auth_hint">Może być konieczne zapomnienie urządzenia w ustawieniach, a następnie ponowne sparowanie.</string>
     <string name="disconnect_reason_device_terminated">Urządzenie zakończyło połączenie.</string>
     <string name="disconnect_reason_timeout">Limit czasu połączenia.</string>
