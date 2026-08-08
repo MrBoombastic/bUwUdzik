@@ -17,6 +17,17 @@ class SensorAdvertisementParserTest {
     }
 
     @Test
+    fun `parses captured CGD1 payload with 0x88 packet type`() {
+        val parsed = SensorAdvertisementParser.parseServiceData(
+            hex("88 0c bf 65 52 34 2d 58 01 04 f1 00 ad 01 02 01 25")
+        )
+
+        assertEquals(24.1, parsed?.temperature)
+        assertEquals(42.9, parsed?.humidity)
+        assertEquals(37, parsed?.battery)
+    }
+
+    @Test
     fun `parses objects in any order and signed temperature`() {
         val parsed = SensorAdvertisementParser.parseServiceData(
             hex("08 0c bf 65 52 34 2d 58 02 01 64 01 04 c9 ff f5 01")

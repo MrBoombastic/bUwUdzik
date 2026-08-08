@@ -23,8 +23,13 @@ object SensorAdvertisementParser {
     /** Parses the Qingping FDCD type-length-value payload independently of Android scan APIs. */
     internal fun parseServiceData(serviceData: ByteArray): ParsedSensorAdvertisement? {
         if (serviceData.size < Advertise.MIN_PAYLOAD_SIZE) return null
-        if ((serviceData[Advertise.INDEX_PACKET_TYPE].toInt() and 0xff) != Advertise.PACKET_TYPE_QINGPING) return null
-        if ((serviceData[Advertise.INDEX_DEVICE_ID].toInt() and 0xff) != Advertise.DEVICE_ID_CGD1) return null
+
+        val packetType = serviceData[Advertise.INDEX_PACKET_TYPE].toInt() and 0xff
+        val maskedPacketType = packetType and 0x0F
+        if (maskedPacketType != Advertise.PACKET_TYPE_QINGPING) return null
+
+        val deviceId = serviceData[Advertise.INDEX_DEVICE_ID].toInt() and 0xff
+        if (deviceId != Advertise.DEVICE_ID_CGD1) return null
 
         var temperature: Double? = null
         var humidity: Double? = null

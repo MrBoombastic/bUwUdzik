@@ -122,12 +122,18 @@ class BluetoothScanner(
         val filters = listOf(
             ScanFilter.Builder()
                 .apply {
-                    // Set the device address
                     if (targetAddress != null) {
+                        // When targeting a specific device, filter by MAC only.
+                        // Adding setServiceData alongside setDeviceAddress causes
+                        // some Android BLE stacks to miss advertisements entirely.
+                        // SensorAdvertisementParser validates service data in software.
                         setDeviceAddress(targetAddress)
+                    } else {
+                        // When scanning all devices, filter by service data UUID
+                        // to reduce results to Qingping sensors.
+                        setServiceData(UUID_SERVICE_ADVERTISING, null)
                     }
                 }
-                .setServiceData(UUID_SERVICE_ADVERTISING, null)
                 .build()
         )
 

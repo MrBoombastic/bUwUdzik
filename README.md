@@ -169,7 +169,7 @@ filter used for scanning.
 Most commands follow a simple **Header + Command + Payload** structure.
 
 **Request Format:** `[Header] [Command] [Payload...]`  
-**ACK Format (Notify):** `04 ff [Command] [Len] [Status]`
+**ACK Format (Notify):** `04 ff [Command] [Status] [Payload...]`
 
 #### 2.1. Known Headers
 
@@ -210,7 +210,7 @@ action and check if the device will close connection with you.
 - Persist a newly generated token only after a privileged command, such as time synchronization,
   succeeds. An Auth Confirm ACK alone does not prove that the token was accepted.
 
-**ACK Response Format:** `04 ff [CmdID] [Len] [Status]`
+**ACK Response Format:** `04 ff [CmdID] [Status] [Payload...]`
 
 - Status `00` = Success
 - Status `01` = Failure
@@ -344,11 +344,11 @@ The device also broadcasts sensor data in its BLE advertisement packets via Serv
 - **Service UUID:** `0000fdcd-0000-1000-8000-00805f9b34fb` (ClearGrass/Qingping Service)
 - **Format (Service Data):** An 8-byte header followed by type-length-value (TLV) objects.
 
-| Byte | Value  | Description                            |
-|------|--------|----------------------------------------|
-| 0    | `0x08` | Qingping packet type                   |
-| 1    | `0x0c` | Model ID (`0x0C` = CGD1)               |
-| 2-7  | MAC    | Device MAC address (6 bytes, reversed) |
+| Byte | Value            | Description                                                           |
+|------|------------------|-----------------------------------------------------------------------|
+| 0    | `0x08` or `0x88` | Qingping packet type (0x88 has bit 7 set to indicate MAC is embedded) |
+| 1    | `0x0c`           | Model ID (`0x0C` = CGD1)                                              |
+| 2-7  | MAC              | Device MAC address (6 bytes, reversed)                                |
 
 Known objects after byte 7:
 
@@ -357,8 +357,8 @@ Known objects after byte 7:
 | `01` | `04`   | `[Temp L] [Temp H] [Hum L] [Hum H]`; signed temperature and unsigned humidity, both / 10.0 |
 | `02` | `01`   | Battery percentage as UInt8 (`0-100`)                                                      |
 
-For example, the common 17-byte payload is
-`08 0c [MAC 6B] 01 04 [Temp 2B] [Humidity 2B] 02 01 [Battery]`.
+For example, a common 17-byte payload is:
+`[08|88] 0c [MAC 6B] 01 04 [Temp 2B] [Humidity 2B] 02 01 [Battery]`.
 
 ### 7. Battery Level (Connected)
 
@@ -508,7 +508,7 @@ After sending all audio data, the device will apply the new ringtone.
 | 08  | 10  | Data Write     | Audio Upload Init                       |
 | 81  | 08  | Data Write     | Audio packet (+ 128B padded audio)      |
 
-**ACK Format (Notify characteristics):** `04 ff [CmdSub] [Len] [Status]`
+**ACK Format (Notify characteristics):** `04 ff [CmdSub] [Status] [Payload...]`
 
 ### 11. GATT Disconnection Status Codes
 

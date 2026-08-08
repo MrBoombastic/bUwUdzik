@@ -23,8 +23,6 @@ class BootReceiver : BroadcastReceiver() {
             intent.action == Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
 
-            AppLogger.d(TAG, "Boot completed or package replaced, re-scheduling updates...")
-
             val settingsRepository = SettingsRepository(context)
             val intervalMinutes = settingsRepository.updateInterval
 

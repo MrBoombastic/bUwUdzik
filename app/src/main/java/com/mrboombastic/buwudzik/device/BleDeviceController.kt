@@ -540,7 +540,9 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         authInitAckReceived = false
                         authInitWriteCompleted = false
                         authConfirmSent = false
-                        gatt?.let { writeCharacteristicCompat(it, char, buildAuthInitPacket()) }
+                        val packet = buildAuthInitPacket()
+                        AppLogger.d(TAG, "Auth Init packet bytes: ${packet.toHexString()}")
+                        gatt?.let { writeCharacteristicCompat(it, char, packet) }
                         pendingAuthWrite = null
                     }
                 }
@@ -581,7 +583,10 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val macAddress = device.address
         currentDeviceMac = macAddress
         currentToken = prepareTokenForDevice(macAddress)
-        AppLogger.d(TAG, "Authentication token prepared for $macAddress")
+        AppLogger.d(
+            TAG,
+            "Authentication token prepared for $macAddress: ${currentToken?.toHexString()}"
+        )
 
         connect(device)
 

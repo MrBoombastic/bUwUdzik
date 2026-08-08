@@ -15,17 +15,9 @@ internal data class BleAck(
 internal fun parseBleAck(value: ByteArray): BleAck? {
     if (value.size < 4 || value[0] != 0x04.toByte() || value[1] != 0xff.toByte()) return null
 
-    return if (value.size >= 5) {
-        BleAck(
-            command = value[2].toInt() and 0xff,
-            payloadLength = value[3].toInt() and 0xff,
-            status = value[4].toInt() and 0xff
-        )
-    } else {
-        BleAck(
-            command = value[2].toInt() and 0xff,
-            payloadLength = 0,
-            status = value[3].toInt() and 0xff
-        )
-    }
+    return BleAck(
+        command = value[2].toInt() and 0xff,
+        payloadLength = maxOf(0, value.size - 4),
+        status = value[3].toInt() and 0xff
+    )
 }

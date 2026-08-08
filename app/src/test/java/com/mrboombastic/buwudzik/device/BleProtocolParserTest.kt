@@ -6,9 +6,9 @@ import kotlin.test.assertNull
 
 class BleProtocolParserTest {
     @Test
-    fun `five byte ack uses final status byte`() {
+    fun `five byte ack uses index 3 status byte`() {
         assertEquals(
-            BleAck(command = 1, payloadLength = 0, status = 2),
+            BleAck(command = 1, payloadLength = 1, status = 0),
             parseBleAck(hex("04 ff 01 00 02"))
         )
     }
