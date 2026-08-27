@@ -48,6 +48,7 @@ class MainViewModel(
 
     companion object {
         private const val TAG = "MainViewModel"
+        private const val METADATA_READ_ATTEMPTS = 3
     }
 
     private fun sensorRepo() = SensorRepository(
@@ -243,7 +244,7 @@ class MainViewModel(
         updateBluetoothState(BluetoothUtils.isBluetoothEnabled(applicationContext))
     }
 
-    private fun stopActiveConnection() {
+    fun stopActiveConnection() {
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
         scanJob?.cancel(); scanJob = null
@@ -370,20 +371,28 @@ class MainViewModel(
         }
     }
 
+    private suspend fun <T> retryRead(what: String, block: suspend () -> T): T? {
+        repeat(METADATA_READ_ATTEMPTS) { attempt ->
+            try {
+                return block()
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Error loading $what (attempt ${attempt + 1})", e)
+                delay(BleDeviceController.DELAY_BLE_OPERATION.milliseconds)
+            }
+        }
+        return null
+    }
+
     private suspend fun loadDeviceMetadataAfterConnect() {
         AppLogger.d(TAG, "Clock connected, reading alarms and settings...")
-        try {
-            val alarmsWithTitles = fetchAlarmsWithTitles()
+        retryRead("alarms") { fetchAlarmsWithTitles() }?.let { alarmsWithTitles ->
             _alarms.value = alarmsWithTitles
             AppLogger.d(TAG, "Loaded ${alarmsWithTitles.size} alarms")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Error loading alarms", e)
         }
 
         delay(BleDeviceController.DELAY_BLE_OPERATION.milliseconds)
 
-        try {
-            val settings = _deviceController.readDeviceSettings()
+        retryRead("settings") { _deviceController.readDeviceSettings() }?.let { settings ->
             _deviceSettings.value = settings
             AppLogger.d(TAG, "Loaded device settings: $settings")
 
@@ -393,21 +402,20 @@ class MainViewModel(
             if (settings.timeZone.getOffset(now) != currentPhoneTz.getOffset(now)) {
                 AppLogger.d(TAG, "Device timezone offset differs from phone, auto-syncing...")
                 val updatedSettings = settings.copy(timeZone = currentPhoneTz)
-                _deviceController.writeDeviceSettings(updatedSettings)
-                _deviceSettings.value = updatedSettings
+                try {
+                    _deviceController.writeDeviceSettings(updatedSettings)
+                    _deviceSettings.value = updatedSettings
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Error syncing timezone", e)
+                }
             }
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Error loading settings", e)
         }
 
         delay(BleDeviceController.DELAY_BLE_OPERATION.milliseconds)
 
-        try {
-            val version = _deviceController.readFirmwareVersion()
+        retryRead("firmware version") { _deviceController.readFirmwareVersion() }?.let { version ->
             _deviceSettings.value = _deviceSettings.value?.copy(firmwareVersion = version)
             AppLogger.d(TAG, "Loaded firmware version: $version")
-        } catch (e: Exception) {
-            AppLogger.e(TAG, "Error loading firmware version", e)
         }
     }
 
@@ -417,7 +425,7 @@ class MainViewModel(
             val mac = activeMac
             val batteryFromStore = sensorRepo().getSensorData()?.battery
             val resolvedBattery = batteryFromStore ?: currentData?.battery ?: 0
-            _sensorData.value = currentData?.copy(
+            val updated = currentData?.copy(
                 temperature = temperature.toDouble(),
                 humidity = humidity.toDouble(),
                 battery = resolvedBattery,
@@ -431,6 +439,14 @@ class MainViewModel(
                 rssi = 0,
                 timestamp = System.currentTimeMillis()
             )
+            _sensorData.value = updated
+            if (mac.isNotEmpty()) {
+                val repo = SensorRepository(applicationContext, mac, deviceProfileRepository)
+                repo.saveSensorData(updated)
+                viewModelScope.launch {
+                    SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
+                }
+            }
         }
         _deviceController.onRssiUpdate = { rssi ->
             val current = _sensorData.value

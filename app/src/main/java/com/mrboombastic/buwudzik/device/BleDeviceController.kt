@@ -32,6 +32,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -91,6 +92,10 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
         private const val TIMEOUT_AUTHENTICATION = 30000L
         private const val TIMEOUT_OPERATION = 5000L
+        private const val TIMEOUT_ALARM_READ = 8000L
+
+        private const val RETRY_GATT_BUSY = 5
+        private const val DELAY_GATT_BUSY_RETRY = 100L
 
         const val DELAY_POST_AUTH = 500L
         const val DELAY_BLE_OPERATION = 200L
@@ -515,8 +520,12 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         pendingAuthWrite = null
                     }
                     UUID_DATA_NOTIFY -> {
-                        alarmReadContinuation?.resumeWithException(Exception("Enable data notification failed: $status"))
+                        val error = Exception("Enable data notification failed: $status")
+                        alarmReadContinuation?.resumeWithException(error)
                         alarmReadContinuation = null
+                        deviceSettingsReadContinuation?.resumeWithException(error)
+                        deviceSettingsReadContinuation = null
+                        pendingAckContinuations.remove(Command.SET_ALARM)?.resumeWithException(error)
                         pendingDataCommand = null
                     }
                     UUID_SENSOR_NOTIFY -> {
@@ -545,6 +554,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     }
                 }
                 UUID_DATA_NOTIFY -> {
+                    enabledNotifications.add(UUID_DATA_NOTIFY)
                     pendingDataCommand?.let { cmd ->
                         AppLogger.d(TAG, "Descriptor write complete, now sending data command: ${cmd.toHexString()}...")
                         val dataService = gatt?.services?.find { it.getCharacteristic(UUID_DATA_WRITE) != null }
@@ -609,33 +619,35 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     private suspend fun authenticate(): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
-            suspendCancellableCoroutine { continuation ->
-                val currentGatt = gatt ?: run {
-                    continuation.resumeWithException(Exception("GATT not connected"))
-                    return@suspendCancellableCoroutine
-                }
-                AppLogger.d(TAG, "Starting authentication...")
-                pendingAckContinuations[Command.AUTH_CONFIRM] = continuation
-                val authNotifyChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_NOTIFY)
-                val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
-                if (authNotifyChar == null || authWriteChar == null) {
-                    pendingAckContinuations.remove(Command.AUTH_CONFIRM)
-                    continuation.resumeWithException(Exception("Auth characteristics not found"))
-                    return@suspendCancellableCoroutine
-                }
-                currentGatt.setCharacteristicNotification(authNotifyChar, true)
-                val descriptor = authNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                pendingAuthWrite = authWriteChar
-                descriptor?.let {
-                    writeDescriptorCompat(
-                        currentGatt,
-                        it,
-                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    )
-                }
-                continuation.invokeOnCancellation {
-                    pendingAckContinuations.remove(Command.AUTH_CONFIRM)
-                    pendingAuthWrite = null
+            withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) {
+                suspendCancellableCoroutine { continuation ->
+                    val currentGatt = gatt ?: run {
+                        continuation.resumeWithException(Exception("GATT not connected"))
+                        return@suspendCancellableCoroutine
+                    }
+                    AppLogger.d(TAG, "Starting authentication...")
+                    pendingAckContinuations[Command.AUTH_CONFIRM] = continuation
+                    val authNotifyChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_NOTIFY)
+                    val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
+                    if (authNotifyChar == null || authWriteChar == null) {
+                        pendingAckContinuations.remove(Command.AUTH_CONFIRM)
+                        continuation.resumeWithException(Exception("Auth characteristics not found"))
+                        return@suspendCancellableCoroutine
+                    }
+                    currentGatt.setCharacteristicNotification(authNotifyChar, true)
+                    val descriptor = authNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                    pendingAuthWrite = authWriteChar
+                    descriptor?.let {
+                        writeDescriptorCompat(
+                            currentGatt,
+                            it,
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        )
+                    }
+                    continuation.invokeOnCancellation {
+                        pendingAckContinuations.remove(Command.AUTH_CONFIRM)
+                        pendingAuthWrite = null
+                    }
                 }
             }
         }
@@ -644,6 +656,33 @@ class BleDeviceController(private val context: Context) : DeviceController {
     override suspend fun synchronizeTime(timestamp: Long?): Boolean = gattMutex.withLock {
         val finalTimestamp = timestamp ?: (System.currentTimeMillis() / 1000)
         withContext(NonCancellable) {
+            withTimeout(TIMEOUT_AUTHENTICATION.milliseconds) {
+                suspendCancellableCoroutine { continuation ->
+                    val currentGatt = gatt ?: run {
+                        continuation.resumeWithException(Exception("GATT not connected"))
+                        return@suspendCancellableCoroutine
+                    }
+                    if (!isAuthenticated) {
+                        continuation.resumeWithException(Exception("Not authenticated"))
+                        return@suspendCancellableCoroutine
+                    }
+                    pendingAckContinuations[Command.TIME_SYNC] = continuation
+                    val command = byteArrayOf(Header.TIME, Command.TIME_SYNC.toByte(), (finalTimestamp and 0xFF).toByte(), ((finalTimestamp shr 8) and 0xFF).toByte(), ((finalTimestamp shr 16) and 0xFF).toByte(), ((finalTimestamp shr 24) and 0xFF).toByte())
+                    val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
+                    if (authWriteChar == null) {
+                        pendingAckContinuations.remove(Command.TIME_SYNC)
+                        continuation.resumeWithException(Exception("Auth write characteristic not found"))
+                        return@suspendCancellableCoroutine
+                    }
+                    writeCharacteristicCompat(currentGatt, authWriteChar, command)
+                    continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.TIME_SYNC) }
+                }
+            }
+        }
+    }
+
+    override suspend fun readDeviceSettings(): DeviceSettings = gattMutex.withLock {
+        withTimeout(TIMEOUT_OPERATION.milliseconds) {
             suspendCancellableCoroutine { continuation ->
                 val currentGatt = gatt ?: run {
                     continuation.resumeWithException(Exception("GATT not connected"))
@@ -653,80 +692,56 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     continuation.resumeWithException(Exception("Not authenticated"))
                     return@suspendCancellableCoroutine
                 }
-                pendingAckContinuations[Command.TIME_SYNC] = continuation
-                val command = byteArrayOf(Header.TIME, Command.TIME_SYNC.toByte(), (finalTimestamp and 0xFF).toByte(), ((finalTimestamp shr 8) and 0xFF).toByte(), ((finalTimestamp shr 16) and 0xFF).toByte(), ((finalTimestamp shr 24) and 0xFF).toByte())
-                val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
-                if (authWriteChar == null) {
-                    pendingAckContinuations.remove(Command.TIME_SYNC)
-                    continuation.resumeWithException(Exception("Auth write characteristic not found"))
+                deviceSettingsReadContinuation = continuation
+                val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
+                if (dataWriteChar == null || dataNotifyChar == null) {
+                    deviceSettingsReadContinuation = null
+                    continuation.resumeWithException(Exception("Data characteristics not found"))
                     return@suspendCancellableCoroutine
                 }
-                writeCharacteristicCompat(currentGatt, authWriteChar, command)
-                continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.TIME_SYNC) }
-            }
-        }
-    }
-
-    override suspend fun readDeviceSettings(): DeviceSettings = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-            deviceSettingsReadContinuation = continuation
-            val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
-            val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
-            if (dataWriteChar == null || dataNotifyChar == null) {
-                continuation.resumeWithException(Exception("Data characteristics not found"))
-                return@suspendCancellableCoroutine
-            }
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
-            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                writeCharacteristicCompat(currentGatt, dataWriteChar, command)
-            } else {
-                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                pendingDataCommand = command
-                descriptor?.let {
-                    writeDescriptorCompat(
-                        currentGatt,
-                        it,
-                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    )
+                val command = byteArrayOf(Header.GET_DATA, Command.GET_SETTINGS.toByte())
+                scope.launch {
+                    if (!sendDataCommand(currentGatt, dataWriteChar, dataNotifyChar, command) && continuation.isActive) {
+                        deviceSettingsReadContinuation = null
+                        continuation.resumeWithException(Exception("writeCharacteristic failed for settings"))
+                    }
                 }
-                enabledNotifications.add(UUID_DATA_NOTIFY)
-            }
-            continuation.invokeOnCancellation {
-                deviceSettingsReadContinuation = null
-                pendingDataCommand = null
+                continuation.invokeOnCancellation {
+                    deviceSettingsReadContinuation = null
+                    pendingDataCommand = null
+                }
             }
         }
     }
 
     override suspend fun readFirmwareVersion(): String = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
+        withTimeout(TIMEOUT_OPERATION.milliseconds) {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
+                }
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
+                firmwareVersionReadContinuation = continuation
+                val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
+                if (authWriteChar == null) {
+                    firmwareVersionReadContinuation = null
+                    continuation.resumeWithException(Exception("Auth write characteristic not found"))
+                    return@suspendCancellableCoroutine
+                }
+                val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
+                scope.launch {
+                    if (!writeCharacteristicWithRetry(authWriteChar, command, RETRY_GATT_BUSY) && continuation.isActive) {
+                        firmwareVersionReadContinuation = null
+                        continuation.resumeWithException(Exception("writeCharacteristic failed for firmware version"))
+                    }
+                }
+                continuation.invokeOnCancellation { firmwareVersionReadContinuation = null }
             }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-            firmwareVersionReadContinuation = continuation
-            val authWriteChar = currentGatt.findDeviceCharacteristic(UUID_AUTH_WRITE)
-            if (authWriteChar == null) {
-                firmwareVersionReadContinuation = null
-                continuation.resumeWithException(Exception("Auth write characteristic not found"))
-                return@suspendCancellableCoroutine
-            }
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_FIRMWARE.toByte())
-            writeCharacteristicCompat(currentGatt, authWriteChar, command)
-            continuation.invokeOnCancellation { firmwareVersionReadContinuation = null }
         }
     }
 
@@ -806,45 +821,49 @@ class BleDeviceController(private val context: Context) : DeviceController {
     }
 
     override suspend fun readAlarms(): List<Alarm> = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
-            }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-            alarmReadContinuation = continuation
-            alarmBuffer.clear()
-            val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
-            val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
-            if (dataNotifyChar == null || dataWriteChar == null) {
-                alarmReadContinuation?.resumeWithException(Exception("Data characteristics not found"))
-                alarmReadContinuation = null
-                return@suspendCancellableCoroutine
-            }
-            val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
-            if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                writeCharacteristicCompat(currentGatt, dataWriteChar, command)
-            } else {
-                currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                pendingDataCommand = command
-                descriptor?.let {
-                    writeDescriptorCompat(
-                        currentGatt,
-                        it,
-                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    )
+        try {
+            withTimeout(TIMEOUT_ALARM_READ.milliseconds) {
+                suspendCancellableCoroutine { continuation ->
+                    val currentGatt = gatt ?: run {
+                        continuation.resumeWithException(Exception("GATT not connected"))
+                        return@suspendCancellableCoroutine
+                    }
+                    if (!isAuthenticated) {
+                        continuation.resumeWithException(Exception("Not authenticated"))
+                        return@suspendCancellableCoroutine
+                    }
+                    alarmReadContinuation = continuation
+                    alarmBuffer.clear()
+                    val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                    if (dataNotifyChar == null || dataWriteChar == null) {
+                        alarmReadContinuation?.resumeWithException(Exception("Data characteristics not found"))
+                        alarmReadContinuation = null
+                        return@suspendCancellableCoroutine
+                    }
+                    val command = byteArrayOf(Header.GET_DATA, Command.GET_ALARMS.toByte())
+                    scope.launch {
+                        if (!sendDataCommand(currentGatt, dataWriteChar, dataNotifyChar, command) && continuation.isActive) {
+                            alarmReadContinuation = null
+                            continuation.resumeWithException(Exception("writeCharacteristic failed for alarms"))
+                        }
+                    }
+                    continuation.invokeOnCancellation {
+                        alarmReadContinuation = null
+                        alarmBuffer.clear()
+                        pendingDataCommand = null
+                    }
                 }
-                enabledNotifications.add(UUID_DATA_NOTIFY)
             }
-            continuation.invokeOnCancellation {
-                alarmReadContinuation = null
-                alarmBuffer.clear()
-                pendingDataCommand = null
-            }
+        } catch (_: TimeoutCancellationException) {
+            AppLogger.w(TAG, "Timeout while reading alarms, assuming no alarms are set")
+            alarmReadContinuation = null
+            alarmCompletionJob?.cancel()
+            alarmCompletionJob = null
+            pendingDataCommand = null
+            val alarms = alarmBuffer.toList()
+            alarmBuffer.clear()
+            alarms
         }
     }
 
@@ -869,19 +888,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         continuation.resumeWithException(Exception("Data characteristics not found"))
                         return@suspendCancellableCoroutine
                     }
-                    if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                        currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                        val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                        descriptor?.let {
-                            writeDescriptorCompat(
-                                currentGatt,
-                                it,
-                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            )
+                    scope.launch {
+                        if (!sendDataCommand(currentGatt, dataWriteChar, dataNotifyChar, command) && continuation.isActive) {
+                            pendingAckContinuations.remove(Command.SET_ALARM)
+                            continuation.resumeWithException(Exception("writeCharacteristic failed for alarm"))
                         }
-                        enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                    writeCharacteristicCompat(currentGatt, dataWriteChar, command)
+                    continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.SET_ALARM) }
                 }
             }
         }
@@ -908,19 +921,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         continuation.resumeWithException(Exception("Data characteristics not found"))
                         return@suspendCancellableCoroutine
                     }
-                    if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
-                        currentGatt.setCharacteristicNotification(dataNotifyChar, true)
-                        val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                        descriptor?.let {
-                            writeDescriptorCompat(
-                                currentGatt,
-                                it,
-                                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            )
+                    scope.launch {
+                        if (!sendDataCommand(currentGatt, dataWriteChar, dataNotifyChar, command) && continuation.isActive) {
+                            pendingAckContinuations.remove(Command.SET_ALARM)
+                            continuation.resumeWithException(Exception("writeCharacteristic failed for alarm"))
                         }
-                        enabledNotifications.add(UUID_DATA_NOTIFY)
                     }
-                    writeCharacteristicCompat(currentGatt, dataWriteChar, command)
+                    continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.SET_ALARM) }
                 }
             }
         }
@@ -928,28 +935,31 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     override suspend fun previewBrightness(brightness: Int): Boolean = gattMutex.withLock {
         withContext(NonCancellable) {
-            suspendCancellableCoroutine { continuation ->
-                val currentGatt = gatt ?: run {
-                    continuation.resume(false)
-                    return@suspendCancellableCoroutine
-                }
-                if (!isAuthenticated) {
-                    continuation.resume(false)
-                    return@suspendCancellableCoroutine
-                }
-                val value = (brightness / 10).coerceIn(0, 10).toByte()
-                val command = byteArrayOf(Header.BRIGHTNESS, Command.PREVIEW_BRIGHTNESS.toByte(), value)
-                val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
-                if (dataWriteChar == null) {
-                    continuation.resume(false)
-                    return@suspendCancellableCoroutine
-                }
-                pendingAckContinuations[Command.PREVIEW_BRIGHTNESS] = continuation
-                scope.launch {
-                    if (!writeCharacteristicWithRetry(dataWriteChar, command)) {
-                        pendingAckContinuations.remove(Command.PREVIEW_BRIGHTNESS)
+            withTimeout(TIMEOUT_OPERATION.milliseconds) {
+                suspendCancellableCoroutine { continuation ->
+                    val currentGatt = gatt ?: run {
                         continuation.resume(false)
+                        return@suspendCancellableCoroutine
                     }
+                    if (!isAuthenticated) {
+                        continuation.resume(false)
+                        return@suspendCancellableCoroutine
+                    }
+                    val value = (brightness / 10).coerceIn(0, 10).toByte()
+                    val command = byteArrayOf(Header.BRIGHTNESS, Command.PREVIEW_BRIGHTNESS.toByte(), value)
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                    if (dataWriteChar == null) {
+                        continuation.resume(false)
+                        return@suspendCancellableCoroutine
+                    }
+                    pendingAckContinuations[Command.PREVIEW_BRIGHTNESS] = continuation
+                    scope.launch {
+                        if (!writeCharacteristicWithRetry(dataWriteChar, command)) {
+                            pendingAckContinuations.remove(Command.PREVIEW_BRIGHTNESS)
+                            continuation.resume(false)
+                        }
+                    }
+                    continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.PREVIEW_BRIGHTNESS) }
                 }
             }
         }
@@ -957,33 +967,36 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
     override suspend fun previewRingtone(settings: DeviceSettings?): Boolean {
         return gattMutex.withLock {
-            suspendCancellableCoroutine { continuation ->
-                val currentGatt = gatt ?: run {
-                    continuation.resumeWithException(Exception("GATT not connected"))
-                    return@suspendCancellableCoroutine
-                }
-                if (!isAuthenticated) {
-                    continuation.resumeWithException(Exception("Not authenticated"))
-                    return@suspendCancellableCoroutine
-                }
-                
-                val command = if (settings != null) {
-                    byteArrayOf(Header.RINGTONE_V2, Command.PREVIEW_RINGTONE.toByte(), settings.volume.toByte())
-                } else {
-                    byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
-                }
-
-                val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
-                if (dataWriteChar == null) {
-                    continuation.resumeWithException(Exception("Data write characteristic not found"))
-                    return@suspendCancellableCoroutine
-                }
-                pendingAckContinuations[Command.PREVIEW_RINGTONE] = continuation
-                scope.launch {
-                    if (!writeCharacteristicWithRetry(dataWriteChar, command)) {
-                        pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
-                        continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+            withTimeout(TIMEOUT_OPERATION.milliseconds) {
+                suspendCancellableCoroutine { continuation ->
+                    val currentGatt = gatt ?: run {
+                        continuation.resumeWithException(Exception("GATT not connected"))
+                        return@suspendCancellableCoroutine
                     }
+                    if (!isAuthenticated) {
+                        continuation.resumeWithException(Exception("Not authenticated"))
+                        return@suspendCancellableCoroutine
+                    }
+
+                    val command = if (settings != null) {
+                        byteArrayOf(Header.RINGTONE_V2, Command.PREVIEW_RINGTONE.toByte(), settings.volume.toByte())
+                    } else {
+                        byteArrayOf(Header.RINGTONE_V1, Command.PREVIEW_RINGTONE.toByte())
+                    }
+
+                    val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
+                    if (dataWriteChar == null) {
+                        continuation.resumeWithException(Exception("Data write characteristic not found"))
+                        return@suspendCancellableCoroutine
+                    }
+                    pendingAckContinuations[Command.PREVIEW_RINGTONE] = continuation
+                    scope.launch {
+                        if (!writeCharacteristicWithRetry(dataWriteChar, command)) {
+                            pendingAckContinuations.remove(Command.PREVIEW_RINGTONE)
+                            continuation.resumeWithException(Exception("writeCharacteristic failed for command"))
+                        }
+                    }
+                    continuation.invokeOnCancellation { pendingAckContinuations.remove(Command.PREVIEW_RINGTONE) }
                 }
             }
         }
@@ -1008,7 +1021,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 )
             }
             delay(DELAY_ALARM_RELOAD.milliseconds)
-            enabledNotifications.add(UUID_DATA_NOTIFY)
         }
 
         // Send Init
@@ -1139,32 +1151,34 @@ class BleDeviceController(private val context: Context) : DeviceController {
     }
 
     private suspend fun enableSensorNotifications(): Boolean = gattMutex.withLock {
-        suspendCancellableCoroutine { continuation ->
-            val currentGatt = gatt ?: run {
-                continuation.resumeWithException(Exception("GATT not connected"))
-                return@suspendCancellableCoroutine
+        withTimeout(TIMEOUT_OPERATION.milliseconds) {
+            suspendCancellableCoroutine { continuation ->
+                val currentGatt = gatt ?: run {
+                    continuation.resumeWithException(Exception("GATT not connected"))
+                    return@suspendCancellableCoroutine
+                }
+                if (!isAuthenticated) {
+                    continuation.resumeWithException(Exception("Not authenticated"))
+                    return@suspendCancellableCoroutine
+                }
+                sensorNotificationContinuation = continuation
+                val sensorNotifyChar = currentGatt.findDeviceCharacteristic(UUID_SENSOR_NOTIFY)
+                if (sensorNotifyChar == null) {
+                    sensorNotificationContinuation?.resumeWithException(Exception("Sensor characteristic not found"))
+                    sensorNotificationContinuation = null
+                    return@suspendCancellableCoroutine
+                }
+                currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
+                val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+                descriptor?.let {
+                    writeDescriptorCompat(
+                        currentGatt,
+                        it,
+                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    )
+                }
+                continuation.invokeOnCancellation { sensorNotificationContinuation = null }
             }
-            if (!isAuthenticated) {
-                continuation.resumeWithException(Exception("Not authenticated"))
-                return@suspendCancellableCoroutine
-            }
-            sensorNotificationContinuation = continuation
-            val sensorNotifyChar = currentGatt.findDeviceCharacteristic(UUID_SENSOR_NOTIFY)
-            if (sensorNotifyChar == null) {
-                sensorNotificationContinuation?.resumeWithException(Exception("Sensor characteristic not found"))
-                sensorNotificationContinuation = null
-                return@suspendCancellableCoroutine
-            }
-            currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
-            val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-            descriptor?.let {
-                writeDescriptorCompat(
-                    currentGatt,
-                    it,
-                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                )
-            }
-            continuation.invokeOnCancellation { sensorNotificationContinuation = null }
         }
     }
 
@@ -1209,6 +1223,36 @@ class BleDeviceController(private val context: Context) : DeviceController {
         AppLogger.d(TAG, "Connected battery level: $battery%")
         onBatteryUpdate?.invoke(battery)
         onLastUpdated?.invoke(System.currentTimeMillis())
+    }
+
+    /**
+     * Sends a command on the data characteristic, enabling its notifications first when needed.
+     *
+     * The command is deferred until [onDescriptorWrite] confirms the notification, because the
+     * Android GATT queue accepts only one operation at a time and would silently drop the write.
+     */
+    private suspend fun sendDataCommand(
+        gatt: BluetoothGatt,
+        dataWriteChar: BluetoothGattCharacteristic,
+        dataNotifyChar: BluetoothGattCharacteristic,
+        command: ByteArray,
+        retryCount: Int = RETRY_GATT_BUSY
+    ): Boolean {
+        if (enabledNotifications.contains(UUID_DATA_NOTIFY)) {
+            return writeCharacteristicWithRetry(dataWriteChar, command, retryCount)
+        }
+        gatt.setCharacteristicNotification(dataNotifyChar, true)
+        val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
+            ?: return writeCharacteristicWithRetry(dataWriteChar, command, retryCount)
+        pendingDataCommand = command
+        repeat(retryCount) { attempt ->
+            if (writeDescriptorCompat(gatt, descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) return true
+            AppLogger.w(TAG, "GATT busy, retrying data notification request (attempt ${attempt + 1})")
+            delay((DELAY_GATT_BUSY_RETRY * (attempt + 1)).milliseconds)
+        }
+        AppLogger.e(TAG, "Failed to request data notifications")
+        pendingDataCommand = null
+        return false
     }
 
     private fun BluetoothGatt.findDeviceCharacteristic(uuid: UUID): BluetoothGattCharacteristic? =

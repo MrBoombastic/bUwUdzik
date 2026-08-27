@@ -87,8 +87,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Stop BLE scanning when the app goes to the background
+        // Stop BLE scanning and active connection when the app goes to the background
         mainViewModel?.stopScanning()
+        mainViewModel?.stopActiveConnection()
     }
 
     override fun onResume() {
@@ -98,7 +99,9 @@ class MainActivity : AppCompatActivity() {
         vm.refreshBluetoothState()
         vm.checkPairingStatus()
         if (BluetoothUtils.hasBluetoothPermissions(this) &&
-            vm.activeMac.isNotEmpty()
+            vm.activeMac.isNotEmpty() &&
+            !vm.deviceConnected.value &&
+            !vm.deviceConnecting.value
         ) {
             vm.startScanning()
         }

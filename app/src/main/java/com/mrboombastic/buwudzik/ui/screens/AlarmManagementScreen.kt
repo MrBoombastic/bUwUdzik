@@ -38,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -79,6 +80,13 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
     val snackbarHostState = remember { SnackbarHostState() }
     var isUpdating by remember { mutableStateOf(false) }
     var selectedAlarm by remember { mutableStateOf<Alarm?>(null) }
+
+    // Settings may be missing if the post-connect read failed (busy GATT queue), so retry here.
+    LaunchedEffect(deviceConnected, deviceSettings == null) {
+        if (deviceConnected && deviceSettings == null) {
+            viewModel.reloadDeviceSettings()
+        }
+    }
 
     // Pre-fetch string resources for use in callbacks
     val alarmUpdatedMsg = stringResource(R.string.alarm_updated_msg)
@@ -296,16 +304,16 @@ fun AlarmManagementScreen(navController: NavController, viewModel: MainViewModel
                         }
                     }
 
-                    if (deviceSettings?.masterAlarmDisabled != false) {
-                        if (deviceSettings != null) {
-                            // Message shown when alarms are globally disabled
-                            Spacer(modifier = Modifier.height(32.dp))
-                            Text(
-                                text = stringResource(R.string.master_alarm_off_msg),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    // Alarms are hidden only when the master switch is explicitly off.
+                    // If settings could not be read, still show the alarms we already have.
+                    if (deviceSettings?.masterAlarmDisabled == true) {
+                        // Message shown when alarms are globally disabled
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Text(
+                            text = stringResource(R.string.master_alarm_off_msg),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         return@Column
                     }
                     if (alarms.isEmpty()) {
