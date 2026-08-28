@@ -1,6 +1,7 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -152,6 +154,11 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     val noAudioText = stringResource(R.string.error_no_audio_selected)
     val downloadFailedText = stringResource(R.string.error_download_failed)
     val errorManifestLoadFailedText = stringResource(R.string.error_manifest_load_failed)
+    val connectFirstText = stringResource(R.string.connect_first_msg)
+    val uploadInProgressText = stringResource(R.string.upload_in_progress_msg)
+
+    // Conversion + transfer take a while and must not be interrupted by accident.
+    val isTransferInProgress = isUploading || isConverting
 
     fun showError(message: String) {
         coroutineScope.launch {
@@ -160,6 +167,18 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 duration = SnackbarDuration.Long
             )
         }
+    }
+
+    // A dimmed/locked screen pauses the activity, which would drop the BLE link mid-transfer.
+    val view = LocalView.current
+    DisposableEffect(isTransferInProgress) {
+        view.keepScreenOn = isTransferInProgress
+        onDispose { view.keepScreenOn = false }
+    }
+
+    // Swallow back presses (gesture included) while the ringtone is being sent.
+    BackHandler(enabled = isTransferInProgress) {
+        showError(uploadInProgressText)
     }
 
     // Available online ringtones - now dynamically loaded from manifest
@@ -234,7 +253,9 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
 
 
     fun convertAndUpload(targetSignature: ByteArray, channelMode: ChannelMode) {
-        coroutineScope.launch {
+        // Runs in the ViewModel scope on purpose: leaving the screen (or a configuration change)
+        // must not cancel a transfer that is already in flight.
+        viewModel.runDeviceOperation {
             isUploading = true
             uploadProgress = 0f
 
@@ -275,7 +296,14 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 } else {
                     showError(noAudioText)
                     isUploading = false
-                    return@launch
+                    return@runDeviceOperation
+                }
+
+                // Picking a file opens a system activity, which drops the BLE link;
+                // make sure it is back before pushing megabytes of audio.
+                if (!viewModel.ensureConnected()) {
+                    showError(connectFirstText)
+                    return@runDeviceOperation
                 }
 
                 // Upload to device
@@ -351,7 +379,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                 title = stringResource(R.string.ringtone_upload_title),
                 navController = navController,
                 showProgress = isUploading || isBusy || isConverting || isDownloading || isLoadingManifest,
-                navigationEnabled = !isUploading
+                navigationEnabled = !isTransferInProgress
             )
         }
     ) { padding ->
@@ -429,7 +457,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
 
             OutlinedButton(
                 onClick = { filePicker.launch("audio/*") },
-                enabled = !isUploading,
+                enabled = !isTransferInProgress && !isDownloading,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
@@ -492,7 +520,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                         .fillMaxWidth()
                         .selectable(
                             selected = selectedOnlineRingtone == ringtone, onClick = {
-                                if (!isCurrentRingtone && !isUploading && !isDownloading) {
+                                if (!isCurrentRingtone && !isTransferInProgress && !isDownloading) {
                                     selectedOnlineRingtone = ringtone
                                     selectedCustomUri = null
 
@@ -603,7 +631,7 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                             RadioButton(
                                 selected = selectedOnlineRingtone == ringtone,
                                 onClick = null,
-                                enabled = !isUploading
+                                enabled = !isTransferInProgress
                             )
                         }
                     }

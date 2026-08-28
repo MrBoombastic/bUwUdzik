@@ -87,9 +87,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Stop BLE scanning and active connection when the app goes to the background
+        // Stop BLE scanning and active connection when the app goes to the background.
+        // The connection is only suspended: system pickers (audio file chooser, permission
+        // dialogs) pause the activity too, so it has to come back when the user returns.
         mainViewModel?.stopScanning()
-        mainViewModel?.stopActiveConnection()
+        mainViewModel?.suspendActiveConnection()
     }
 
     override fun onResume() {
@@ -103,7 +105,9 @@ class MainActivity : AppCompatActivity() {
             !vm.deviceConnected.value &&
             !vm.deviceConnecting.value
         ) {
-            vm.startScanning()
+            if (!vm.resumeConnectionIfNeeded()) {
+                vm.startScanning()
+            }
         }
     }
 

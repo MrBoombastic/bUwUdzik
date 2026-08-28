@@ -31,12 +31,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 
 class MainViewModel(
@@ -49,6 +51,9 @@ class MainViewModel(
     companion object {
         private const val TAG = "MainViewModel"
         private const val METADATA_READ_ATTEMPTS = 3
+
+        /** How long [ensureConnected] waits for the connection to be (re)established. */
+        private const val TIMEOUT_ENSURE_CONNECTED = 45000L
     }
 
     private fun sensorRepo() = SensorRepository(
@@ -189,6 +194,7 @@ class MainViewModel(
     private var scanJob: Job? = null
     private var rssiPollJob: Job? = null
     private var connectionJob: Job? = null
+    private var reconnectOnResume = false
 
     init {
         _isBluetoothEnabled.value = BluetoothUtils.isBluetoothEnabled(applicationContext)
@@ -245,6 +251,7 @@ class MainViewModel(
     }
 
     fun stopActiveConnection() {
+        reconnectOnResume = false
         rssiPollJob?.cancel(); rssiPollJob = null
         connectionJob?.cancel(); connectionJob = null
         scanJob?.cancel(); scanJob = null
@@ -252,6 +259,56 @@ class MainViewModel(
         _deviceConnected.value = false
         _deviceConnecting.value = false
     }
+
+    /**
+     * Drops the GATT link when the app leaves the foreground, but remembers that it has to come
+     * back. System pickers (e.g. choosing an audio file for a ringtone) pause the activity too,
+     * so without this the device would stay disconnected after returning to the app.
+     */
+    fun suspendActiveConnection() {
+        // A ringtone upload takes tens of seconds; dropping GATT because the screen dimmed or the
+        // user glanced at another app would corrupt the transfer, so keep the link in that case.
+        if (_deviceController.isBusy.value) {
+            AppLogger.d(TAG, "Device operation in progress, keeping the connection alive")
+            return
+        }
+        val wasLinked = _deviceConnected.value || _deviceConnecting.value
+        stopActiveConnection()
+        reconnectOnResume = wasLinked
+        if (wasLinked) AppLogger.d(TAG, "Connection suspended, will reconnect when app returns")
+    }
+
+    /** Restores the connection dropped by [suspendActiveConnection]. Returns true if reconnecting. */
+    fun resumeConnectionIfNeeded(): Boolean {
+        if (!reconnectOnResume) return false
+        reconnectOnResume = false
+        if (activeMac.isEmpty() || !_isBluetoothEnabled.value) return false
+        AppLogger.d(TAG, "App returned to foreground, reconnecting to $activeMac")
+        connectToDevice()
+        return true
+    }
+
+    /**
+     * Makes sure the device is connected before a long BLE operation (e.g. ringtone upload)
+     * and waits for an in-flight connection attempt to finish.
+     */
+    suspend fun ensureConnected(timeoutMs: Long = TIMEOUT_ENSURE_CONNECTED): Boolean {
+        if (_deviceConnected.value) return true
+        if (activeMac.isEmpty() || !_isBluetoothEnabled.value) return false
+        if (!_deviceConnecting.value) {
+            AppLogger.d(TAG, "Device not connected, connecting before operation...")
+            connectToDevice()
+        }
+        return withTimeoutOrNull(timeoutMs.milliseconds) {
+            deviceConnected.first { it }
+        } == true
+    }
+
+    /**
+     * Runs a long device operation (e.g. a ringtone upload) in the ViewModel scope, so that
+     * navigating away or a configuration change does not cancel it midway.
+     */
+    fun runDeviceOperation(block: suspend () -> Unit): Job = viewModelScope.launch { block() }
 
     fun startScanning() {
 
@@ -343,6 +400,10 @@ class MainViewModel(
                 AppLogger.e(TAG, "Error connecting to clock ($targetMac): ${e.message}", e)
                 _deviceConnected.value = false
                 _connectionError.value = e.message ?: "Connection failed"
+                // Tear the half-open link down: otherwise the GATT client stays alive, keeps
+                // delivering notifications and collides with the next connection attempt.
+                // A running transfer is the exception - it owns the link and must finish.
+                if (!_deviceController.isBusy.value) _deviceController.disconnect()
                 restartScanning()
             } finally {
                 if (reloadAlarms) {

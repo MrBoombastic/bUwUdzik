@@ -566,6 +566,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     }
                 }
                 UUID_SENSOR_NOTIFY -> {
+                    enabledNotifications.add(UUID_SENSOR_NOTIFY)
                     sensorNotificationContinuation?.resume(true)
                     sensorNotificationContinuation = null
                 }
@@ -613,7 +614,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
             )
         }
 
-        enableSensorNotifications()
+        // Live sensor/battery updates are a bonus: a hiccup here must not invalidate a link that
+        // is already authenticated and time synchronized.
+        try {
+            enableSensorNotifications()
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Could not enable sensor notifications: ${e.message}", e)
+        }
         enableBatteryUpdates()
     }
 
@@ -813,6 +820,12 @@ class BleDeviceController(private val context: Context) : DeviceController {
     }
 
     override fun readRssi() {
+        // Android accepts a single GATT operation at a time; polling RSSI in the middle of a long
+        // transfer (e.g. a ringtone upload) makes the concurrent write fail with "GATT busy".
+        if (gattMutex.isLocked) {
+            AppLogger.d(TAG, "Skipping RSSI read, another GATT operation is in progress")
+            return
+        }
         try { gatt?.readRemoteRssi() } catch (_: Exception) {}
     }
 
@@ -1002,23 +1015,43 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
     }
 
-    override suspend fun uploadAudio(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean {
-        // Renamed from uploadRingtone
-        val currentGatt = gatt ?: return false
-        if (!isAuthenticated) return false
+    /**
+     * Uploads a ringtone. Holds [gattMutex] for the whole transfer, so alarm/settings reads issued
+     * meanwhile wait their turn instead of colliding with it on the single Android GATT queue.
+     */
+    override suspend fun uploadAudio(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean =
+        gattMutex.withLock {
+            _isBusy.value = true
+            try {
+                performAudioUpload(audioData, signature, onProgress)
+            } finally {
+                _isBusy.value = false
+            }
+        }
+
+    private suspend fun performAudioUpload(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean {
+        val currentGatt = gatt ?: run {
+            AppLogger.e(TAG, "Audio upload aborted: GATT not connected")
+            return false
+        }
+        if (!isAuthenticated) {
+            AppLogger.e(TAG, "Audio upload aborted: device not authenticated")
+            return false
+        }
         val dataWriteChar = currentGatt.findDeviceCharacteristic(UUID_DATA_WRITE)
         val dataNotifyChar = currentGatt.findDeviceCharacteristic(UUID_DATA_NOTIFY)
-        if (dataWriteChar == null || dataNotifyChar == null) return false
+        if (dataWriteChar == null || dataNotifyChar == null) {
+            AppLogger.e(TAG, "Audio upload aborted: data characteristics not found")
+            return false
+        }
+        AppLogger.d(TAG, "Starting audio upload: ${audioData.size} bytes, signature ${signature.toHexString()}")
 
         if (!enabledNotifications.contains(UUID_DATA_NOTIFY)) {
             currentGatt.setCharacteristicNotification(dataNotifyChar, true)
             val descriptor = dataNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-            descriptor?.let {
-                writeDescriptorCompat(
-                    currentGatt,
-                    it,
-                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                )
+            if (descriptor != null && !writeDescriptorWithRetry(currentGatt, descriptor)) {
+                AppLogger.e(TAG, "Audio upload aborted: could not enable data notifications")
+                return false
             }
             delay(DELAY_ALARM_RELOAD.milliseconds)
         }
@@ -1029,13 +1062,15 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val initPayload = byteArrayOf(Header.AUDIO_INIT, Command.AUDIO_INIT.toByte(), (sizeBytes and 0xFF).toByte(), ((sizeBytes shr 8) and 0xFF).toByte(), ((sizeBytes shr 16) and 0xFF).toByte(), targetSignature[0], targetSignature[1], targetSignature[2], targetSignature[3])
 
         uploadInitAckStatus = null
-        if (!writeCharAndWait(dataWriteChar, initPayload)) return false
-        repeat(AUDIO_INIT_ACK_WAIT_ITERATIONS) {
-            if (uploadInitAckStatus == null) delay(
-                AUDIO_ACK_WAIT_DELAY.milliseconds
-            )
+        if (!writeCharAndWait(dataWriteChar, initPayload)) {
+            AppLogger.e(TAG, "Audio upload aborted: writing Audio Init failed")
+            return false
         }
-        if (!isSuccessfulUploadStatus(uploadInitAckStatus)) return false
+        val initStatus = awaitUploadAck(AUDIO_INIT_ACK_WAIT_ITERATIONS) { uploadInitAckStatus }
+        if (!isSuccessfulUploadStatus(initStatus)) {
+            AppLogger.e(TAG, "Audio upload aborted: Audio Init ACK status ${initStatus?.toHexString() ?: "timeout"}")
+            return false
+        }
 
         val packetSize = AUDIO_PACKET_SIZE
         val packetsPerBlock = AUDIO_PACKETS_PER_BLOCK
@@ -1052,22 +1087,49 @@ class BleDeviceController(private val context: Context) : DeviceController {
 
                 if (isLastInBlock) {
                     uploadBlockAckStatus = null
-                    if (!writeCharAndWait(dataWriteChar, packet)) return false
-                    repeat(AUDIO_ACK_WAIT_ITERATIONS) {
-                        if (uploadBlockAckStatus == null) delay(
-                            AUDIO_ACK_WAIT_DELAY.milliseconds
-                        )
+                    if (!writeCharAndWait(dataWriteChar, packet)) {
+                        AppLogger.e(TAG, "Audio upload aborted: writing block packet failed at offset $offset")
+                        return false
                     }
-                    if (!isSuccessfulUploadStatus(uploadBlockAckStatus)) return false
+                    val blockStatus = awaitUploadAck(AUDIO_ACK_WAIT_ITERATIONS) { uploadBlockAckStatus }
+                    if (!isSuccessfulUploadStatus(blockStatus)) {
+                        AppLogger.e(TAG, "Audio upload aborted at offset $offset: block ACK status ${blockStatus?.toHexString() ?: "timeout"}")
+                        return false
+                    }
                 } else {
-                    if (!writeCharAndWait(dataWriteChar, packet)) return false
+                    if (!writeCharAndWait(dataWriteChar, packet)) {
+                        AppLogger.e(TAG, "Audio upload aborted: writing packet failed at offset $offset")
+                        return false
+                    }
                     delay(DELAY_PACKET_WRITE.milliseconds)
                 }
                 offset += audioLen
             }
             onProgress(minOf(1.0f, offset.toFloat() / audioData.size))
         }
+        AppLogger.d(TAG, "Audio upload finished successfully (${audioData.size} bytes)")
         return true
+    }
+
+    private suspend fun writeDescriptorWithRetry(
+        gatt: BluetoothGatt,
+        descriptor: BluetoothGattDescriptor,
+        retryCount: Int = RETRY_GATT_BUSY
+    ): Boolean {
+        repeat(retryCount) { attempt ->
+            if (writeDescriptorCompat(gatt, descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) return true
+            AppLogger.w(TAG, "GATT busy, retrying notification request (attempt ${attempt + 1})")
+            delay((DELAY_GATT_BUSY_RETRY * (attempt + 1)).milliseconds)
+        }
+        return false
+    }
+
+    private suspend fun awaitUploadAck(iterations: Int, status: () -> Int?): Int? {
+        repeat(iterations) {
+            status()?.let { return it }
+            delay(AUDIO_ACK_WAIT_DELAY.milliseconds)
+        }
+        return status()
     }
 
     override fun disconnect() {
@@ -1144,13 +1206,33 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
     }
 
-    private suspend fun connect(device: BluetoothDevice): Boolean = suspendCancellableCoroutine { continuation ->
-        connectContinuation = continuation
-        gatt = device.connectGatt(context, false, gattCallback)
-        continuation.invokeOnCancellation { connectContinuation = null }
+    private suspend fun connect(device: BluetoothDevice): Boolean {
+        val existingGatt = gatt
+        if (existingGatt != null) {
+            // Opening a second client for a link that is still up leaves the old one dangling: it
+            // keeps delivering notifications while every new operation collides with it.
+            if (isConnected && existingGatt.device?.address == device.address) {
+                AppLogger.d(TAG, "Reusing the live GATT connection to ${device.address}")
+                return true
+            }
+            AppLogger.d(TAG, "Closing stale GATT client before connecting to ${device.address}")
+            disconnect()
+        }
+        return suspendCancellableCoroutine { continuation ->
+            connectContinuation = continuation
+            gatt = device.connectGatt(context, false, gattCallback)
+            continuation.invokeOnCancellation { connectContinuation = null }
+        }
     }
 
-    private suspend fun enableSensorNotifications(): Boolean = gattMutex.withLock {
+    private suspend fun enableSensorNotifications(): Boolean {
+        // Already streaming (e.g. the link was reused on reconnect): a second request would only
+        // add another write to the queue.
+        if (enabledNotifications.contains(UUID_SENSOR_NOTIFY)) return true
+        return enableSensorNotificationsLocked()
+    }
+
+    private suspend fun enableSensorNotificationsLocked(): Boolean = gattMutex.withLock {
         withTimeout(TIMEOUT_OPERATION.milliseconds) {
             suspendCancellableCoroutine { continuation ->
                 val currentGatt = gatt ?: run {
@@ -1170,12 +1252,18 @@ class BleDeviceController(private val context: Context) : DeviceController {
                 }
                 currentGatt.setCharacteristicNotification(sensorNotifyChar, true)
                 val descriptor = sensorNotifyChar.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-                descriptor?.let {
-                    writeDescriptorCompat(
-                        currentGatt,
-                        it,
-                        BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    )
+                if (descriptor == null) {
+                    // Nothing to wait for: without a CCC descriptor the local enable is all there is.
+                    sensorNotificationContinuation = null
+                    continuation.resume(true)
+                    return@suspendCancellableCoroutine
+                }
+                if (!writeDescriptorCompat(currentGatt, descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)) {
+                    // The write never reached the stack, so onDescriptorWrite will not arrive;
+                    // failing right away beats blocking the GATT queue until the timeout.
+                    sensorNotificationContinuation = null
+                    continuation.resumeWithException(Exception("GATT busy, sensor notification request rejected"))
+                    return@suspendCancellableCoroutine
                 }
                 continuation.invokeOnCancellation { sensorNotificationContinuation = null }
             }

@@ -14,6 +14,22 @@ class BleProtocolParserTest {
     }
 
     @Test
+    fun `auth init ack with payload byte is successful`() {
+        assertEquals(
+            BleAck(command = 1, payloadLength = 1, status = 0),
+            parseBleAck(hex("04 ff 01 00 06"))
+        )
+    }
+
+    @Test
+    fun `non zero status is reported as failure`() {
+        assertEquals(
+            BleAck(command = 0x10, payloadLength = 0, status = 6),
+            parseBleAck(hex("04 ff 10 06"))
+        )
+    }
+
+    @Test
     fun `four byte legacy ack remains supported`() {
         assertEquals(
             BleAck(command = 9, payloadLength = 0, status = 0),

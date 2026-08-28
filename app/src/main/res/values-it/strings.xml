@@ -146,6 +146,7 @@
     <string name="eta_label">~%1$s rimanenti</string>
     <string name="upload_complete">Caricamento completato!</string>
     <string name="upload_failed">Caricamento fallito</string>
+    <string name="upload_in_progress_msg">Caricamento in corso: attendi il completamento</string>
     <string name="trim_audio_title">Ritaglia audio</string>
     <string name="loading_audio">Caricamento audio…</string>
     <string name="duration_label">Durata</string>

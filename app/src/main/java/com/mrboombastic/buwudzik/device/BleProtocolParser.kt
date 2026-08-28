@@ -8,9 +8,10 @@ internal data class BleAck(
 )
 
 /**
- * Parses the documented five-byte ACK: `04 ff [command] [length] [status]`.
+ * Parses the ACK sent by the device: `04 ff [command] [status] [optional payload...]`.
  *
- * Four-byte ACKs are accepted as a compatibility fallback for firmware that omits the length byte.
+ * The status always sits at index 3; anything after it is command specific payload, e.g. the
+ * Auth Init reply `04 ff 01 00 06` means "command 01 succeeded" with a single payload byte.
  */
 internal fun parseBleAck(value: ByteArray): BleAck? {
     if (value.size < 4 || value[0] != 0x04.toByte() || value[1] != 0xff.toByte()) return null

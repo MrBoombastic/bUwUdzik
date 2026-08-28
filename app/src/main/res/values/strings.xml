@@ -161,6 +161,7 @@
     <string name="eta_label">~%1$s left</string>
     <string name="upload_complete">Upload complete!</string>
     <string name="upload_failed">Upload failed</string>
+    <string name="upload_in_progress_msg">Upload in progress – please wait until it finishes</string>
     <string name="trim_audio_title">Trim audio</string>
     <string name="loading_audio">Loading audio…</string>
     <string name="duration_label">Duration</string>

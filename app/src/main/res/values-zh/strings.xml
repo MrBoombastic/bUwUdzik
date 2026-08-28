@@ -146,6 +146,7 @@
     <string name="eta_label">约%1$s剩余</string>
     <string name="upload_complete">上传完成！</string>
     <string name="upload_failed">上传失败</string>
+    <string name="upload_in_progress_msg">正在上传，请等待完成</string>
     <string name="trim_audio_title">裁剪音频</string>
     <string name="loading_audio">正在加载音频…</string>
     <string name="duration_label">时长</string>
