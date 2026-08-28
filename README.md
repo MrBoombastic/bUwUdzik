@@ -89,17 +89,21 @@ so it's only semi-slop, but you have been warned, etc., etc.
 ## Features
 
 - Initial setup screen to guide the user through finding and selecting their device
-- Scans for a specific Bluetooth LE device by its MAC address
-- Share a saved device with others using QR code
+- Multiple saved device profiles with quick switching between them
+- Share a saved device with others using a QR code, or import one by scanning it
 - Parses and displays sensor data
-- Management of up to 16 device alarms
-- **Custom ringtones support**
+- Management of up to 16 device alarms, including custom alarm names stored in the app
 - Global alarm switch to enable or disable all device alarms at once
+- **Custom ringtones support**
+    - Upload any audio file from the phone, or pick one from an online manifest
+    - Built-in trimmer with waveform preview (device limit is ~12 s / 98 KB of audio)
+    - Channel selection for stereo sources: left, right or both mixed down
 - Bluetooth state monitoring with automatic prompts to enable it
 - Interactive real-time previews for brightness and volume settings
 - Widget for displaying sensor data on the home screen
 - Configurable background updates to fetch data periodically
-- Settings to customize the device's MAC address, theme (light/dark/system), and language
+- Built-in APK updater for the non-Play builds (`stable` and `canary` flavors)
+- Settings to customize the theme (light/dark/system) and language
 
 ## Screenshots
 
@@ -166,12 +170,40 @@ filter used for scanning.
 
 ### 2. Protocol Structure
 
-Most commands follow a simple **Header + Command + Payload** structure.
+Every frame follows the same shape: a **length byte**, a **command byte** and a payload.
 
-**Request Format:** `[Header] [Command] [Payload...]`  
-**ACK Format (Notify):** `04 ff [Command] [Status] [Payload...]`
+**Request Format:** `[Length] [Command] [Payload...]`  
+**ACK Format (Notify):** `04 ff [Command] [Status] [Payload 1B]`
 
-#### 2.1. Known Headers
+The first byte counts the bytes that follow it — it is a length, not a per-command identifier:
+
+| Frame                            | Leading byte | Bytes after it                      |
+|----------------------------------|--------------|-------------------------------------|
+| `11 01 [Token 16B]`              | `0x11` = 17  | `01` + 16 = 17                      |
+| `05 09 [Timestamp 4B]`           | `0x05` = 5   | `09` + 4 = 5                        |
+| `02 03 [Brightness]`             | `0x02` = 2   | `03` + 1 = 2                        |
+| `08 10 [Size 3B] [Signature 4B]` | `0x08` = 8   | `10` + 7 = 8                        |
+| `81 08 [Audio 128B]`             | `0x81` = 129 | `08` + 128 = 129                    |
+| `11 06 [Base] [3 × 5B]` (alarms) | `0x11` = 17  | `06` + 1 + 15 = 17 (18-byte packet) |
+| `04 ff [Cmd] [Status] [Payload]` | `0x04` = 4   | `ff` + 3 = 4 (5-byte packet)        |
+
+That is why the same leading value shows up for unrelated commands (`0x02` for both the brightness
+preview and the two-byte ringtone preview, `0x01` for every two-byte read request): they simply have
+the same length.
+
+Consequently an **ACK is always exactly 5 bytes**: `04 ff [Command] [Status] [Payload 1B]`. The
+status sits at index 3 and the single trailing byte is a command-specific payload. For example the
+Auth Init reply `04 ff 01 00 06` means "command `01` succeeded" and carries the payload byte `06`.
+
+| Status   | Meaning                                           |
+|----------|---------------------------------------------------|
+| `00`     | Success                                           |
+| non-`00` | Failure; the exact meaning depends on the command |
+
+#### 2.1. Length Byte per Command
+
+Since every command has a fixed payload size, its length byte is constant too. The app keeps these
+values as named constants:
 
 | Value         | Constant                | Used for                                        |
 |---------------|-------------------------|-------------------------------------------------|
@@ -195,7 +227,9 @@ same token must be used for all future connections.
 1. Connect to the device and discover services
 2. Enable Notifications on **Auth Notify** (`...0002`)
 3. Send **Auth Init** to **Auth Write** (`...0001`): `11 01 [Token 16B]`
-4. Wait for ACK on **Auth Notify**: `04 ff 01 00 02` (success, proceed to step 5)
+4. Wait for ACK on **Auth Notify**: `04 ff 01 00 [Payload 1B]` (status `00` = success, proceed to
+   step 5). The payload byte is non-zero here (`02` or `06`, depending on firmware); its meaning is
+   unknown and it can be ignored.
 5. Send **Auth Confirm** to **Auth Write**: `11 02 [Token 16B]`
 6. Wait for final ACK: `04 ff 02 00 00`
 
@@ -210,11 +244,10 @@ action and check if the device will close connection with you.
 - Persist a newly generated token only after a privileged command, such as time synchronization,
   succeeds. An Auth Confirm ACK alone does not prove that the token was accepted.
 
-**ACK Response Format:** `04 ff [CmdID] [Status] [Payload...]`
+**ACK Response Format:** `04 ff [CmdID] [Status] [Payload 1B]`
 
-- Status `00` = Success
-- Status `01` = Failure
-- Status `02` = Continue (for Auth Init, proceed to step 5)
+- Status `00` = Success (any other value means the command was rejected)
+- The last byte is payload; it is `00` in every captured ACK except the Auth Init one
 
 #### 2.3. Time Synchronization
 
@@ -222,6 +255,9 @@ After authentication, it is recommended to synchronize the time.
 
 - **Command (Auth Write):** `05 09 [Timestamp 4B LE]`
 - **Response (Auth Notify):** `04 ff 09 00 00` (Success)
+
+This is the first *privileged* command, so it doubles as the real proof that the token was accepted:
+if it is rejected (or the device drops the link), the pairing failed regardless of the auth ACKs.
 
 ### 3. Managing Alarms
 
@@ -268,11 +304,13 @@ To delete an alarm, overwrite it with `FF` values (marking it as empty/unused).
 #### 3.4. Read Alarms
 
 - **Command:** `01 06`
-- **Response:** `11 06 [Base Index] [Alarm Entry 1 (5B)] ...`
+- **Response:** `11 06 [Base Index] [Alarm Entry 1 (5B)] [Alarm Entry 2 (5B)] [Alarm Entry 3 (5B)]`
 - **Alarm Entry:** `[Enabled] [HH] [MM] [Days] [Snooze]`
 
-**Note:** Device sends multiple packets if needed (up to 4 alarms per packet). All 16 slots are
-returned, empty slots have `FF FF FF FF FF` values.
+**Note:** A reply packet is 18 bytes long and carries **3 alarms** (the leading `0x11` = 17 bytes
+after it: command + base index + 3 × 5). All 16 slots are returned, so the device sends 6 packets
+in a row; empty slots have `FF FF FF FF FF` values. The app parses as many 5-byte entries as the
+packet happens to contain, so a firmware using a different packing would still be read correctly.
 
 - **ACK (after Set/Delete):** `04 ff 05 00 00` (Success)
 
@@ -337,6 +375,9 @@ Plays a generic "beep" sound for testing volume level (not the user's selected r
 - **Format:** `[00] [Temp L] [Temp H] [Hum L] [Hum H]`
 - **Values:** Temperature is signed Int16 LE / 100.0; humidity is unsigned UInt16 LE / 100.0.
 
+This stream does *not* follow the length-byte framing described above: the packet is always 5 bytes
+and starts with a constant `00`.
+
 ### 6. Passive Sensor Stream (Advertising)
 
 The device also broadcasts sensor data in its BLE advertisement packets via Service Data.
@@ -369,7 +410,12 @@ For example, a common 17-byte payload is:
 ### 8. Firmware Version
 
 - **Command (Auth Write):** `01 0d`
-- **Response (Auth Notify):** `0b [Length] [ASCII String]`
+- **Response (Auth Notify):** `0b [Byte] [ASCII String]`
+
+The leading `0x0b` = 11 is again a length byte, which for the known 10-character versions
+(`1.0.1_0130`, `1.0.1_0132`) leaves exactly one byte before the string. Whether that byte is the
+echoed command (`0d`) or the string length (`0a`) is not settled by the captures available here; the
+app reads it as a length and clamps it to the packet size, which works either way.
 
 ### 9. Audio Transfer Protocol (Ringtone Upload)
 
@@ -462,37 +508,57 @@ app uses an additional `"pcm"` field, but this app takes the Wave and converts i
 
 **Audio Format:** 8-bit Unsigned PCM, 8000 Hz, Mono
 
+**Step 0 - Prepare the payload:**
+
+- Decode/resample the source file to 8-bit unsigned PCM, 8000 Hz, mono (stereo sources can be
+  mixed down or taken from a single channel)
+- Pad the result to a multiple of **512 bytes**: the first padding byte is `00` (end-of-audio
+  marker), the remaining ones are `FF`
+- Keep the whole payload under ~**98 KB** (roughly 12 seconds at 8 kHz); the device rejects or
+  truncates anything longer
+
 **Step 1 - Init Command (Data Write):**
 
 ```
 08 10 [Size 3B LE] [Signature 4B]
 ```
 
-- Size: Audio length in bytes (Little Endian, 3 bytes)
+- Size: Padded audio length in bytes (Little Endian, 3 bytes)
 - Signature: Target ringtone slot signature
 
 **Step 2 - Wait for Init ACK (Data Notify):**
 
 ```
-04 ff 10 00 [Status]
+04 ff 10 [Status] [Payload 1B]
 ```
 
-- Status `00` or `09` = Success, proceed with upload
+- Status `00` = success, proceed with the upload (the byte after it is payload, not a second status)
 
 **Step 3 - Send Audio Data:**
 
-- Packet size: 128 bytes
-- Packets per block: 4 (512 bytes per block)
-- Packet header: Prepend `81 08` to every 128-byte audio packet
-- Wait for block ACK (`04 ff 08 ...`) after every 4 packets
+- Packet size: 128 bytes of audio, prepended with the `81 08` header (130 bytes on the wire)
+- A trailing packet shorter than 128 bytes is padded with `FF`
+- Packets per block: 4 (512 bytes of audio per block)
+- After the 4th packet of a block (or after the very last packet), wait for the block ACK
+  `04 ff 08 [Status] [Payload 1B]` before continuing; status `00` = keep going
+- Write every packet with *write-with-response* and wait for the write callback; short delays
+  between packets keep the device from falling behind
 
 **Step 4 - Completion:**
 
-After sending all audio data, the device will apply the new ringtone.
+After the last block is acknowledged, the device stores the audio under the given signature. Select
+it as the active ringtone by writing the same signature in the settings payload (bytes 16-19).
+
+**Note:** Android serializes GATT operations, so the transfer must own the connection: alarm or
+settings reads, RSSI polling or notification (re)subscriptions issued in parallel fail with
+"GATT busy" and can abort the upload. This app holds a mutex for the whole transfer and keeps the
+screen on and the link alive until it finishes.
 
 ### 10. Known Command IDs Summary
 
-| Cmd | Sub | Characteristic | Description                             |
+The first column is the length byte, the second one the actual command:
+
+| Len | Cmd | Characteristic | Description                             |
 |-----|-----|----------------|-----------------------------------------|
 | 11  | 01  | Auth Write     | Auth Init (+ 16B token)                 |
 | 11  | 02  | Auth Write     | Auth Confirm (+ 16B token)              |
@@ -508,7 +574,8 @@ After sending all audio data, the device will apply the new ringtone.
 | 08  | 10  | Data Write     | Audio Upload Init                       |
 | 81  | 08  | Data Write     | Audio packet (+ 128B padded audio)      |
 
-**ACK Format (Notify characteristics):** `04 ff [CmdSub] [Status] [Payload...]`
+**ACK Format (Notify characteristics):** `04 ff [CmdSub] [Status] [Payload 1B]` - always 5 bytes,
+status at index 3, `00` means success.
 
 ### 11. GATT Disconnection Status Codes
 

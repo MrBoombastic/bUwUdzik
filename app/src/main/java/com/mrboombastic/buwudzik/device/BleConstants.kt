@@ -77,8 +77,6 @@ object BleConstants {
 
     object Status {
         const val SUCCESS = 0x00
-        const val AUTH_INIT_SUCCESS = 0x02 // Status 0x02 on CMD_AUTH_INIT is also a success
-        const val ALARM_STILL_SUCCESS = 0x09 // Status 0x09 on CMD_SET_ALARM is a success
     }
 
     object Advertise {

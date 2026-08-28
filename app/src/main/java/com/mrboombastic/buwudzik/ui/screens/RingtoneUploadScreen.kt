@@ -37,7 +37,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +68,7 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.utils.FileDownloadUtils
 import com.mrboombastic.buwudzik.utils.TimeFormatUtils
 import com.mrboombastic.buwudzik.viewmodels.MainViewModel
+import com.mrboombastic.buwudzik.viewmodels.UploadEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -126,16 +126,16 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
         }
     }
 
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadProgress by remember { mutableFloatStateOf(0f) }
-    var uploadStartTime by remember { mutableLongStateOf(0L) }
-    var estimatedTimeRemaining by remember { mutableStateOf<Long?>(null) }
+    val isUploading by viewModel.isUploading.collectAsState()
+    val isConverting by viewModel.isConverting.collectAsState()
+    val uploadProgress by viewModel.uploadProgress.collectAsState()
+    val estimatedTimeRemaining by viewModel.estimatedTimeRemaining.collectAsState()
+
     var selectedCustomUri by remember { mutableStateOf<Uri?>(null) }
     var selectedOnlineRingtone by remember { mutableStateOf<OnlineRingtone?>(null) }
     var showAudioTrimmer by remember { mutableStateOf(false) }
     var trimStartMs by remember { mutableLongStateOf(0L) }
     var trimDurationMs by remember { mutableLongStateOf(10000L) }
-    var isConverting by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var isLoadingManifest by remember { mutableStateOf(false) }
 
@@ -179,6 +179,20 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
     // Swallow back presses (gesture included) while the ringtone is being sent.
     BackHandler(enabled = isTransferInProgress) {
         showError(uploadInProgressText)
+    }
+
+    // Collect upload events (success / error) sent from the ViewModel scope.
+    LaunchedEffect(Unit) {
+        viewModel.uploadEvents.collect { event ->
+            when (event) {
+                is UploadEvent.Success -> snackbarHostState.showSnackbar(
+                    message = event.message, duration = SnackbarDuration.Short
+                )
+                is UploadEvent.Error -> snackbarHostState.showSnackbar(
+                    message = event.message, duration = SnackbarDuration.Long
+                )
+            }
+        }
     }
 
     // Available online ringtones - now dynamically loaded from manifest
@@ -256,15 +270,14 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
         // Runs in the ViewModel scope on purpose: leaving the screen (or a configuration change)
         // must not cancel a transfer that is already in flight.
         viewModel.runDeviceOperation {
-            isUploading = true
-            uploadProgress = 0f
+            viewModel.beginUpload()
 
             try {
                 val pcmData: ByteArray
 
                 if (selectedCustomUri != null) {
                     // Convert local file with trimming
-                    isConverting = true
+                    viewModel.setConverting(true)
                     AppLogger.d(
                         "RingtoneUpload",
                         "Converting: start=${trimStartMs}ms, dur=${trimDurationMs}ms, mode=$channelMode"
@@ -292,51 +305,39 @@ fun RingtoneUploadScreen(navController: NavController, viewModel: MainViewModel)
                         AppLogger.e("RingtoneUpload", "Failed to save debug copy", e)
                     }
 
-                    isConverting = false
+                    viewModel.setConverting(false)
                 } else {
-                    showError(noAudioText)
-                    isUploading = false
+                    viewModel.sendUploadEvent(UploadEvent.Error(noAudioText))
+                    viewModel.endUpload()
                     return@runDeviceOperation
                 }
 
                 // Picking a file opens a system activity, which drops the BLE link;
                 // make sure it is back before pushing megabytes of audio.
                 if (!viewModel.ensureConnected()) {
-                    showError(connectFirstText)
+                    viewModel.sendUploadEvent(UploadEvent.Error(connectFirstText))
+                    viewModel.endUpload()
                     return@runDeviceOperation
                 }
 
                 // Upload to device
-                uploadStartTime = System.currentTimeMillis()
-                estimatedTimeRemaining = null
-
                 val success = viewModel.deviceController.uploadAudio(
                     audioData = pcmData, signature = targetSignature
                 ) { progress ->
-                    uploadProgress = progress
-
-                    // Calculate ETA
-                    if (progress > 0.05f) { // Start calculating after 5% to get stable estimate
-                        val elapsed = System.currentTimeMillis() - uploadStartTime
-                        val totalEstimated = (elapsed / progress).toLong()
-                        estimatedTimeRemaining = (totalEstimated - elapsed).coerceAtLeast(0)
-                    }
+                    viewModel.updateUploadProgress(progress)
                 }
 
                 if (success) {
-                    snackbarHostState.showSnackbar(
-                        message = uploadCompleteText, duration = SnackbarDuration.Short
-                    )
+                    viewModel.sendUploadEvent(UploadEvent.Success(uploadCompleteText))
                     // Refresh settings to get updated ringtone
                     viewModel.reloadDeviceSettings()
                 } else {
-                    showError(uploadFailedText)
+                    viewModel.sendUploadEvent(UploadEvent.Error(uploadFailedText))
                 }
             } catch (e: Exception) {
-                showError(e.message ?: uploadFailedText)
+                viewModel.sendUploadEvent(UploadEvent.Error(e.message ?: uploadFailedText))
             } finally {
-                isUploading = false
-                isConverting = false
+                viewModel.endUpload()
             }
         }
     }

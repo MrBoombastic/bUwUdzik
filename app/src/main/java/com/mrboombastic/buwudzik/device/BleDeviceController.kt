@@ -65,8 +65,21 @@ class BleDeviceController(private val context: Context) : DeviceController {
     
     private val gattMutex = Mutex()
     private val commandChannel = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+    private val _busyCount = java.util.concurrent.atomic.AtomicInteger(0)
     private val _isBusy = MutableStateFlow(false)
     override val isBusy = _isBusy.asStateFlow()
+
+    private inline fun <T> withBusy(block: () -> T): T {
+        _busyCount.incrementAndGet()
+        _isBusy.value = true
+        return try {
+            block()
+        } finally {
+            if (_busyCount.decrementAndGet() == 0) {
+                _isBusy.value = false
+            }
+        }
+    }
 
     init {
         commandConsumerScope.launch {
@@ -75,13 +88,12 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     AppLogger.w(TAG, "Device not authenticated, skipping queued command")
                     continue
                 }
-                _isBusy.value = true
-                try {
-                    command()
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "Error executing queued command", e)
-                } finally {
-                    _isBusy.value = false
+                withBusy {
+                    try {
+                        command()
+                    } catch (e: Exception) {
+                        AppLogger.e(TAG, "Error executing queued command", e)
+                    }
                 }
             }
         }
@@ -205,6 +217,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
             sensorNotificationContinuation = null
         }
 
+        _busyCount.set(0)
         _isBusy.value = false
     }
 
@@ -229,17 +242,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
             Command.AUDIO_INIT -> "Audio Init"
             else -> "Cmd $cmdId"
         }
-        val authHint = context.getString(com.mrboombastic.buwudzik.R.string.auth_hint)
         AppLogger.d(
             TAG,
-            "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). Length: ${ack.payloadLength}. Status: ${status.toHexString()}"
+            "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). Length: ${ack.payloadSize}. Status: ${status.toHexString()}"
         )
 
         if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
             handleUploadAck(value)
         }
 
-        if (isSuccessfulAck(cmdId, status, isAuthNotification)) {
+        if (status == Status.SUCCESS) {
             if (isAuthNotification && cmdId == Command.AUTH_INIT) {
                 AppLogger.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
                 authInitAckReceived = true
@@ -251,18 +263,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             pendingAckContinuations.remove(cmdId)?.resume(true)
         } else {
-            val errorSuffix =
-                if (isAuthNotification && status == Status.AUTH_INIT_SUCCESS) " $authHint" else ""
+            val errorSuffix = if (isAuthNotification && cmdId == Command.AUTH_INIT) {
+                " " + context.getString(com.mrboombastic.buwudzik.R.string.auth_hint)
+            } else {
+                ""
+            }
             AppLogger.e(TAG, "[$characteristicUuid] $cmdName failed with status $status$errorSuffix (Full: ${value.toHexString()})")
             pendingAckContinuations.remove(cmdId)?.resumeWithException(Exception("$cmdName failed: $status$errorSuffix"))
         }
     }
 
-    private fun isSuccessfulAck(command: Int, status: Int, isAuthNotification: Boolean): Boolean =
-        status == Status.SUCCESS ||
-                (isAuthNotification && command == Command.AUTH_INIT && status == Status.AUTH_INIT_SUCCESS) ||
-                ((command == Command.SET_ALARM || command == Command.AUDIO_INIT || command == Command.AUDIO_BLOCK) &&
-                        status == Status.ALARM_STILL_SUCCESS)
 
     private fun maybeSendAuthConfirm() {
         if (!authInitAckReceived || !authInitWriteCompleted || authConfirmSent) return
@@ -1021,11 +1031,8 @@ class BleDeviceController(private val context: Context) : DeviceController {
      */
     override suspend fun uploadAudio(audioData: ByteArray, signature: ByteArray, onProgress: (Float) -> Unit): Boolean =
         gattMutex.withLock {
-            _isBusy.value = true
-            try {
+            withBusy {
                 performAudioUpload(audioData, signature, onProgress)
-            } finally {
-                _isBusy.value = false
             }
         }
 
@@ -1183,8 +1190,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
     }
 
-    private fun isSuccessfulUploadStatus(status: Int?): Boolean =
-        status == Status.SUCCESS || status == Status.ALARM_STILL_SUCCESS
+    private fun isSuccessfulUploadStatus(status: Int?): Boolean = status == Status.SUCCESS
 
     @Volatile
     private var uploadBlockAckStatus: Int? = null

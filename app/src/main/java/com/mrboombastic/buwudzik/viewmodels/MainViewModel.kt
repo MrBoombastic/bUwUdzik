@@ -39,7 +39,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlin.time.Duration.Companion.milliseconds
+
+sealed interface UploadEvent {
+    data class Success(val message: String) : UploadEvent
+    data class Error(val message: String) : UploadEvent
+}
 
 class MainViewModel(
     private val scanner: BluetoothScanner,
@@ -145,6 +152,24 @@ class MainViewModel(
 
     private val _isPaired = MutableStateFlow(false)
     val isPaired: StateFlow<Boolean> = _isPaired.asStateFlow()
+
+    // ── Upload state (survives configuration changes) ──────────────────────────
+    private val _isUploading = MutableStateFlow(false)
+    val isUploading: StateFlow<Boolean> = _isUploading.asStateFlow()
+
+    private val _isConverting = MutableStateFlow(false)
+    val isConverting: StateFlow<Boolean> = _isConverting.asStateFlow()
+
+    private val _uploadProgress = MutableStateFlow(0f)
+    val uploadProgress: StateFlow<Float> = _uploadProgress.asStateFlow()
+
+    private val _estimatedTimeRemaining = MutableStateFlow<Long?>(null)
+    val estimatedTimeRemaining: StateFlow<Long?> = _estimatedTimeRemaining.asStateFlow()
+
+    private val _uploadStartTime = MutableStateFlow(0L)
+
+    private val _uploadEvents = Channel<UploadEvent>(Channel.BUFFERED)
+    val uploadEvents = _uploadEvents.receiveAsFlow()
 
     private var _deviceController: DeviceController = BleDeviceController(applicationContext)
     private val _controllerState = MutableStateFlow(_deviceController)
@@ -308,7 +333,39 @@ class MainViewModel(
      * Runs a long device operation (e.g. a ringtone upload) in the ViewModel scope, so that
      * navigating away or a configuration change does not cancel it midway.
      */
-    fun runDeviceOperation(block: suspend () -> Unit): Job = viewModelScope.launch { block() }
+    fun runDeviceOperation(block: suspend () -> Unit): Job? {
+        if (_isUploading.value || _isConverting.value) return null
+        return viewModelScope.launch { block() }
+    }
+
+    fun beginUpload() {
+        _isUploading.value = true
+        _uploadProgress.value = 0f
+        _uploadStartTime.value = System.currentTimeMillis()
+        _estimatedTimeRemaining.value = null
+    }
+
+    fun endUpload() {
+        _isUploading.value = false
+        _isConverting.value = false
+    }
+
+    fun setConverting(converting: Boolean) {
+        _isConverting.value = converting
+    }
+
+    fun updateUploadProgress(progress: Float) {
+        _uploadProgress.value = progress
+        if (progress > 0.05f) {
+            val elapsed = System.currentTimeMillis() - _uploadStartTime.value
+            val totalEstimated = (elapsed / progress).toLong()
+            _estimatedTimeRemaining.value = (totalEstimated - elapsed).coerceAtLeast(0)
+        }
+    }
+
+    fun sendUploadEvent(event: UploadEvent) {
+        _uploadEvents.trySend(event)
+    }
 
     fun startScanning() {
 
