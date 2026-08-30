@@ -18,12 +18,6 @@ object BleConstants {
     val UUID_CLIENT_CHARACTERISTIC_CONFIG: UUID =
         UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
-    // Standard Battery Service, exposed by supported CGD1 firmware while connected.
-    val UUID_BATTERY_SERVICE: UUID =
-        UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
-    val UUID_BATTERY_LEVEL: UUID =
-        UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
-
     // Passive advertising service
     val UUID_SERVICE_ADVERTISING: ParcelUuid =
         ParcelUuid.fromString("0000fdcd-0000-1000-8000-00805f9b34fb")

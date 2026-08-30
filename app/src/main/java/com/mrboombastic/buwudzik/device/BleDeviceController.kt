@@ -18,8 +18,6 @@ import com.mrboombastic.buwudzik.device.BleConstants.Header
 import com.mrboombastic.buwudzik.device.BleConstants.Status
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_AUTH_WRITE
-import com.mrboombastic.buwudzik.device.BleConstants.UUID_BATTERY_LEVEL
-import com.mrboombastic.buwudzik.device.BleConstants.UUID_BATTERY_SERVICE
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_CLIENT_CHARACTERISTIC_CONFIG
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_NOTIFY
 import com.mrboombastic.buwudzik.device.BleConstants.UUID_DATA_WRITE
@@ -148,12 +146,10 @@ class BleDeviceController(private val context: Context) : DeviceController {
     private var authConfirmSent = false
     private var pendingAuthWrite: BluetoothGattCharacteristic? = null
     private var pendingDataCommand: ByteArray? = null
-    private var pendingBatteryReadAfterDescriptor = false
     private val enabledNotifications = mutableSetOf<UUID>()
     private var writeCompleteDeferred: CompletableDeferred<Boolean>? = null
 
     override var onSensorData: ((temperature: Float, humidity: Float) -> Unit)? = null
-    override var onBatteryUpdate: ((battery: Int) -> Unit)? = null
     override var onRssiUpdate: ((rssi: Int) -> Unit)? = null
     override var onLastUpdated: ((timestamp: Long) -> Unit)? = null
 
@@ -177,7 +173,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
         pendingAuthWriteChar = null
         pendingAuthWrite = null
         pendingDataCommand = null
-        pendingBatteryReadAfterDescriptor = false
         alarmCompletionJob?.cancel()
         alarmCompletionJob = null
 
@@ -467,39 +462,7 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     }
                 }
 
-                UUID_BATTERY_LEVEL -> handleBatteryValue(value)
             }
-        }
-
-        @Deprecated("Deprecated in Java")
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt?,
-            characteristic: BluetoothGattCharacteristic?,
-            status: Int
-        ) {
-            if (characteristic == null || status != BluetoothGatt.GATT_SUCCESS) return
-            @Suppress("DEPRECATION")
-            onCharacteristicReadCompat(characteristic, characteristic.value ?: ByteArray(0))
-        }
-
-        override fun onCharacteristicRead(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            value: ByteArray,
-            status: Int
-        ) {
-            if (status == BluetoothGatt.GATT_SUCCESS) onCharacteristicReadCompat(
-                characteristic,
-                value
-            )
-        }
-
-        private fun onCharacteristicReadCompat(
-            characteristic: BluetoothGattCharacteristic,
-            value: ByteArray
-        ) {
-            AppLogger.d(TAG, "onCharacteristicRead ${characteristic.uuid}: ${value.toHexString()}")
-            if (characteristic.uuid == UUID_BATTERY_LEVEL) handleBatteryValue(value)
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
@@ -542,10 +505,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
                         sensorNotificationContinuation?.resumeWithException(Exception("Enable sensor notification failed: $status"))
                         sensorNotificationContinuation = null
                     }
-                    UUID_BATTERY_LEVEL -> {
-                        pendingBatteryReadAfterDescriptor = false
-                        descriptor.characteristic?.let { gatt?.readCharacteristic(it) }
-                    }
                 }
                 return
             }
@@ -579,13 +538,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
                     enabledNotifications.add(UUID_SENSOR_NOTIFY)
                     sensorNotificationContinuation?.resume(true)
                     sensorNotificationContinuation = null
-                }
-                UUID_BATTERY_LEVEL -> {
-                    enabledNotifications.add(UUID_BATTERY_LEVEL)
-                    if (pendingBatteryReadAfterDescriptor) {
-                        pendingBatteryReadAfterDescriptor = false
-                        descriptor.characteristic?.let { gatt?.readCharacteristic(it) }
-                    }
                 }
             }
         }
@@ -624,14 +576,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
             )
         }
 
-        // Live sensor/battery updates are a bonus: a hiccup here must not invalidate a link that
+        // Live sensor updates are a bonus: a hiccup here must not invalidate a link that
         // is already authenticated and time synchronized.
         try {
             enableSensorNotifications()
         } catch (e: Exception) {
             AppLogger.w(TAG, "Could not enable sensor notifications: ${e.message}", e)
         }
-        enableBatteryUpdates()
     }
 
     private suspend fun authenticate(): Boolean = gattMutex.withLock {
@@ -1276,48 +1227,6 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
     }
 
-
-    private fun enableBatteryUpdates() {
-        val currentGatt = gatt ?: return
-        val batteryCharacteristic = currentGatt.getService(UUID_BATTERY_SERVICE)
-            ?.getCharacteristic(UUID_BATTERY_LEVEL)
-        if (batteryCharacteristic == null) {
-            AppLogger.d(TAG, "Connected Battery Service is not exposed by this firmware")
-            return
-        }
-
-        val supportsNotify =
-            batteryCharacteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0
-        val descriptor = batteryCharacteristic.getDescriptor(UUID_CLIENT_CHARACTERISTIC_CONFIG)
-        if (supportsNotify && descriptor != null &&
-            currentGatt.setCharacteristicNotification(batteryCharacteristic, true)
-        ) {
-            pendingBatteryReadAfterDescriptor = true
-            if (!writeDescriptorCompat(
-                    currentGatt,
-                    descriptor,
-                    BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                )
-            ) {
-                pendingBatteryReadAfterDescriptor = false
-                currentGatt.readCharacteristic(batteryCharacteristic)
-            }
-        } else {
-            currentGatt.readCharacteristic(batteryCharacteristic)
-        }
-    }
-
-    private fun handleBatteryValue(value: ByteArray) {
-        if (value.isEmpty()) return
-        val battery = value[0].toInt() and 0xff
-        if (battery > 100) {
-            AppLogger.w(TAG, "Ignoring invalid connected battery level: $battery")
-            return
-        }
-        AppLogger.d(TAG, "Connected battery level: $battery%")
-        onBatteryUpdate?.invoke(battery)
-        onLastUpdated?.invoke(System.currentTimeMillis())
-    }
 
     /**
      * Sends a command on the data characteristic, enabling its notifications first when needed.

@@ -405,7 +405,9 @@ For example, a common 17-byte payload is:
 
 - **Service UUID:** `0x180f`, **Char UUID:** `0x2a19`
 - **Format:** 1 byte (percentage)
-- The app reads this characteristic and subscribes when notifications are supported.
+- Tested CGD1 firmware versions `1.0.1_0130` and `1.0.1_0132` expose this characteristic but return
+  an unreliable `99%` while advertising reports the actual battery level. The app therefore uses
+  the passive advertising value documented above and does not read `0x2a19`.
 
 ### 8. Firmware Version
 

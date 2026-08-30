@@ -17,8 +17,8 @@ import java.util.Locale
  * Battery: [saveSensorData] applies [BluetoothUtils.correctBatteryLevel] using the profile’s
  * [DeviceProfile.batteryType]. Raw advertising values often omit battery (e.g. 0xFF); those are
  * ignored so a previous valid reading is kept. While **connected**, GATT notifications carry only
- * temperature and humidity ([BleDeviceController.onSensorData]); battery continues to come from the
- * last scan/advertisement stored here.
+ * temperature and humidity. Connected sensor updates preserve the last raw battery received from
+ * advertising so an already corrected display value is never corrected a second time.
  *
  * @param mac Device MAC address (used to namespace keys).
  * @param deviceProfileRepository Used for battery-type correction (shared instance avoids extra allocations).
@@ -146,6 +146,16 @@ class SensorRepository(
                 readPersistedRawBattery()
             }
         }
+        return persistSensorData(data, rawBattery)
+    }
+
+    /**
+     * Saves a connected temperature/humidity update without treating its display battery as raw.
+     */
+    fun saveConnectedSensorData(data: SensorData): SensorData =
+        persistSensorData(data, readPersistedRawBattery())
+
+    private fun persistSensorData(data: SensorData, rawBattery: Int): SensorData {
         val correctedBattery = BluetoothUtils.correctBatteryLevel(rawBattery, resolveBatteryType())
         val correctedData = data.copy(battery = correctedBattery)
 

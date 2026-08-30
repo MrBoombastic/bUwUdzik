@@ -542,7 +542,7 @@ class MainViewModel(
             val currentData = _sensorData.value
             val mac = activeMac
             val batteryFromStore = sensorRepo().getSensorData()?.battery
-            val resolvedBattery = batteryFromStore ?: currentData?.battery ?: 0
+            val resolvedBattery = currentData?.battery ?: batteryFromStore ?: 0
             val updated = currentData?.copy(
                 temperature = temperature.toDouble(),
                 humidity = humidity.toDouble(),
@@ -557,13 +557,14 @@ class MainViewModel(
                 rssi = 0,
                 timestamp = System.currentTimeMillis()
             )
-            _sensorData.value = updated
             if (mac.isNotEmpty()) {
                 val repo = SensorRepository(applicationContext, mac, deviceProfileRepository)
-                repo.saveSensorData(updated)
+                _sensorData.value = repo.saveConnectedSensorData(updated)
                 viewModelScope.launch {
                     SensorWidgetRefresher.updateDeviceData(applicationContext, mac)
                 }
+            } else {
+                _sensorData.value = updated
             }
         }
         _deviceController.onRssiUpdate = { rssi ->
@@ -574,18 +575,6 @@ class MainViewModel(
                 humidity = 0.0,
                 battery = 0,
                 rssi = rssi,
-                macAddress = activeMac,
-                timestamp = System.currentTimeMillis()
-            )
-        }
-        _deviceController.onBatteryUpdate = { battery ->
-            val current = _sensorData.value
-            _sensorData.value = current?.copy(battery = battery) ?: SensorData(
-                name = "clOwOck",
-                temperature = 0.0,
-                humidity = 0.0,
-                battery = battery,
-                rssi = 0,
                 macAddress = activeMac,
                 timestamp = System.currentTimeMillis()
             )
