@@ -82,6 +82,12 @@
     <string name="setup_skip">Skip for now</string>
     <string name="setup_import_hint">Already have a QR code from another phone? Use it here.</string>
     <string name="setup_select_device">Select device</string>
+    <string name="setup_selected_device">Selected new device</string>
+    <string name="setup_token_optional_label">Authentication token (optional)</string>
+    <string name="setup_token_optional_hint">Leave empty to pair from scratch, or paste a 32-character token if you already have one.</string>
+    <string name="setup_add_device">Add device</string>
+    <string name="setup_import_selected">Scan QR code instead</string>
+    <string name="setup_choose_another">Choose another device</string>
     <string name="manage_alarms_label">Alarms</string>
     <string name="add_alarm_desc">Add alarm</string>
     <string name="max_alarms_message">Maximum number of alarms reached.</string>
@@ -193,6 +199,9 @@
     <string name="pairing_step3_title">Connect</string>
     <string name="pairing_step3_desc">Tap the button below to pair.</string>
     <string name="pair_and_connect">Pair and connect</string>
+    <string name="connect_with_token">Connect with token</string>
+    <string name="have_token">I have a token</string>
+    <string name="token_dialog_hint">Paste the 32-character authentication token for this device.</string>
 
     <string name="local_settings_header">Local settings</string>
     <string name="local_settings_description">These settings are saved on this phone, not the remote device.</string>
@@ -208,6 +217,8 @@
     <string name="import_token_invalid">Invalid token format.</string>
     <string name="import_success">Device imported successfully!</string>
     <string name="import_error">Invalid QR code</string>
+    <string name="import_selected_device">Selected device: %1$s</string>
+    <string name="import_qr_device_mismatch">This QR code belongs to another device.</string>
     <string name="share_device_button">Share</string>
     <string name="import_device_button">Import device</string>
     <string name="camera_permission_required">Camera permission is required to scan QR codes.</string>
@@ -216,7 +227,9 @@
     <string name="widget_refresh_channel_description">Shows when a widget refresh is reading a Bluetooth sensor.</string>
     <string name="widget_refresh_notification_title">Refreshing widget</string>
     <string name="widget_refresh_notification_text">Reading the latest sensor data…</string>
-    <string name="auth_hint">You may need to unpair the device in settings, then pair it again.</string>
+    <string name="auth_hint">To pair again, hold the device button for 2 seconds and try again.</string>
+    <string name="auth_token_rejected">The authentication token was rejected by the device.</string>
+    <string name="pairing_mode_required">Put the clock in pairing mode: hold its button for 2 seconds, wait for the Bluetooth icon to blink, then try again.</string>
     <string name="disconnect_reason_device_terminated">Device terminated connection.</string>
     <string name="disconnect_reason_timeout">Connection timeout.</string>
     <string name="disconnect_reason_link_lost">Link lost.</string>

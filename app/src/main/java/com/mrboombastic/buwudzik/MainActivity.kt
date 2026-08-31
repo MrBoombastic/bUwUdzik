@@ -556,7 +556,7 @@ class MainActivity : AppCompatActivity() {
                                     preselectedMac = mac
                                 )
                             }
-                            composable("device-import") {
+                            composable("device-import/{mac}") { backStackEntry ->
                                 BackHandler {
                                     if (!navController.popBackStack()) {
                                         navController.navigate("home") {
@@ -564,7 +564,13 @@ class MainActivity : AppCompatActivity() {
                                         }
                                     }
                                 }
-                                DeviceImportScreen(navController, viewModel)
+                                DeviceImportScreen(
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    selectedMac = backStackEntry.arguments
+                                        ?.getString("mac")
+                                        .orEmpty()
+                                )
                             }
                             composable("devices") {
                                 BackHandler {

@@ -225,6 +225,13 @@ class BleDeviceController(private val context: Context) : DeviceController {
         val cmdId = ack.command
         val status = ack.status
         val isAuthNotification = characteristicUuid == UUID_AUTH_NOTIFY
+        val authConfirmResult = ack.firstPayloadByte?.takeIf {
+            isAuthNotification && cmdId == Command.AUTH_CONFIRM
+        }
+        val isAuthConfirm = isAuthNotification && cmdId == Command.AUTH_CONFIRM
+        val commandSucceeded = if (isAuthConfirm) ack.isSuccessfulAuthConfirm() else {
+            status == Status.SUCCESS
+        }
 
         val cmdName = when (cmdId) {
             Command.AUTH_INIT -> if (isAuthNotification) "Auth Init" else "Set Settings"
@@ -239,14 +246,16 @@ class BleDeviceController(private val context: Context) : DeviceController {
         }
         AppLogger.d(
             TAG,
-            "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). Length: ${ack.payloadSize}. Status: ${status.toHexString()}"
+            "Received ACK for command '$cmdName' (ID: ${cmdId.toHexString()}). " +
+                    "Length: ${ack.payloadSize}. Status: ${status.toHexString()}" +
+                    (authConfirmResult?.let { ". Result: ${it.toHexString()}" } ?: "")
         )
 
         if (cmdId == Command.AUDIO_BLOCK || cmdId == Command.AUDIO_INIT) {
             handleUploadAck(value)
         }
 
-        if (status == Status.SUCCESS) {
+        if (commandSucceeded) {
             if (isAuthNotification && cmdId == Command.AUTH_INIT) {
                 AppLogger.d(TAG, "Auth Init ACK received, will send Auth Confirm after write completes")
                 authInitAckReceived = true
@@ -258,13 +267,38 @@ class BleDeviceController(private val context: Context) : DeviceController {
             }
             pendingAckContinuations.remove(cmdId)?.resume(true)
         } else {
-            val errorSuffix = if (isAuthNotification && cmdId == Command.AUTH_INIT) {
+            isAuthenticated = false
+            pendingAuthWriteChar = null
+
+            val isAuthenticationCommand =
+                isAuthNotification &&
+                        (cmdId == Command.AUTH_INIT || cmdId == Command.AUTH_CONFIRM)
+            val tokenRejected =
+                isAuthConfirm &&
+                        authConfirmResult != null &&
+                        authConfirmResult != Status.SUCCESS
+            val pairingModeRequired = tokenRejected && isPendingPairing
+            val errorSuffix = if (isAuthenticationCommand && !pairingModeRequired) {
                 " " + context.getString(com.mrboombastic.buwudzik.R.string.auth_hint)
             } else {
                 ""
             }
-            AppLogger.e(TAG, "[$characteristicUuid] $cmdName failed with status $status$errorSuffix (Full: ${value.toHexString()})")
-            pendingAckContinuations.remove(cmdId)?.resumeWithException(Exception("$cmdName failed: $status$errorSuffix"))
+            val failureCode = if (tokenRejected) authConfirmResult else status
+            val failureMessage = if (pairingModeRequired) {
+                context.getString(com.mrboombastic.buwudzik.R.string.pairing_mode_required)
+            } else if (tokenRejected) {
+                currentDeviceMac?.let(tokenStorage::removeToken)
+                context.getString(com.mrboombastic.buwudzik.R.string.auth_token_rejected)
+            } else {
+                "$cmdName failed: $failureCode"
+            }
+            AppLogger.e(
+                TAG,
+                "[$characteristicUuid] $cmdName failed with code $failureCode$errorSuffix " +
+                        "(Full: ${value.toHexString()})"
+            )
+            pendingAckContinuations.remove(cmdId)
+                ?.resumeWithException(Exception("$failureMessage$errorSuffix"))
         }
     }
 

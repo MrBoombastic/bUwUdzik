@@ -74,6 +74,12 @@
     <string name="setup_skip">Jetzt überspringen</string>
     <string name="setup_import_hint">Haben Sie schon einen QR-Code von einem anderen Telefon? Hier verwenden.</string>
     <string name="setup_select_device">Gerät auswählen</string>
+    <string name="setup_selected_device">Ausgewähltes neues Gerät</string>
+    <string name="setup_token_optional_label">Authentifizierungstoken (optional)</string>
+    <string name="setup_token_optional_hint">Leer lassen, um von Grund auf zu koppeln, oder einen vorhandenen 32-stelligen Token einfügen.</string>
+    <string name="setup_add_device">Gerät hinzufügen</string>
+    <string name="setup_import_selected">Stattdessen QR-Code scannen</string>
+    <string name="setup_choose_another">Anderes Gerät auswählen</string>
     <string name="manage_alarms_label">Alarme</string>
     <string name="add_alarm_desc">Alarm hinzufügen</string>
     <string name="max_alarms_message">Maximale Anzahl von Alarmen erreicht.</string>
@@ -178,6 +184,9 @@
     <string name="pairing_step3_title">Verbinden</string>
     <string name="pairing_step3_desc">Tippen Sie auf die Schaltfläche unten zum Koppeln.</string>
     <string name="pair_and_connect">Koppeln und verbinden</string>
+    <string name="connect_with_token">Mit Token verbinden</string>
+    <string name="have_token">Ich habe einen Token</string>
+    <string name="token_dialog_hint">Fügen Sie den 32-stelligen Authentifizierungstoken für dieses Gerät ein.</string>
     <string name="local_settings_header">Lokale Einstellungen</string>
     <string name="local_settings_description">Diese Einstellungen werden auf diesem Telefon gespeichert, nicht auf dem Gerät.</string>
     <string name="share_device_title">Gerät teilen</string>
@@ -192,6 +201,8 @@
     <string name="import_token_invalid">Ungültiges Token-Format.</string>
     <string name="import_success">Gerät erfolgreich importiert!</string>
     <string name="import_error">Ungültiger QR-Code</string>
+    <string name="import_selected_device">Ausgewähltes Gerät: %1$s</string>
+    <string name="import_qr_device_mismatch">Dieser QR-Code gehört zu einem anderen Gerät.</string>
     <string name="share_device_button">Teilen</string>
     <string name="import_device_button">Gerät importieren</string>
     <string name="camera_permission_required">Kameraberechtigung ist zum Scannen von QR-Codes erforderlich.</string>
@@ -200,7 +211,9 @@
     <string name="widget_refresh_channel_description">Wird angezeigt, wenn ein Widget einen Bluetooth-Sensor ausliest.</string>
     <string name="widget_refresh_notification_title">Widget wird aktualisiert</string>
     <string name="widget_refresh_notification_text">Neueste Sensordaten werden gelesen…</string>
-    <string name="auth_hint">Möglicherweise müssen Sie das Gerät in den Einstellungen entkoppeln und dann erneut koppeln.</string>
+    <string name="auth_hint">Halten Sie zum erneuten Koppeln die Gerätetaste 2 Sekunden lang gedrückt und versuchen Sie es erneut.</string>
+    <string name="auth_token_rejected">Der Authentifizierungstoken wurde vom Gerät abgelehnt.</string>
+    <string name="pairing_mode_required">Versetzen Sie den Wecker in den Kopplungsmodus: Halten Sie seine Taste 2 Sekunden lang gedrückt, warten Sie, bis das Bluetooth-Symbol blinkt, und versuchen Sie es erneut.</string>
     <string name="disconnect_reason_device_terminated">Gerät hat Verbindung beendet.</string>
     <string name="disconnect_reason_timeout">Verbindungs-Timeout.</string>
     <string name="disconnect_reason_link_lost">Verbindung verloren.</string>

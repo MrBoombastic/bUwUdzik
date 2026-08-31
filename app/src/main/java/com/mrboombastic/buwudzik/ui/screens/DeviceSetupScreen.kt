@@ -4,6 +4,8 @@ package com.mrboombastic.buwudzik.ui.screens
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.content.IntentFilter
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -21,12 +23,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,14 +39,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -53,6 +60,7 @@ import com.mrboombastic.buwudzik.R
 import com.mrboombastic.buwudzik.data.BatteryType
 import com.mrboombastic.buwudzik.data.DeviceProfile
 import com.mrboombastic.buwudzik.data.DeviceProfileRepository
+import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.data.normalizedBluetoothMac
 import com.mrboombastic.buwudzik.device.BluetoothScanner
 import com.mrboombastic.buwudzik.ui.components.StatusCard
@@ -84,6 +92,7 @@ fun DeviceSetupScreen(
     viewModel: MainViewModel? = null
 ) {
     val context = LocalContext.current
+    val invalidTokenMessage = stringResource(R.string.import_token_invalid)
     val scanner = remember {
         val repo = DeviceProfileRepository(context)
         BluetoothScanner(context, repo)
@@ -112,8 +121,34 @@ fun DeviceSetupScreen(
         onDispose { context.unregisterReceiver(receiver) }
     }
 
-    var isScanning by remember { mutableStateOf(false) }
+    DisposableEffect(mode, viewModel) {
+        if (mode == "add") {
+            viewModel?.stopScanning()
+        }
+        onDispose {
+            if (mode == "add") {
+                viewModel?.startScanning()
+            }
+        }
+    }
+
+    var isScanning by remember {
+        mutableStateOf(
+            isBluetoothEnabled && BluetoothUtils.hasBluetoothPermissions(context)
+        )
+    }
     val discoveredDevices = remember { mutableStateListOf<DiscoveredDevice>() }
+    var selectedAddress by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedName by rememberSaveable { mutableStateOf<String?>(null) }
+    var selectedRssi by rememberSaveable { mutableIntStateOf(0) }
+    var optionalToken by rememberSaveable { mutableStateOf("") }
+    val selectedDevice = selectedAddress?.let { address ->
+        DiscoveredDevice(
+            name = selectedName,
+            address = address,
+            rssi = selectedRssi
+        )
+    }
 
     val emptySavedProfiles =
         remember { MutableStateFlow<List<DeviceProfile>>(emptyList()) }
@@ -158,8 +193,9 @@ fun DeviceSetupScreen(
     }
 
     // Start scanning when permissions and Bluetooth are available; stop/cancel when unavailable
-    LaunchedEffect(isBluetoothEnabled, hasBluetoothPermissions) {
-        isScanning = hasBluetoothPermissions && isBluetoothEnabled
+    LaunchedEffect(isBluetoothEnabled, hasBluetoothPermissions, selectedAddress) {
+        isScanning =
+            selectedAddress == null && hasBluetoothPermissions && isBluetoothEnabled
     }
 
     LaunchedEffect(isScanning) {
@@ -175,15 +211,42 @@ fun DeviceSetupScreen(
 
     fun onDeviceSelected(device: DiscoveredDevice) {
         isScanning = false
-        if (mode == "add" && viewModel != null) {
-            // Add as a new device profile and make it active
-            val profile = DeviceProfile(
-                mac = device.address.normalizedBluetoothMac(),
-                alias = device.name ?: device.address,
-                batteryType = BatteryType.ALKALINE
+        selectedAddress = device.address.normalizedBluetoothMac()
+        selectedName = device.name
+        selectedRssi = device.rssi
+        optionalToken = ""
+    }
+
+    fun addSelectedDevice(device: DiscoveredDevice) {
+        val normalizedToken = normalizeAuthTokenInput(optionalToken)
+        if (normalizedToken.isNotEmpty() && !isValidAuthTokenInput(normalizedToken)) {
+            Toast.makeText(
+                context,
+                invalidTokenMessage,
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val profile = DeviceProfile(
+            mac = device.address.normalizedBluetoothMac(),
+            alias = device.name ?: device.address,
+            batteryType = BatteryType.ALKALINE
+        )
+
+        if (normalizedToken.isNotEmpty()) {
+            val tokenStorage = TokenStorage(context)
+            tokenStorage.storeToken(
+                profile.mac,
+                tokenStorage.hexToBytes(normalizedToken)
             )
-            viewModel.addDevice(profile, makeActive = true)
-            // Navigate back to device list or home
+        }
+        viewModel?.addDevice(profile, makeActive = true)
+        if (normalizedToken.isNotEmpty()) {
+            viewModel?.checkPairingStatus()
+        }
+
+        if (mode == "add" && viewModel != null) {
             if (navController.previousBackStackEntry?.destination?.route == "devices") {
                 navController.popBackStack()
             } else {
@@ -192,16 +255,6 @@ fun DeviceSetupScreen(
                 }
             }
         } else {
-            // First-launch setup: add profile and set as active
-            if (viewModel != null) {
-                val profile = DeviceProfile(
-                    mac = device.address.normalizedBluetoothMac(),
-                    alias = device.name ?: device.address,
-                  
-                    batteryType = BatteryType.ALKALINE
-                )
-                viewModel.addDevice(profile, makeActive = true)
-            }
             if (navController.previousBackStackEntry != null) {
                 navController.popBackStack()
             } else {
@@ -234,6 +287,7 @@ fun DeviceSetupScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -255,97 +309,151 @@ fun DeviceSetupScreen(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                OutlinedButton(
-                    onClick = { navController.navigate("device-import") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
+                if (selectedDevice == null) {
+                    when {
+                        !isBluetoothEnabled -> {
+                            StatusCard(
+                                message = stringResource(R.string.setup_enable_bluetooth),
+                                type = StatusType.ERROR
+                            )
+                        }
+
+                        !hasBluetoothPermissions -> {
+                            StatusCard(
+                                message = stringResource(R.string.permissions_required),
+                                type = StatusType.WARNING
+                            )
+                        }
+
+                        isScanning -> {
+                            CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = stringResource(R.string.setup_scanning),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    if (discoveredDevices.isEmpty() && !isScanning &&
+                        hasBluetoothPermissions && isBluetoothEnabled
+                    ) {
+                        StatusCard(
+                            message = stringResource(R.string.setup_no_devices),
+                            type = StatusType.INFO,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    discoveredDevices.forEach { device ->
+                        DeviceCard(
+                            device = device,
+                            onClick = { onDeviceSelected(device) }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.setup_selected_device),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.import_device_button))
-                }
-                Text(
-                    text = stringResource(R.string.setup_import_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                when {
-                    !isBluetoothEnabled -> {
-                        StatusCard(
-                            message = stringResource(R.string.setup_enable_bluetooth),
-                            type = StatusType.ERROR
-                        )
-                    }
-                    !hasBluetoothPermissions -> {
-                        StatusCard(
-                            message = stringResource(R.string.permissions_required),
-                            type = StatusType.WARNING
-                        )
-                    }
-                    isScanning -> {
-                        CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = stringResource(R.string.setup_scanning),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (discoveredDevices.isEmpty() && !isScanning && hasBluetoothPermissions && isBluetoothEnabled) {
-                    StatusCard(
-                        message = stringResource(R.string.setup_no_devices),
-                        type = StatusType.INFO,
+                    Spacer(modifier = Modifier.height(12.dp))
+                    DeviceCard(
+                        device = selectedDevice,
+                        onClick = null
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = stringResource(R.string.setup_token_optional_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = optionalToken,
+                        onValueChange = { optionalToken = it },
+                        label = {
+                            Text(stringResource(R.string.setup_token_optional_label))
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-
-                discoveredDevices.forEach { device ->
-                    DeviceCard(
-                        device = device,
-                        onClick = { onDeviceSelected(device) }
-                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { addSelectedDevice(selectedDevice) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.setup_add_device))
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            val mac = Uri.encode(
+                                selectedDevice.address.normalizedBluetoothMac()
+                            )
+                            navController.navigate("device-import/$mac")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.QrCodeScanner,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.setup_import_selected))
+                    }
+                    TextButton(
+                        onClick = {
+                            selectedAddress = null
+                            selectedName = null
+                            selectedRssi = 0
+                            optionalToken = ""
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(stringResource(R.string.setup_choose_another))
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (hasBluetoothPermissions && isBluetoothEnabled) {
-                    OutlinedButton(
-                        onClick = {
-                            isScanning = true
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = !isScanning
-                    ) {
-                        Text(stringResource(R.string.setup_scan))
-                    }
-                }
-
-                TextButton(
-                    onClick = { onSkip() },
-                    modifier = Modifier.weight(1f)
+            if (selectedDevice == null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.setup_skip))
+                    if (hasBluetoothPermissions && isBluetoothEnabled) {
+                        OutlinedButton(
+                            onClick = {
+                                isScanning = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isScanning
+                        ) {
+                            Text(stringResource(R.string.setup_scan))
+                        }
+                    }
+
+                    TextButton(
+                        onClick = { onSkip() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(R.string.setup_skip))
+                    }
                 }
             }
         }
@@ -356,12 +464,18 @@ fun DeviceSetupScreen(
 @Composable
 fun DeviceCard(
     device: DiscoveredDevice,
-    onClick: () -> Unit
+    onClick: (() -> Unit)?
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                }
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

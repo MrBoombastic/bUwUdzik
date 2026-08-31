@@ -1,6 +1,7 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.Manifest
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,11 +12,6 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,25 +26,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,7 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -96,19 +84,69 @@ private val qrReader = MultiFormatReader().apply {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceImportScreen(
-    navController: NavController, viewModel: MainViewModel
+    navController: NavController,
+    viewModel: MainViewModel,
+    selectedMac: String
 ) {
     val context = LocalContext.current
-    val activeDevice by viewModel.activeDevice.collectAsState()
+    val targetMac = remember(selectedMac) {
+        Uri.decode(selectedMac).normalizedBluetoothMac()
+    }
     var hasCameraPermission by remember { mutableStateOf(false) }
     var isScanning by remember { mutableStateOf(true) }
-    var manualToken by remember { mutableStateOf("") }
-    var tokenSectionExpanded by remember { mutableStateOf(false) }
     val defaultAlias = stringResource(R.string.default_device_alias)
     val importSuccessMsg = stringResource(R.string.import_success)
     val importErrorMsg = stringResource(R.string.import_error)
-    val importTokenNoActiveMsg = stringResource(R.string.import_token_no_active_device)
     val importTokenInvalidMsg = stringResource(R.string.import_token_invalid)
+    val qrDeviceMismatchMsg = stringResource(R.string.import_qr_device_mismatch)
+
+    fun completeImport(
+        tokenText: String,
+        batteryType: String,
+        alarmTitles: Map<Int, String> = emptyMap()
+    ): Boolean {
+        val normalizedToken = normalizeAuthTokenInput(tokenText)
+        if (targetMac.isBlank() || !isValidAuthTokenInput(normalizedToken)) {
+            Toast.makeText(
+                context,
+                importTokenInvalidMsg,
+                Toast.LENGTH_SHORT
+            ).show()
+            return false
+        }
+
+        try {
+            val tokenStorage = TokenStorage(context)
+            val profile = DeviceProfile(
+                mac = targetMac,
+                alias = defaultAlias,
+                batteryType = batteryType
+            )
+
+            tokenStorage.storeToken(
+                profile.mac,
+                tokenStorage.hexToBytes(normalizedToken)
+            )
+            viewModel.addDevice(profile, makeActive = true)
+            alarmTitles.forEach { (id, title) ->
+                AlarmTitleRepository(context, profile.mac).setTitle(id, title)
+            }
+            viewModel.checkPairingStatus()
+
+            Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT).show()
+            navController.navigate("home") {
+                popUpTo(navController.graph.id) { inclusive = true }
+            }
+            return true
+        } catch (_: Exception) {
+            Toast.makeText(
+                context,
+                importTokenInvalidMsg,
+                Toast.LENGTH_SHORT
+            ).show()
+            return false
+        }
+    }
 
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -139,85 +177,18 @@ fun DeviceImportScreen(
             columnModifier = Modifier
                 .padding(16.dp)
         ) {
-            when {
-                !hasCameraPermission -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-                    ) {
-                        ContentCard(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.camera_permission_required),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Center,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
-                        }
-                    }
-                }
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.import_selected_device, targetMac),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center
+                )
 
-                isScanning -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                    fun applyManualToken() {
-                        val tokenText = manualToken.trim()
-
-                        // Validate token: must be 32 hex characters (16 bytes)
-                        val hexRegex = Regex("^[0-9a-fA-F]{32}$")
-                        if (!hexRegex.matches(tokenText)) {
-                            Toast.makeText(
-                                context,
-                                importTokenInvalidMsg,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            return
-                        }
-
-                        val current = activeDevice
-                        if (current == null) {
-                            Toast.makeText(
-                                context,
-                                importTokenNoActiveMsg,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            return
-                        }
-                        try {
-                            val tokenStorage = TokenStorage(context)
-                            val token = tokenStorage.hexToBytes(tokenText)
-                            tokenStorage.storeToken(current.mac, token)
-                            viewModel.checkPairingStatus()
-                            Toast.makeText(context, importSuccessMsg, Toast.LENGTH_SHORT).show()
-                            navController.navigate("home") {
-                                popUpTo(navController.graph.id) { inclusive = true }
-                            }
-                        } catch (_: Exception) {
-                            Toast.makeText(
-                                context,
-                                importTokenInvalidMsg,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-
+                if (hasCameraPermission && isScanning) {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -246,41 +217,35 @@ fun DeviceImportScreen(
                                 QrScannerView { content ->
                                     isScanning = false
                                     val shareData = DeviceShareData.fromQrContent(content)
-                                    if (shareData != null) {
-                                        // Add an imported device as a new profile
-                                        val tokenStorage = TokenStorage(context)
-                                        val profile = DeviceProfile(
-                                            mac = shareData.mac.normalizedBluetoothMac(),
-                                            alias = defaultAlias,
-                                            batteryType = shareData.batteryType
-                                        )
-                                        val alarmTitleRepository =
-                                            AlarmTitleRepository(context, profile.mac)
-                                        viewModel.addDevice(profile, makeActive = true)
-
-                                        // Store token for the imported device
-                                        tokenStorage.storeToken(
-                                            profile.mac, tokenStorage.hexToBytes(shareData.token)
-                                        )
-                                        // Active device is already selected above; refresh paired state now
-                                        // so Home doesn't wait for onResume / lifecycle events.
-                                        viewModel.checkPairingStatus()
-
-                                        // Import alarm titles (per-device)
-                                        shareData.alarmTitles.forEach { (id, title) ->
-                                            alarmTitleRepository.setTitle(id, title)
+                                    when {
+                                        shareData == null -> {
+                                            Toast.makeText(
+                                                context,
+                                                importErrorMsg,
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            isScanning = true
                                         }
 
-                                        Toast.makeText(
-                                            context, importSuccessMsg, Toast.LENGTH_SHORT
-                                        ).show()
-                                        navController.navigate("home") {
-                                            popUpTo(navController.graph.id) { inclusive = true }
+                                        shareData.mac.normalizedBluetoothMac() != targetMac -> {
+                                            Toast.makeText(
+                                                context,
+                                                qrDeviceMismatchMsg,
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            isScanning = true
                                         }
-                                    } else {
-                                        Toast.makeText(context, importErrorMsg, Toast.LENGTH_SHORT)
-                                            .show()
-                                        isScanning = true
+
+                                        else -> {
+                                            if (!completeImport(
+                                                    tokenText = shareData.token,
+                                                    batteryType = shareData.batteryType,
+                                                    alarmTitles = shareData.alarmTitles
+                                                )
+                                            ) {
+                                                isScanning = true
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -315,65 +280,32 @@ fun DeviceImportScreen(
                             }
                         }
                     }
-
-                        if (activeDevice != null) {
-                            TextButton(
-                                onClick = { tokenSectionExpanded = !tokenSectionExpanded },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = if (tokenSectionExpanded) {
-                                        stringResource(R.string.import_token_hide)
-                                    } else {
-                                        stringResource(R.string.import_token_show)
-                                    },
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
-                                Icon(
-                                    imageVector = if (tokenSectionExpanded) {
-                                        Icons.Default.KeyboardArrowUp
-                                    } else {
-                                        Icons.Default.KeyboardArrowDown
-                                    },
-                                    contentDescription = null
-                                )
-                            }
-
-                            AnimatedVisibility(
-                                visible = tokenSectionExpanded,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = manualToken,
-                                        onValueChange = { manualToken = it },
-                                        placeholder = {
-                                            Text(stringResource(R.string.import_token_label))
-                                        },
-                                        singleLine = true,
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                            fontFamily = FontFamily.Monospace
-                                        ),
-                                        trailingIcon = {
-                                            IconButton(onClick = { applyManualToken() }) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = stringResource(R.string.import_token_button)
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
+                } else if (!hasCameraPermission) {
+                    ContentCard(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = stringResource(R.string.camera_permission_required),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
                         }
                     }
-            }
+                    Spacer(modifier = Modifier.weight(1f))
+                }
             }
         }
     }

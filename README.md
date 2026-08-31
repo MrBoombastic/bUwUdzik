@@ -231,33 +231,31 @@ same token must be used for all future connections.
    step 5). The payload byte is non-zero here (`02` or `06`, depending on firmware); its meaning is
    unknown and it can be ignored.
 5. Send **Auth Confirm** to **Auth Write**: `11 02 [Token 16B]`
-6. Wait for final ACK: `04 ff 02 00 00`
-
-Device will send you an ACK even when the token is bad. Try to sync time or do other "privileged"
-action and check if the device will close connection with you.
+6. Wait for final ACK: `04 ff 02 00 [Result]`. Status `00` means the command was handled; the
+   command-specific result byte decides whether authentication succeeded:
+    - `00` = token accepted
+    - non-zero (observed: `01`) = token rejected
 
 **Token Management:**
 
 - For new devices: Generate a random 16-byte token
 - For paired devices: Use the stored token from the previous pairing
 - Token must match what the device expects (first successful pairing establishes the token)
-- Persist a newly generated token only after a privileged command, such as time synchronization,
-  succeeds. An Auth Confirm ACK alone does not prove that the token was accepted.
+- Accept a token only when Auth Confirm returns result `00`. The app completes its automatic time
+  synchronization before persisting a newly generated token.
 
 **ACK Response Format:** `04 ff [CmdID] [Status] [Payload 1B]`
 
 - Status `00` = Success (any other value means the command was rejected)
-- The last byte is payload; it is `00` in every captured ACK except the Auth Init one
+- The last byte is command-specific payload.
 
 #### 2.3. Time Synchronization
 
-After authentication, it is recommended to synchronize the time.
+After successful authentication, the app synchronizes the clock automatically. The user does not
+need to trigger a separate time-sync step.
 
 - **Command (Auth Write):** `05 09 [Timestamp 4B LE]`
 - **Response (Auth Notify):** `04 ff 09 00 00` (Success)
-
-This is the first *privileged* command, so it doubles as the real proof that the token was accepted:
-if it is rejected (or the device drops the link), the pairing failed regardless of the auth ACKs.
 
 ### 3. Managing Alarms
 

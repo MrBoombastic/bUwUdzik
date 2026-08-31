@@ -74,6 +74,12 @@
     <string name="setup_skip">Pomiń</string>
     <string name="setup_import_hint">Masz już kod QR z innego telefonu? Użyj go tutaj.</string>
     <string name="setup_select_device">Wybierz urządzenie</string>
+    <string name="setup_selected_device">Wybrane nowe urządzenie</string>
+    <string name="setup_token_optional_label">Token uwierzytelniania (opcjonalnie)</string>
+    <string name="setup_token_optional_hint">Zostaw puste, aby sparować urządzenie od zera, albo wklej 32-znakowy token, jeśli już go masz.</string>
+    <string name="setup_add_device">Dodaj urządzenie</string>
+    <string name="setup_import_selected">Zeskanuj kod QR zamiast tego</string>
+    <string name="setup_choose_another">Wybierz inne urządzenie</string>
     <string name="manage_alarms_label">Alarmy</string>
     <string name="add_alarm_desc">Dodaj budzik</string>
     <string name="max_alarms_message">Osiągnięto maksymalną liczbę budzików.</string>
@@ -171,6 +177,9 @@
     <string name="pairing_step3_title">Połącz</string>
     <string name="pairing_step3_desc">Stuknij przycisk poniżej, aby sparować.</string>
     <string name="pair_and_connect">Sparuj i połącz</string>
+    <string name="connect_with_token">Połącz z tokenem</string>
+    <string name="have_token">Mam token</string>
+    <string name="token_dialog_hint">Wklej 32-znakowy token uwierzytelniania dla tego urządzenia.</string>
     <string name="local_settings_header">Ustawienia lokalne</string>
     <string name="local_settings_description">Te ustawienia są zapisane na tym telefonie, nie na zewnętrznym urządzeniu.</string>
     <string name="share_device_title">Udostępnij urządzenie</string>
@@ -185,6 +194,8 @@
     <string name="import_token_invalid">Nieprawidłowy format tokenu.</string>
     <string name="import_success">Urządzenie zaimportowane pomyślnie!</string>
     <string name="import_error">Nieprawidłowy kod QR</string>
+    <string name="import_selected_device">Wybrane urządzenie: %1$s</string>
+    <string name="import_qr_device_mismatch">Ten kod QR należy do innego urządzenia.</string>
     <string name="share_device_button">Udostępnij</string>
     <string name="import_device_button">Importuj urządzenie</string>
     <string name="camera_permission_required">Wymagane jest uprawnienie do aparatu, aby skanować kody QR.</string>
@@ -200,7 +211,9 @@
     <string name="widget_refresh_channel_description">Wyświetlane, gdy widżet odczytuje czujnik Bluetooth.</string>
     <string name="widget_refresh_notification_title">Odświeżanie widżetu</string>
     <string name="widget_refresh_notification_text">Odczytywanie najnowszych danych z czujnika…</string>
-    <string name="auth_hint">Może być konieczne zapomnienie urządzenia w ustawieniach, a następnie ponowne sparowanie.</string>
+    <string name="auth_hint">Aby sparować ponownie, przytrzymaj przycisk urządzenia przez 2 sekundy i spróbuj ponownie.</string>
+    <string name="auth_token_rejected">Token uwierzytelniania został odrzucony przez urządzenie.</string>
+    <string name="pairing_mode_required">Włącz tryb parowania budzika: przytrzymaj jego przycisk przez 2 sekundy, poczekaj, aż ikona Bluetooth zacznie migać, i spróbuj ponownie.</string>
     <string name="disconnect_reason_device_terminated">Urządzenie zakończyło połączenie.</string>
     <string name="disconnect_reason_timeout">Limit czasu połączenia.</string>
     <string name="disconnect_reason_link_lost">Utracono połączenie.</string>

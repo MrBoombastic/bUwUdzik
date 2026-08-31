@@ -4,7 +4,8 @@ package com.mrboombastic.buwudzik.device
 internal data class BleAck(
     val command: Int,
     val payloadSize: Int,
-    val status: Int
+    val status: Int,
+    val firstPayloadByte: Int?
 )
 
 /**
@@ -21,6 +22,11 @@ internal fun parseBleAck(value: ByteArray): BleAck? {
     return BleAck(
         command = value[2].toInt() and 0xff,
         payloadSize = maxOf(0, value.size - 4),
-        status = value[3].toInt() and 0xff
+        status = value[3].toInt() and 0xff,
+        firstPayloadByte = value.getOrNull(4)?.toInt()?.and(0xff)
     )
 }
+
+internal fun BleAck.isSuccessfulAuthConfirm(): Boolean =
+    status == BleConstants.Status.SUCCESS &&
+            (firstPayloadByte == null || firstPayloadByte == BleConstants.Status.SUCCESS)

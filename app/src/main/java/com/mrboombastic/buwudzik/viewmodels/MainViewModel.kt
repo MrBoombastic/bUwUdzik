@@ -25,6 +25,7 @@ import com.mrboombastic.buwudzik.utils.AppLogger
 import com.mrboombastic.buwudzik.widget.SensorWidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,12 +36,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlin.time.Duration.Companion.milliseconds
 
 sealed interface UploadEvent {
@@ -457,6 +457,7 @@ class MainViewModel(
                 AppLogger.e(TAG, "Error connecting to clock ($targetMac): ${e.message}", e)
                 _deviceConnected.value = false
                 _connectionError.value = e.message ?: "Connection failed"
+                checkPairingStatus()
                 // Tear the half-open link down: otherwise the GATT client stays alive, keeps
                 // delivering notifications and collides with the next connection attempt.
                 // A running transfer is the exception - it owns the link and must finish.

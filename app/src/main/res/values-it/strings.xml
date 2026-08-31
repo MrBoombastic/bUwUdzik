@@ -74,6 +74,12 @@
     <string name="setup_skip">Salta per ora</string>
     <string name="setup_import_hint">Hai già un codice QR da un altro telefono? Usalo qui.</string>
     <string name="setup_select_device">Seleziona dispositivo</string>
+    <string name="setup_selected_device">Nuovo dispositivo selezionato</string>
+    <string name="setup_token_optional_label">Token di autenticazione (facoltativo)</string>
+    <string name="setup_token_optional_hint">Lascia vuoto per eseguire una nuova associazione oppure incolla un token esistente di 32 caratteri.</string>
+    <string name="setup_add_device">Aggiungi dispositivo</string>
+    <string name="setup_import_selected">Scansiona invece un codice QR</string>
+    <string name="setup_choose_another">Scegli un altro dispositivo</string>
     <string name="manage_alarms_label">Sveglie</string>
     <string name="add_alarm_desc">Aggiungi sveglia</string>
     <string name="max_alarms_message">Numero massimo di sveglie raggiunto.</string>
@@ -178,6 +184,9 @@
     <string name="pairing_step3_title">Connetti</string>
     <string name="pairing_step3_desc">Tocca il pulsante qui sotto per accoppiare.</string>
     <string name="pair_and_connect">Accoppia e connetti</string>
+    <string name="connect_with_token">Connetti con il token</string>
+    <string name="have_token">Ho un token</string>
+    <string name="token_dialog_hint">Incolla il token di autenticazione di 32 caratteri per questo dispositivo.</string>
     <string name="local_settings_header">Impostazioni locali</string>
     <string name="local_settings_description">Queste impostazioni sono salvate su questo telefono, non sul dispositivo remoto.</string>
     <string name="share_device_title">Condividi dispositivo</string>
@@ -192,6 +201,8 @@
     <string name="import_token_invalid">Formato token non valido.</string>
     <string name="import_success">Dispositivo importato con successo!</string>
     <string name="import_error">Codice QR non valido</string>
+    <string name="import_selected_device">Dispositivo selezionato: %1$s</string>
+    <string name="import_qr_device_mismatch">Questo codice QR appartiene a un altro dispositivo.</string>
     <string name="share_device_button">Condividi</string>
     <string name="import_device_button">Importa dispositivo</string>
     <string name="camera_permission_required">L\'autorizzazione della fotocamera è necessaria per scansionare i codici QR.</string>
@@ -200,7 +211,9 @@
     <string name="widget_refresh_channel_description">Mostra quando un widget legge un sensore Bluetooth.</string>
     <string name="widget_refresh_notification_title">Aggiornamento del widget</string>
     <string name="widget_refresh_notification_text">Lettura dei dati più recenti del sensore…</string>
-    <string name="auth_hint">Potrebbe essere necessario dimenticare il dispositivo nelle impostazioni e poi accoppiarlo nuovamente.</string>
+    <string name="auth_hint">Per ripetere l\'associazione, tieni premuto il pulsante del dispositivo per 2 secondi e riprova.</string>
+    <string name="auth_token_rejected">Il token di autenticazione è stato rifiutato dal dispositivo.</string>
+    <string name="pairing_mode_required">Metti la sveglia in modalità di associazione: tieni premuto il pulsante per 2 secondi, attendi che l\'icona Bluetooth lampeggi, quindi riprova.</string>
     <string name="disconnect_reason_device_terminated">Il dispositivo ha terminato la connessione.</string>
     <string name="disconnect_reason_timeout">Timeout di connessione.</string>
     <string name="disconnect_reason_link_lost">Collegamento perso.</string>

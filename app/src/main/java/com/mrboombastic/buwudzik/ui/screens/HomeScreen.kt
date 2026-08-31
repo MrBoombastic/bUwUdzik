@@ -1,6 +1,7 @@
 package com.mrboombastic.buwudzik.ui.screens
 
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhonelinkSetup
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.BottomSheetDefaults
@@ -45,10 +47,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,12 +72,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.mrboombastic.buwudzik.R
+import com.mrboombastic.buwudzik.data.TokenStorage
 import com.mrboombastic.buwudzik.device.SensorData
 import com.mrboombastic.buwudzik.ui.components.InstructionCard
 import com.mrboombastic.buwudzik.ui.components.MenuTile
@@ -492,12 +498,83 @@ fun Dashboard(
     scrollState: ScrollState? = null,
     openSheetNestedScroll: NestedScrollConnection? = null
 ) {
+    val context = LocalContext.current
     val scroll = scrollState ?: rememberScrollState()
     val deviceConnected by viewModel.deviceConnected.collectAsState()
     val deviceConnecting by viewModel.deviceConnecting.collectAsState()
     val isPaired by viewModel.isPaired.collectAsState()
+    val activeDevice by viewModel.activeDevice.collectAsState()
+    val invalidTokenMessage = stringResource(R.string.import_token_invalid)
+    var authenticationToken by remember(activeDevice?.mac) { mutableStateOf("") }
+    var showAuthenticationTokenDialog by remember(activeDevice?.mac) {
+        mutableStateOf(false)
+    }
 
+    if (showAuthenticationTokenDialog && activeDevice != null && !isPaired) {
+        AlertDialog(
+            onDismissRequest = { showAuthenticationTokenDialog = false },
+            title = {
+                Text(stringResource(R.string.have_token))
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.token_dialog_hint),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    OutlinedTextField(
+                        value = authenticationToken,
+                        onValueChange = { authenticationToken = it },
+                        label = {
+                            Text(stringResource(R.string.import_token_label))
+                        },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                FilledTonalButton(
+                    onClick = {
+                        val profile = activeDevice ?: return@FilledTonalButton
+                        val normalizedToken =
+                            normalizeAuthTokenInput(authenticationToken)
+                        if (!isValidAuthTokenInput(normalizedToken)) {
+                            Toast.makeText(
+                                context,
+                                invalidTokenMessage,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            return@FilledTonalButton
+                        }
 
+                        showAuthenticationTokenDialog = false
+                        val tokenStorage = TokenStorage(context)
+                        tokenStorage.storeToken(
+                            profile.mac,
+                            tokenStorage.hexToBytes(normalizedToken)
+                        )
+                        viewModel.checkPairingStatus()
+                        viewModel.connectToDevice()
+                    }
+                ) {
+                    Text(stringResource(R.string.connect_with_token))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showAuthenticationTokenDialog = false }
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -579,6 +656,13 @@ fun Dashboard(
                     modifier = Modifier.fillMaxWidth(0.9f),
                     arrangementH = Arrangement.Center
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                FilledTonalButton(
+                    onClick = { showAuthenticationTokenDialog = true },
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    Text(stringResource(R.string.have_token))
+                }
             }
         } else if (deviceConnecting && hasActiveDevice) {
             // Paired device (or fake): GATT connect in progress
