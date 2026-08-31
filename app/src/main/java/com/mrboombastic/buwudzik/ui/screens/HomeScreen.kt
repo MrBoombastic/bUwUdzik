@@ -2,7 +2,6 @@ package com.mrboombastic.buwudzik.ui.screens
 
 import android.content.pm.PackageManager
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ScrollState
@@ -167,13 +166,6 @@ fun HomeScreen(viewModel: MainViewModel, navController: NavController) {
                 viewModel.markDeviceSheetSwipeHintSeen()
                 showDeviceSheetSwipeHint = false
             }
-        }
-    }
-
-    BackHandler(enabled = deviceSwitcherOpen) {
-        scope.launch {
-            sheetState.hide()
-            deviceSwitcherOpen = false
         }
     }
 

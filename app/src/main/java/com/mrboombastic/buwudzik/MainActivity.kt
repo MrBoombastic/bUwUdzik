@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -476,65 +475,23 @@ class MainActivity : AppCompatActivity() {
                             }
                             composable("home") { HomeScreen(viewModel, navController) }
                             composable("settings") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 SettingsScreen(navController, viewModel)
                             }
                             if (BuildConfig.DEBUG && BuildConfig.FLAVOR.contains("canary", ignoreCase = true)) {
                                 composable("debug-saved-data") {
-                                    BackHandler {
-                                        if (!navController.popBackStack()) {
-                                            navController.navigate("home") {
-                                                popUpTo(0) { inclusive = true }
-                                            }
-                                        }
-                                    }
                                     DebugSavedDataScreen(navController, viewModel)
                                 }
                             }
                             composable("alarms") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 AlarmManagementScreen(navController, viewModel)
                             }
                             composable("device-settings") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 DeviceSettingsScreen(navController, viewModel)
                             }
                             composable("ringtone-upload") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 RingtoneUploadScreen(navController, viewModel)
                             }
                             composable("device-sharing") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 DeviceSharingScreen(
                                     navController = navController,
                                     viewModel = viewModel,
@@ -543,13 +500,6 @@ class MainActivity : AppCompatActivity() {
                             }
                             composable("device-sharing/{mac}") { backStackEntry ->
                                 val mac = backStackEntry.arguments?.getString("mac")
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 DeviceSharingScreen(
                                     navController = navController,
                                     viewModel = viewModel,
@@ -557,13 +507,6 @@ class MainActivity : AppCompatActivity() {
                                 )
                             }
                             composable("device-import/{mac}") { backStackEntry ->
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 DeviceImportScreen(
                                     navController = navController,
                                     viewModel = viewModel,
@@ -573,13 +516,6 @@ class MainActivity : AppCompatActivity() {
                                 )
                             }
                             composable("devices") {
-                                BackHandler {
-                                    if (!navController.popBackStack()) {
-                                        navController.navigate("home") {
-                                            popUpTo(0) { inclusive = true }
-                                        }
-                                    }
-                                }
                                 DeviceListScreen(navController, viewModel)
                             }
                             composable("device-add") {
